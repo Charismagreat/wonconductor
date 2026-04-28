@@ -38,11 +38,18 @@ export default async function ReportDetailPage({
   let viewSettingsRes = await getSourceViewSettingsAction(id);
   let savedConfig = viewSettingsRes.success && viewSettingsRes.data ? viewSettingsRes.data.view_config : null;
 
+  console.log(`>>> [SERVER DEBUG] ID: ${id}, SavedConfig Found: ${!!savedConfig}`);
+  if (savedConfig) {
+    console.log(`>>> [SERVER DEBUG] Config Columns: ${savedConfig.columns?.length || 0}`);
+  }
+
   // 보고서인 경우 원본 테이블의 설정도 확인하여 상속 (중앙 집중식 관리)
-  if (id.startsWith('rep-') && !savedConfig) {
+  const isReportId = id.startsWith('rep-') || /^\d+$/.test(id);
+  if (isReportId && !savedConfig) {
     try {
       const { queryTable } = await import('@/egdesk-helpers');
-      const reports = await queryTable('report', { filters: { id }, limit: 1 });
+      const filter = /^\d+$/.test(id) ? { id: Number(id) } : { reportId: id };
+      const reports = await queryTable('dashboard_master', { filters: filter, limit: 1 });
       const sourceTableName = reports[0]?.tableName;
       if (sourceTableName) {
         const sourceSettingsRes = await getSourceViewSettingsAction(sourceTableName);
@@ -83,7 +90,7 @@ export default async function ReportDetailPage({
     const rowsData = await queryTable(tableDef.name, { limit: 100 });
     rows = rowsData.map((r: any, idx: number) => ({ ...r, id: String(idx), updatedAt: new Date().toISOString() }));
     columns = JSON.parse(report.columns);
-  } else if (id.startsWith('finance-hub-hometax-') || id === 'finance-hub-promissory-table') {
+  } else if (id.startsWith('hometax_') || id === 'promissory_notes' || id === 'bank_transactions' || id === 'card_approvals') {
     let mockData: any[] = [];
     let tableName = '';
     let sheetName = '';
@@ -118,46 +125,59 @@ export default async function ReportDetailPage({
         let batchData: any = null;
         
         switch (id) {
-            case 'finance-hub-hometax-sales-tax':
-            case 'finance-hub-hometax-sales-bill':
-                tableName = id === 'finance-hub-hometax-sales-tax' ? '매출세금계산서 (홈택스)' : '매출계산서 (홈택스)';
-                sheetName = id === 'finance-hub-hometax-sales-tax' ? 'Sales Tax Invoice' : 'Sales Invoice';
-                batchData = id.includes('-tax') 
+            case 'hometax_sales_tax_invoices':
+            case 'hometax_sales_invoices':
+                mockData = id.includes('_tax') ? taxInvoiceSchema : invoiceSchema;
+                tableName = id === 'hometax_sales_tax_invoices' ? '매출세금계산서' : '매출계산서';
+                sheetName = id === 'hometax_sales_tax_invoices' ? 'Sales Tax Invoice' : 'Sales Invoice';
+                batchData = id.includes('_tax') 
                     ? await queryTaxInvoices({ invoiceType: 'sales', limit, offset })
                     : await queryTaxExemptInvoices({ invoiceType: 'sales', limit, offset });
                 break;
-            case 'finance-hub-hometax-purchase-tax':
-            case 'finance-hub-hometax-purchase-bill':
-                tableName = id === 'finance-hub-hometax-purchase-tax' ? '매입세금계산서 (홈택스)' : '매입계산서 (홈택스)';
-                sheetName = id === 'finance-hub-hometax-purchase-tax' ? 'Purchase Tax Invoice' : 'Purchase Invoice';
-                batchData = id.includes('-tax')
+            case 'hometax_purchase_tax_invoices':
+            case 'hometax_purchase_invoices':
+                mockData = id.includes('_tax') ? taxInvoiceSchema : invoiceSchema;
+                tableName = id === 'hometax_purchase_tax_invoices' ? '매입세금계산서' : '매입계산서';
+                sheetName = id === 'hometax_purchase_tax_invoices' ? 'Purchase Tax Invoice' : 'Purchase Invoice';
+                batchData = id.includes('_tax')
                     ? await queryTaxInvoices({ invoiceType: 'purchase', limit, offset })
                     : await queryTaxExemptInvoices({ invoiceType: 'purchase', limit, offset });
                 break;
-            case 'finance-hub-hometax-cash-receipt':
-                tableName = '현금영수증 내역 (홈택스)';
+            case 'hometax_cash_receipts':
+                mockData = cashReceiptSchema;
+                tableName = '현금영수증 내역';
                 sheetName = 'Cash Receipt';
                 batchData = await queryCashReceipts({ limit, offset });
                 break;
-            case 'finance-hub-promissory-table':
-                tableName = '전자어음 내역 (FinanceHub)';
+            case 'promissory_notes':
+                tableName = '전자어음 내역';
                 sheetName = 'Promissory External';
                 batchData = await queryPromissoryNotes({ limit, offset });
                 break;
+            case 'bank_transactions':
+                tableName = '은행거래내역';
+                sheetName = 'Bank Transactions';
+                batchData = await queryTable('bank_transactions', { limit, offset });
+                break;
+            case 'card_approvals':
+                tableName = '신용카드 거래 내역';
+                sheetName = 'Card External';
+                batchData = await queryCardTransactions({ limit, offset });
+                break;
         }
 
-        // EGDesk API의 응답 구조 처리 (MCP 도구별 리턴 키 매핑: invoices, receipts, notes, rows)
+        // EGDesk API의 응답 구조 처리 (MCP 도구별 리턴 키 매핑: transactions, invoices, receipts, notes, rows)
         const rawBatch = Array.isArray(batchData) ? batchData : (
-            batchData?.rows || batchData?.invoices || batchData?.receipts || batchData?.notes || batchData?.data || []
+            batchData?.rows || batchData?.transactions || batchData?.invoices || batchData?.receipts || batchData?.notes || batchData?.data || []
         );
 
         let batch = rawBatch;
 
         // [필터링] 세금계산서와 계산서 종류 필터링 (MCP가 통합으로 내려주므로 여기서 분리)
-        if (id.includes('-tax') && id.includes('hometax-')) {
+        if (id.includes('_tax') && id.includes('hometax_')) {
             // '세금계산서', '수정세금계산서' 포함
             batch = rawBatch.filter((b: any) => b['전자세금계산서분류'] && b['전자세금계산서분류'].includes('세금계산서'));
-        } else if (id.includes('-bill') && id.includes('hometax-')) {
+        } else if (id.includes('_invoices') && id.includes('hometax_') && !id.includes('_tax')) {
             // '계산서', '면세계산서', '수정계산서' 포괄 (세금계산서 제외)
             batch = rawBatch.filter((b: any) => {
                 const cls = b['전자세금계산서분류'] || '';
@@ -176,9 +196,9 @@ export default async function ReportDetailPage({
         offset += limit;
     }
 
-    const mockDataForSchema = allFetched.length > 0 ? allFetched : [{}]; // 빈 배열 방어 
+    const mockDataForSchema = allFetched.length > 0 ? allFetched : (mockData.length > 0 ? mockData : [{}]); // 데이터 0건 시 mock 스키마 템플릿 사용
     
-    const pKeys = Object.keys(mockDataForSchema[0] || {}).filter(k => k !== 'id');
+    const pKeys = Object.keys(mockDataForSchema[0] || {});
     const fCols = pKeys.map(k => ({
          name: k,
          type: (k.includes('금액') || k.includes('가액') || k.includes('세액') || k === '부가세' || k === '봉사료') ? 'currency' : inferColumnType(k)
@@ -195,157 +215,9 @@ export default async function ReportDetailPage({
 
     rows = allFetched.map((d: any) => ({ ...d, updatedAt: new Date().toISOString() }));
     columns = fCols;
-  } else if (id === 'finance-hub-card-table' || id === 'finance-hub-bank-table') {
-
-      const isCard = id === 'finance-hub-card-table';
-    
-    // 1. 필요한 API 함수 임포트 및 호출
-    const { 
-        queryCardTransactions, 
-        queryBankTransactions, 
-        listAccounts,
-        listBanks
-    } = await import('@/egdesk-helpers');
-
-    let allTransactions: any[] = [];
-    let offset = 0;
-    const limit = 1000;
-    
-    while (true) {
-        const txData = isCard 
-            ? await queryCardTransactions({ limit, offset, orderBy: 'date', orderDir: 'desc' })
-            : await queryBankTransactions({ limit, offset, orderBy: 'date', orderDir: 'desc' });
-        
-        const batch = Array.isArray(txData) ? txData : (txData?.transactions || []);
-        if (batch.length > 0) {
-            allTransactions.push(...batch);
-        }
-        
-        // 데이터가 limit보다 적게 오면 마지막 페이지이므로 루프 종료
-        if (batch.length < limit) {
-            break;
-        }
-        offset += limit;
-    }
-    
-    const transactions = allTransactions;
-
-    // 2. 은행/계좌 정보 조인 및 데이터 정규화
-    let joinedTransactions = transactions;
-    let extraColumns: any[] = [];
-    
-    try {
-        const [accountData, bankData] = await Promise.all([
-            listAccounts(),
-            listBanks()
-        ]);
-        
-        const accounts = Array.isArray(accountData) ? accountData : (accountData.accounts || []);
-        const accountMap = new Map(accounts.map((a: any) => [a.id, a]));
-        
-        const banks = bankData.banks || [];
-        const bankMap = new Map(banks.map((b: any) => [b.id, b.nameKo || b.name]));
-        
-        joinedTransactions = transactions.map((t: any) => {
-            const acc = accountMap.get(t.accountId);
-            
-            // 날짜 정규화 (YYYYMMDD -> YYYY-MM-DD)
-            let displayDate = t.date;
-            if (t.date && t.date.length === 8 && !t.date.includes('-')) {
-                displayDate = `${t.date.substring(0, 4)}-${t.date.substring(4, 6)}-${t.date.substring(6, 8)}`;
-            }
-
-            return {
-                ...t,
-                date: displayDate, // 원본 date 필드 덮어쓰기 (정렬/표시 일관성)
-                _bankName: bankMap.get(t.bankId) || t.bankId,
-                accountNumber: acc?.accountNumber || '',
-                accountName: acc?.accountName || '',
-                customerName: acc?.customerName || '',
-            };
-        });
-        
-        if (!isCard && joinedTransactions.length > 0) {
-            extraColumns = [
-                { name: '_bankName', type: 'string' },
-                { name: 'accountNumber', type: 'string' },
-                { name: 'accountName', type: 'string' }
-            ];
-        }
-    } catch (err) {
-        console.error('Failed to join finance metadata:', err);
-    }
-
-    // 3. 결과 행이 있을 경우 첫 번째 행의 키를 기반으로 물리 컬럼 동적 생성
-    const sampleRow = joinedTransactions.length > 0 ? joinedTransactions[0] : {};
-    
-    // UI에서 숨길 필드 (내부 ID 등) 및 이미 추가된 필드 제외
-    const hiddenFields = ['id', 'accountId', 'transactionId', 'updatedAt', 'createdAt', 'accountNumber', 'accountName', '_bankName'];
-    const physicalKeys = Object.keys(sampleRow).filter(k => !hiddenFields.includes(k));
-    
-    // 거래일자와 거래내용을 우선 배치
-    const priorityKeys = ['date', 'description', 'withdrawal', 'deposit', 'balance'];
-    const remainingKeys = physicalKeys.filter(k => !priorityKeys.includes(k));
-
-    const financeColMap: Record<string, string> = {
-        'date': '날짜',
-        '_bankName': '은행명',
-        'accountNumber': '계좌번호',
-        'accountName': '계좌명',
-        'summary': '적요',
-        'description': '적요',
-        'withdrawal': '출금액',
-        'deposit': '입금액',
-        'withdrawalAmount': '출금액',
-        'depositAmount': '입금액',
-        'balance': '잔액',
-        'availableBalance': '현재잔액',
-        'time': '시간',
-        'transaction_datetime': '거래일시',
-        'type': '구분',
-        'category': '카테고리',
-        'memo': '메모',
-        'branch': '지점명',
-        'counterparty': '거래처',
-        'customerName': '고객명'
-    };
-
-    const financeColumns = [
-        ...extraColumns.map(c => ({ ...c, displayName: financeColMap[c.name] || c.displayName || c.name })),
-        ...priorityKeys.map(key => ({
-            name: key,
-            displayName: financeColMap[key] || key,
-            type: (key === 'amount' || key === 'foreignAmountUsd' || key === 'withdrawal' || key === 'deposit' || key === 'balance' || key === 'availableBalance') 
-                ? 'currency' 
-                : inferColumnType(key)
-        })),
-        ...remainingKeys.map(key => ({
-            name: key,
-            displayName: financeColMap[key] || key,
-            type: (key === 'amount' || key === 'foreignAmountUsd' || key === 'withdrawal' || key === 'deposit' || key === 'balance' || key === 'availableBalance') 
-                ? 'currency' 
-                : inferColumnType(key)
-        }))
-    ];
-
-    report = {
-      id: id,
-      name: isCard ? '신용카드 거래 내역 (FinanceHub)' : '은행 계좌 거래 내역 (FinanceHub)',
-      sheetName: isCard ? 'FinanceHub Card' : 'FinanceHub Bank',
-      columns: JSON.stringify(financeColumns),
-      ownerId: 'system',
-      isReadOnly: true,
-    };
-
-    rows = joinedTransactions.map((t: any, idx: number) => ({
-      ...t,
-      id: t.id || `tx-${idx}`,
-      updatedAt: t.updatedAt || t.createdAt || new Date().toISOString(),
-    }));
-
-    columns = financeColumns;
-    
-    console.log(`>>> [SERVER DEBUG] FinanceHub ${isCard?'Card':'Bank'} count:`, rows.length);
+  } else if (id === 'NON_EXISTENT_ID_PLACEHOLDER') { 
+    // 기존의 복잡한 가상 조인 로직을 제거했습니다. 이제 물리 테이블에서 직접 조회합니다.
+    // finance-hub-* ID들은 아래의 물리 테이블 조회 로직에서 처리됩니다.
   } else {
     const { getTableByName } = await import('@/egdesk.config');
     const systemTableDef = getTableByName(id);
@@ -385,7 +257,8 @@ export default async function ReportDetailPage({
       }
       columns = JSON.parse(report.columns);
     } else {
-      const reports = await queryTable('report', { filters: { id } });
+      const filter = /^\d+$/.test(id) ? { id: Number(id) } : { reportId: id };
+      const reports = await queryTable('dashboard_master', { filters: filter });
       report = reports[0];
 
       if (!report) {
@@ -460,7 +333,7 @@ export default async function ReportDetailPage({
           // 물리적 테이블이 있는 경우 해당 테이블에서 직접 조회
           try {
               const rowsData = await queryTable(effectiveTableName, { limit: 1000 });
-              const virtualRows = await queryTable('report_row', { filters: { reportId: id }, limit: 10000 });
+              const virtualRows = await queryTable('dashboard_data', { filters: { reportId: id }, limit: 10000 });
               
               const idColDef = columnsData.find((c: any) => c.isAutoGenerated || c.name === '데이터ID');
               const idColName = idColDef ? idColDef.name : null;
@@ -538,8 +411,8 @@ export default async function ReportDetailPage({
               });
           } catch (err) {
               console.error(`Physical table ${report.tableName} query failed:`, err);
-              // Fallback to report_row if physical table fails
-              const rowsData = await queryTable('report_row', {
+              // Fallback to dashboard_data if physical table fails
+              const rowsData = await queryTable('dashboard_data', {
                   filters: { reportId: id },
                   orderBy: 'updatedAt',
                   orderDirection: 'DESC'
@@ -553,8 +426,8 @@ export default async function ReportDetailPage({
               }));
           }
       } else {
-          // 기존 가상 테이블(report_row) 방식 유지
-          const rowsData = await queryTable('report_row', {
+          // 기존 가상 테이블(dashboard_data) 방식 유지
+          const rowsData = await queryTable('dashboard_data', {
             filters: { reportId: id },
             orderBy: 'updatedAt',
             orderDirection: 'DESC'
@@ -580,7 +453,11 @@ export default async function ReportDetailPage({
     const mergedColumns = configuredCols
       .filter((cc: any) => cc.visible !== false)
       .map((cc: any) => {
-        const originalCol = columns.find(c => (typeof c === 'string' ? c : c.name) === cc.name);
+        const originalCol = columns.find(c => {
+          if (typeof c === 'string') return c === cc.name;
+          const physicalName = c.id || c.name; // 리포트는 id가 물리명, 테이블은 name이 물리명
+          return physicalName === cc.name;
+        });
         const colObj = typeof originalCol === 'string' ? { name: originalCol, type: inferColumnType(originalCol) } : originalCol;
         
         return {
@@ -593,11 +470,12 @@ export default async function ReportDetailPage({
 
     // 설정에 없는 나머지 컬럼들 추가
     const remainingCols = columns.filter(c => {
-      const name = typeof c === 'string' ? c : c.name;
+      const name = typeof c === 'string' ? c : (c.id || c.name);
       return !configuredCols.some((cc: any) => cc.name === name);
     }).map(c => typeof c === 'string' ? { name: c, type: inferColumnType(c) } : c);
 
     columns = [...mergedColumns, ...remainingCols];
+    console.log(`>>> [SERVER DEBUG] Merged Columns: ${mergedColumns.length}, Remaining: ${remainingCols.length}, Final Total: ${columns.length}`);
   }
 
   const isOwner = report.ownerId === user?.id || report.ownerId === 'system';

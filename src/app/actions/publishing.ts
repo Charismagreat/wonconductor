@@ -11,7 +11,6 @@ import {
   listBanks,
   listHometaxConnections
 } from '@/egdesk-helpers';
-import { generateId } from './shared';
 import { getSessionAction } from './auth';
 import { getUnifiedTableSchema, getUnifiedTableName } from './schema-registry';
 
@@ -29,12 +28,12 @@ export async function getProactivePublishingSuggestionsAction() {
 
     // 1. 시스템 금융 소스 (FinanceHub / HomeTax) - MY DB의 고정 메뉴들과 일치시킴
     const systemSources = [
-      { id: 'finance-hub-bank-table', name: '은행 계좌 거래 내역 (FinanceHub)', reason: '실시간 은행 입출금 내역 기반 자금 관리가 가능합니다.' },
-      { id: 'finance-hub-card-table', name: '신용카드 거래 내역 (FinanceHub)', reason: '법인/개인 카드 지출 내역을 기반으로 비용 분석이 가능합니다.' },
-      { id: 'finance-hub-promissory-table', name: '전자어음 내역 (FinanceHub)', reason: '어음 만기 및 수취 현황을 추적할 수 있습니다.' },
-      { id: 'finance-hub-hometax-sales-tax', name: '매출세금계산서 (홈택스)', reason: '국세청 연동 매출 증빙 데이터를 분석합니다.' },
-      { id: 'finance-hub-hometax-purchase-tax', name: '매입세금계산서 (홈택스)', reason: '국세청 연동 매입 증빙 데이터를 분석합니다.' },
-      { id: 'finance-hub-hometax-cash-receipt', name: '현금영수증 내역 (홈택스)', reason: '현금 결제 증빙 내역을 추적합니다.' }
+      { id: 'bank_transactions', name: '은행거래내역', reason: '실시간 은행 입출금 내역 기반 자금 관리가 가능합니다.' },
+      { id: 'card_approvals', name: '신용카드 거래 내역', reason: '법인/개인 카드 지출 내역을 기반으로 비용 분석이 가능합니다.' },
+      { id: 'promissory_notes', name: '전자어음 내역', reason: '어음 만기 및 수취 현황을 추적할 수 있습니다.' },
+      { id: 'hometax_sales_tax_invoices', name: '매출세금계산서', reason: '국세청 연동 매출 증빙 데이터를 분석합니다.' },
+      { id: 'hometax_purchase_tax_invoices', name: '매입세금계산서', reason: '국세청 연동 매입 증빙 데이터를 분석합니다.' },
+      { id: 'hometax_cash_receipts', name: '현금영수증 내역', reason: '현금 결제 증빙 내역을 추적합니다.' }
     ];
 
     for (const sys of systemSources) {
@@ -47,15 +46,15 @@ export async function getProactivePublishingSuggestionsAction() {
       });
     }
 
-    // 2. 사용자가 생성한 리포트 (report 테이블)
+    // 2. 사용자가 생성한 리포트 (dashboard_master 테이블)
     try {
-      const reports = await queryTable('report', { limit: 100 });
+      const reports = await queryTable('dashboard_master', { limit: 100 });
       for (const r of reports) {
         // 이미 추가된 시스템 소스와 중복 방지
-        if (suggestions.some(s => s.tableId === r.id)) continue;
+        if (suggestions.some(s => s.tableId === r.reportId)) continue;
         
         suggestions.push({
-          tableId: r.id,
+          tableId: r.reportId,
           tableName: r.name,
           templateId: 'custom-app',
           reason: r.description || `사용자 정의 리포트: ${r.sheetName || 'MY DB'}`,
@@ -108,11 +107,11 @@ export async function saveSourceViewSettingsAction(sourceId: string, viewConfig:
     const { SystemConfigService } = await import('@/lib/services/system-config-service');
     await SystemConfigService.ensureSystemTables();
 
-    // 기존 설정 삭제 후 재삽입 (Upsert) - 스키마: id, view_config, updatedAt
-    await deleteRows('source_view_settings', { filters: { id: sourceId } }).catch(() => {});
+    // 기존 설정 삭제 후 재삽입 (Upsert) - 스키마: id(PK), sourceId, view_config, updatedAt
+    await deleteRows('source_view_settings', { filters: { sourceId: sourceId } }).catch(() => {});
     
     await insertRows('source_view_settings', [{
-      id: sourceId,
+      sourceId: sourceId,
       view_config: JSON.stringify(viewConfig),
       updatedAt: now
     }]);
@@ -132,7 +131,7 @@ export async function getSourceViewSettingsAction(sourceId: string) {
   const { queryTable } = await import('@/egdesk-helpers');
   try {
     const results = await queryTable('source_view_settings', { 
-      filters: { id: sourceId },
+      filters: { sourceId: sourceId },
       limit: 1 
     }).catch(() => []);
     
@@ -211,11 +210,9 @@ export async function publishMicroAppAction(data: {
   const user = await getSessionAction();
   if (!user) throw new Error('인증이 필요합니다.');
 
-  const id = generateId();
   const now = new Date().toISOString();
 
   const config = {
-    id,
     name: data.name,
     templateId: data.templateId,
     sourceTableId: data.sourceTableId,
@@ -227,7 +224,9 @@ export async function publishMicroAppAction(data: {
     updatedAt: now
   };
 
-  await insertRows('micro_app_config', [config]);
+  const insertRes = await insertRows('micro_app_config', [config]);
+  const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+  const newId = insertedRow.id;
   
   revalidatePath('/publishing/new');
   return { success: true };

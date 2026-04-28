@@ -53,32 +53,33 @@ export default async function DashboardPage() {
   }
 
   // 2. 권한에 따른 보고서 필터링 (가상 테이블)
-  const rawAllReports = await queryTable('report', {
+  const rawAllReports = await queryTable('dashboard_master', {
     limit: 1000,
     orderBy: 'createdAt',
     orderDirection: 'DESC'
-  });
-  let allReports = rawAllReports.filter((r: any) => String(r.isDeleted) === '0');
+  }).catch(() => []);
+  
+  // 배열 여부 확인 후 안전하게 필터링
+  const reportsArray = Array.isArray(rawAllReports) ? rawAllReports : (rawAllReports?.rows || []);
+  let allReports = reportsArray.filter((r: any) => String(r.isDeleted) === '0');
 
   // VIEWER 필터링: 본인 소유이거나 접근 권한이 부여된 보고서만
   if (user.role === 'VIEWER') {
-    const accessList = await queryTable('report_access', { filters: { userId: String(user.id) } });
+    const accessList = await queryTable('dashboard_access', { filters: { userId: String(user.id) } });
     const authorizedIds = new Set(accessList.map((a: any) => a.reportId));
-    allReports = allReports.filter((r: any) => r.ownerId === user.id || authorizedIds.has(r.id));
+    allReports = allReports.filter((r: any) => r.ownerId === user.id || authorizedIds.has(r.reportId));
   }
 
   // [통합 로직] 보고서별 데이터 행 개수 계산 함수
   const getReportRowCount = async (r: any) => {
-    // 1. FinanceHub 은행/카드 거래 내역 (가상 뷰)
-    if (r.tableName === 'finance_bank_transactions') {
-      return financeStats?.bankBreakdown
-        ?.filter((b: any) => !b.bankId.toLowerCase().includes('card'))
-        .reduce((sum: number, b: any) => sum + (b.transactionCount || 0), 0) || financeStats?.totalTransactions || 0;
-    }
-    if (r.tableName === 'finance_card_transactions') {
-      return financeStats?.bankBreakdown
-        ?.filter((b: any) => b.bankId.toLowerCase().includes('card'))
-        .reduce((sum: number, b: any) => sum + (b.transactionCount || 0), 0) || 0;
+    // 1. FinanceHub 및 홈택스 (물리 테이블 직접 집계)
+    if (r.tableName) {
+      try {
+        const aggr = await aggregateTable(r.tableName, 'id', 'COUNT');
+        return Number(aggr?.value ?? aggr) || 0;
+      } catch (err) {
+        return 0;
+      }
     }
 
     // 2. 홈택스 데이터 (API 통계와 DB 집계 중 최대값 선택)
@@ -111,10 +112,10 @@ export default async function DashboardPage() {
       }
     }
 
-    // 5. 순수 가상 보고서 (report_row 기반)
+    // 5. 순수 가상 보고서 (dashboard_data 기반)
     try {
-      const aggr = await aggregateTable('report_row', 'id', 'COUNT', {
-        filters: { reportId: String(r.id), isDeleted: '0' }
+      const aggr = await aggregateTable('dashboard_data', 'id', 'COUNT', {
+        filters: { reportId: r.reportId || String(r.id), isDeleted: '0' }
       });
       return Number(aggr?.value ?? aggr) || 0;
     } catch (err) {
@@ -127,6 +128,8 @@ export default async function DashboardPage() {
     const count = await getReportRowCount(r);
     return {
       ...r,
+      id: r.reportId || String(r.id), // UI 식별자로 reportId 우선 사용
+      physicalId: r.id, // 실제 DB 정수 ID 보존
       _count: { rows: count },
       isVirtualReport: true,
       isDirectTable: r.id === 'test-report-id'
@@ -142,60 +145,80 @@ export default async function DashboardPage() {
     const getCountById = (id: string) => virtualReports.find(v => v.id === id)?._count?.rows || 0;
 
     reports.push({
-      id: 'finance-hub-card-table',
-      name: '신용카드 거래 내역 (FinanceHub)',
-      tableName: 'finance_card_transactions',
-      _count: { rows: getCountById('finance-hub-card-table') || getCountById('rep-finance_card_transactions') },
+      id: 'card_approvals',
+      name: '신용카드 거래 내역',
+      tableName: 'card_approvals',
+      _count: { rows: getCountById('card_approvals') },
       isFinanceTable: true,
       isSystemTable: true,
       isReadOnly: true,
       category: 'Finance'
     });
     reports.push({
-      id: 'finance-hub-bank-table',
-      name: '은행 계좌 거래 내역 (FinanceHub)',
-      tableName: 'finance_bank_transactions',
-      _count: { rows: getCountById('finance-hub-bank-table') || getCountById('rep-finance_bank_transactions') },
+      id: 'bank_transactions',
+      name: '은행거래내역',
+      tableName: 'bank_transactions',
+      _count: { rows: getCountById('bank_transactions') },
       isFinanceTable: true,
       isSystemTable: true,
       isReadOnly: true,
       category: 'Finance'
     });
     reports.push({
-      id: 'finance-hub-hometax-sales-tax',
-      name: '매출세금계산서 (홈택스)',
+      id: 'hometax_sales_tax_invoices',
+      name: '매출세금계산서',
+      tableName: 'hometax_sales_tax_invoices',
+      _count: { rows: getCountById('hometax_sales_tax_invoices') },
+      isFinanceTable: true,
+      isSystemTable: true,
+      isReadOnly: true,
+      category: 'Finance'
+    });
+    reports.push({
+      id: 'hometax_sales_invoices',
+      name: '매출계산서',
       tableName: 'hometax_sales_invoices',
-      _count: { rows: getCountById('finance-hub-hometax-sales-tax') },
+      _count: { rows: getCountById('hometax_sales_invoices') },
       isFinanceTable: true,
       isSystemTable: true,
       isReadOnly: true,
       category: 'Finance'
     });
     reports.push({
-      id: 'finance-hub-hometax-purchase-tax',
-      name: '매입세금계산서 (홈택스)',
+      id: 'hometax_purchase_tax_invoices',
+      name: '매입세금계산서',
+      tableName: 'hometax_purchase_tax_invoices',
+      _count: { rows: getCountById('hometax_purchase_tax_invoices') },
+      isFinanceTable: true,
+      isSystemTable: true,
+      isReadOnly: true,
+      category: 'Finance'
+    });
+    reports.push({
+      id: 'hometax_purchase_invoices',
+      name: '매입계산서',
       tableName: 'hometax_purchase_invoices',
-      _count: { rows: getCountById('finance-hub-hometax-purchase-tax') },
+      _count: { rows: getCountById('hometax_purchase_invoices') },
       isFinanceTable: true,
       isSystemTable: true,
       isReadOnly: true,
       category: 'Finance'
     });
     reports.push({
-      id: 'finance-hub-hometax-cash-receipt',
-      name: '현금영수증 내역 (홈택스)',
+      id: 'hometax_cash_receipts',
+      name: '현금영수증 내역',
       tableName: 'hometax_cash_receipts',
-      _count: { rows: getCountById('finance-hub-hometax-cash-receipt') },
+      _count: { rows: getCountById('hometax_cash_receipts') },
       isFinanceTable: true,
       isSystemTable: true,
       isReadOnly: true,
       category: 'Finance'
     });
     reports.push({
-      id: 'finance-hub-promissory-table',
-      name: '전자어음 내역 (FinanceHub)',
+      id: 'promissory_notes',
+      name: '전자어음 내역',
       tableName: 'promissory_notes',
-      _count: { rows: getCountById('finance-hub-promissory-table') || getCountById('rep-promissory_notes') },
+      _count: { rows: getCountById('promissory_notes') },
       isFinanceTable: true,
       isSystemTable: true,
       isReadOnly: true,
@@ -230,10 +253,18 @@ export default async function DashboardPage() {
   // 가상 리포트 병합
   reports = [...reports, ...virtualReports];
 
-  // 중복 ID 제거 (하드코딩된 보고서와 DB 보고서 간의 충돌 방지)
-  const uniqueReports = Array.from(
-    new Map(reports.map(r => [r.id, r])).values()
-  ) as any[];
+  // 중복 ID 제거 및 속성 병합 (하드코딩된 보고서와 DB 보고서 간의 충돌 방지)
+  const reportsMap = new Map();
+  reports.forEach(r => {
+    const key = r.id; // 이미 위에서 reportId로 통일됨
+    if (reportsMap.has(key)) {
+      // 병합: 하드코딩된 속성(isFinanceTable 등)과 DB 데이터(count, ownerId 등)를 합침
+      reportsMap.set(key, { ...reportsMap.get(key), ...r });
+    } else {
+      reportsMap.set(key, r);
+    }
+  });
+  const uniqueReports = Array.from(reportsMap.values()) as any[];
 
   const isStaff = user.role === 'VIEWER';
 

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Edit2, Check, X, Settings, ShieldCheck, Link } from 'lucide-react';
+import { FileText, Edit2, Check, X, Settings, ShieldCheck, Link, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { renameReportAction } from '@/app/actions/report';
 import { ColumnDefinition } from '@/lib/excel-parser';
 import { SchemaEditor } from './SchemaEditor';
@@ -33,6 +34,7 @@ export function ReportHeader({
   rowCount,
   onToggleAccessManager
 }: ReportHeaderProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [name, setName] = useState(initialName);
@@ -113,6 +115,13 @@ export function ReportHeader({
             ) : (
               <div className="group relative">
                 <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => router.back()}
+                    className="p-3 bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90 mr-2"
+                    title="목록으로 돌아가기"
+                  >
+                    <ArrowLeft size={24} strokeWidth={2.5} />
+                  </button>
                   <h1 className="text-xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3 font-[family-name:var(--font-geist-sans)] leading-tight">
                     {name}
                     <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-400 text-[10px] font-black rounded-lg border border-slate-200">

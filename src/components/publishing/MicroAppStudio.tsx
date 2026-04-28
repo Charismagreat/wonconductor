@@ -372,11 +372,11 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
             {/* Main Single View */}
             <div className="space-y-0">
                 {/* 1. Template Selection & Preview (Moved UP) */}
-                <div className="p-8 md:p-12 space-y-12 bg-slate-50/30 border-b border-slate-100">
+                <div className="p-6 md:p-8 space-y-6 bg-slate-50/30 border-b border-slate-100">
 
 
                   {/* Template Selection */}
-                  <div className="space-y-6 pt-4">
+                  <div className="space-y-4">
                     <div className="flex items-center gap-3 px-2">
                       <Layout className="text-slate-400" size={18} />
                       <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Template Selection & Publish</h4>
@@ -474,11 +474,11 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                           <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-70">No sources detected</p>
                       </div>
                   ) : (
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {project.sources.map((source: any, index: number) => (
                               <div 
                                   key={`${source.id}-${index}`}
-                                  className="p-4 flex items-center justify-between gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:bg-white hover:shadow-lg transition-all group"
+                                  className="p-4 flex items-center justify-between gap-4 bg-slate-50/50 border border-slate-100 rounded-2xl hover:bg-white hover:shadow-lg hover:border-indigo-100 transition-all group w-full"
                               >
                                   <div className="flex items-center gap-4">
                                       <div className="w-10 h-10 bg-white text-slate-300 rounded-xl flex items-center justify-center font-black text-sm group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm border border-slate-100">

@@ -100,7 +100,7 @@ export function ReportDetailClient({
                         userRole={user?.role}
                         currentUserId={user?.id}
                         initialSortConfig={multiSortConfig}
-                        initialItemsPerPage={report.itemsPerPage || 20}
+                        initialItemsPerPage={report.itemsPerPage || 10}
                         onToggleAddRecord={() => {
                             setShowAddRecordForm(!showAddRecordForm);
                             setShowBulkUpload(false);

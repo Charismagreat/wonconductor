@@ -17,14 +17,35 @@ export function GenericReport({ id, data, mapping, uiSettings, appName }: Generi
   
   // AI 매핑 설정 및 DynamicTable 형식으로 변환
   const getTableColumns = (sourceData: any) => {
+    const rawColumns = sourceData?.columns || (sourceData?.transactions?.length > 0 ? Object.keys(sourceData.transactions[0]).map(k => ({ name: k, displayName: k, type: 'string' })) : []);
+
     if (mapping && mapping.length > 0) {
-      return mapping.map((m: any) => ({
-        name: m.sourceColumn,
-        displayName: m.displayName || m.sourceColumn,
-        type: m.type || 'string'
-      }));
+      // 1. 현재 테이블(dataset)에 존재하는 실제 컬럼 목록을 추출
+      const validColumnNames = new Set(rawColumns.map((c: any) => c.name));
+      
+      // 2. 전체 매핑 설정 중 현재 테이블에 존재하는 컬럼만 필터링
+      const filteredMapping = mapping.filter((m: any) => validColumnNames.has(m.sourceColumn));
+      
+      // 3. 필터링된 매핑이 하나라도 있으면 해당 매핑만 반환 (없으면 빈 배열 반환하여 잘못된 컬럼 렌더링 방지)
+      if (filteredMapping.length > 0) {
+        return filteredMapping.map((m: any) => {
+          // 매핑 정보에 type이 명시되어 있지 않은 경우, 원본 스키마(rawColumns)의 type을 우선 적용합니다.
+          const originalCol = rawColumns.find((c: any) => c.name === m.sourceColumn);
+          return {
+            name: m.sourceColumn,
+            displayName: m.displayName || m.sourceColumn,
+            type: m.type || originalCol?.type || 'string'
+          };
+        });
+      } else {
+        // 다른 테이블의 매핑만 있고, 현재 테이블의 매핑은 완전히 비워진(선택 해제된) 상태
+        // 빈 배열을 반환하여 잘못된(다른 테이블의) 컬럼이 표시되는 것을 차단
+        return [];
+      }
     }
-    return sourceData?.columns || (sourceData?.transactions?.length > 0 ? Object.keys(sourceData.transactions[0]).map(k => ({ name: k, displayName: k, type: 'string' })) : []);
+    
+    // 매핑 설정이 아예 없는 초기 상태라면 모든 컬럼 노출
+    return rawColumns;
   };
 
   const defaultColumns = getTableColumns(data);

@@ -44,6 +44,7 @@ interface MicroAppStudioProps {
 export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPublishChoiceModalOpen, setIsPublishChoiceModalOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState(project.name);
@@ -57,16 +58,18 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
   
   // 소스 스키마 정보 가져오기
   useEffect(() => {
+    let active = true;
     const fetchSchemas = async () => {
       if (project.sources.length > 0) {
         const { getProjectSourceSchemasAction } = await import('@/app/actions/publishing');
         const res = await getProjectSourceSchemasAction(project.sources.map((s: any) => s.id));
-        if (res.success) {
+        if (active && res.success) {
           setSourceSchemas(res.schemas);
         }
       }
     };
     fetchSchemas();
+    return () => { active = false; };
   }, [project.sources]);
 
   useEffect(() => {
@@ -239,14 +242,34 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
       return;
     }
 
+    if (project.status === 'PUBLISHED') {
+      setIsPublishChoiceModalOpen(true);
+    } else {
+      await executePublish(false);
+    }
+  };
+
+  const executePublish = async (asNew: boolean) => {
+    setIsPublishChoiceModalOpen(false);
     setIsPublishing(true);
     try {
-      const res = await publishProjectAction(project.id);
-      if (res.success) {
-        alert('앱이 성공적으로 발행되었습니다!');
-        router.push('/publishing');
+      if (asNew) {
+        const { duplicateAndPublishProjectAction } = await import('@/app/actions/micro-app');
+        const res = await duplicateAndPublishProjectAction(project.id);
+        if (res.success) {
+          alert('새로운 앱으로 복제 및 발행되었습니다!');
+          router.push('/publishing');
+        } else {
+          alert(`새 앱 발행 실패: ${res.error}`);
+        }
       } else {
-        alert(`발행 실패: ${res.error}`);
+        const res = await publishProjectAction(project.id);
+        if (res.success) {
+          alert('앱이 성공적으로 발행되었습니다!');
+          router.push('/publishing');
+        } else {
+          alert(`발행 실패: ${res.error}`);
+        }
       }
     } catch (e) {
       alert('발행 중 통신 오류가 발생했습니다.');
@@ -569,20 +592,41 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                                           <div className="flex flex-col min-w-[60px]">
                                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">{col.name}</span>
                                             {isActive ? (
-                                              <input 
-                                                type="text" 
-                                                value={mapping.displayName}
-                                                onChange={async (e) => {
-                                                  const newMapping = [...currentMappings];
-                                                  const idx = newMapping.findIndex(m => m.sourceColumn === col.name);
-                                                  if (idx !== -1) {
-                                                    newMapping[idx] = { ...newMapping[idx], displayName: e.target.value };
-                                                    await updateMicroAppProjectAction(project.id, { mappingConfig: newMapping });
-                                                    router.refresh();
-                                                  }
-                                                }}
-                                                className="text-xs font-black text-blue-700 bg-transparent border-none p-0 focus:ring-0"
-                                              />
+                                              <div className="flex items-center gap-2 mt-1">
+                                                <input 
+                                                  type="text" 
+                                                  value={mapping.displayName}
+                                                  onChange={async (e) => {
+                                                    const newMapping = [...currentMappings];
+                                                    const idx = newMapping.findIndex(m => m.sourceColumn === col.name);
+                                                    if (idx !== -1) {
+                                                      newMapping[idx] = { ...newMapping[idx], displayName: e.target.value };
+                                                      await updateMicroAppProjectAction(project.id, { mappingConfig: newMapping });
+                                                      router.refresh();
+                                                    }
+                                                  }}
+                                                  className="text-xs font-black text-blue-700 bg-transparent border-none p-0 focus:ring-0 w-[100px]"
+                                                />
+                                                <select
+                                                  value={mapping.type || col.type || 'text'}
+                                                  onChange={async (e) => {
+                                                    const newMapping = [...currentMappings];
+                                                    const idx = newMapping.findIndex(m => m.sourceColumn === col.name);
+                                                    if (idx !== -1) {
+                                                      newMapping[idx] = { ...newMapping[idx], type: e.target.value };
+                                                      await updateMicroAppProjectAction(project.id, { mappingConfig: newMapping });
+                                                      router.refresh();
+                                                    }
+                                                  }}
+                                                  className="text-[9px] font-black text-slate-500 bg-slate-50 border border-slate-200 rounded p-0.5 outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                >
+                                                  <option value="text">텍스트</option>
+                                                  <option value="number">숫자</option>
+                                                  <option value="currency">금액(₩)</option>
+                                                  <option value="date">날짜</option>
+                                                  <option value="boolean">논리형(Y/N)</option>
+                                                </select>
+                                              </div>
                                             ) : (
                                               <span className="text-xs font-black text-slate-400">{col.displayName || col.name}</span>
                                             )}
@@ -598,7 +642,7 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                                   )}
                                 </div>
                                 <p className="text-[10px] font-bold text-slate-400 italic px-2">
-                                  * 컬럼의 아이콘을 클릭하여 리포트에 추가하거나 제거할 수 있습니다. 활성화된 컬럼은 이름을 수정할 수 있습니다.
+                                  * 컬럼의 아이콘을 클릭하여 리포트에 추가하거나 제거할 수 있습니다. 활성화된 컬럼은 이름과 데이터 타입(금액, 숫자 등)을 직접 수정할 수 있습니다.
                                 </p>
                               </div>
                             );
@@ -757,6 +801,59 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
               >
                 <Sparkles size={16} />
                 AI 추천 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Publish Choice Modal */}
+      {isPublishChoiceModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Rocket size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900">앱 발행 옵션</h3>
+                <p className="text-xs font-bold text-slate-400">이미 발행된 앱입니다. 어떻게 저장할까요?</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3 mb-8">
+              <button 
+                onClick={() => executePublish(false)}
+                className="w-full text-left p-4 rounded-2xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all"><Edit2 size={16} /></div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">기존 앱에 덮어쓰기</h4>
+                    <p className="text-[10px] font-bold text-slate-500 mt-1">현재 수정사항을 원본 앱에 그대로 저장합니다.</p>
+                  </div>
+                </div>
+              </button>
+              
+              <button 
+                onClick={() => executePublish(true)}
+                className="w-full text-left p-4 rounded-2xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all"><Plus size={16} /></div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900">새로운 앱으로 발행</h4>
+                    <p className="text-[10px] font-bold text-slate-500 mt-1">현재 상태를 복제하여 독립적인 새 앱을 만듭니다.</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+            
+            <div className="flex justify-end">
+              <button 
+                onClick={() => setIsPublishChoiceModalOpen(false)}
+                className="px-6 py-3 rounded-xl font-black text-xs text-slate-500 hover:bg-slate-100 transition-all uppercase tracking-widest"
+              >
+                취소
               </button>
             </div>
           </div>

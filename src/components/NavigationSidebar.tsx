@@ -218,9 +218,9 @@ export default function NavigationSidebar({ user, isCollapsed = false, onToggle,
           <div className="pt-6 pb-2">
             {!isCollapsed && <p className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">My Micro Apps</p>}
             <div className="space-y-1">
-              {microApps.map((app) => (
+              {microApps.map((app, index) => (
                 <Link
-                  key={app.id}
+                  key={`${app.id}-${index}`}
                   href={`/m/${app.id}`}
                   target="_blank"
                   title={isCollapsed ? app.name : ""}

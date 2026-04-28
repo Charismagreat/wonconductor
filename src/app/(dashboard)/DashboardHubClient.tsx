@@ -170,8 +170,8 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
               />
             )}
             
-            {/* Upcoming Schedule Widget (NEW) */}
-            <UpcomingEventsWidget events={events} />
+            {/* Upcoming Schedule Widget (NEW) - 대시보드에서만 표시 */}
+            {pathname === '/dashboard' && <UpcomingEventsWidget events={events} />}
 
             {/* Smart Toolbox (Search & Filters) */}
             <section className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-900/5 space-y-10">

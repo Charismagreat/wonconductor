@@ -17,6 +17,7 @@ import { CalendarEvent, CalendarEventType } from '@/lib/services/calendar-servic
 
 interface UpcomingEventsWidgetProps {
   events: CalendarEvent[];
+  hideLink?: boolean;
 }
 
 const TYPE_CONFIG: Record<CalendarEventType, { icon: any, color: string, bg: string, label: string }> = {
@@ -26,7 +27,7 @@ const TYPE_CONFIG: Record<CalendarEventType, { icon: any, color: string, bg: str
   VACATION: { icon: PlaneTakeoff, color: 'text-green-600', bg: 'bg-green-50', label: '휴가/부재' },
 };
 
-export default function UpcomingEventsWidget({ events }: UpcomingEventsWidgetProps) {
+export default function UpcomingEventsWidget({ events, hideLink = false }: UpcomingEventsWidgetProps) {
   // Filter for next 7 days and sort
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -48,13 +49,15 @@ export default function UpcomingEventsWidget({ events }: UpcomingEventsWidgetPro
           <Calendar size={20} className="text-blue-600" />
           <h2 className="text-lg font-bold text-gray-800 tracking-tight uppercase">Upcoming Schedule</h2>
         </div>
-        <Link 
-          href="/dashboard/calendar" 
-          className="text-xs font-black text-blue-600 hover:text-slate-900 transition-all flex items-center gap-1 uppercase tracking-widest group"
-        >
-          View Full Calendar
-          <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-        </Link>
+        {!hideLink && (
+          <Link 
+            href="/dashboard/calendar" 
+            className="text-xs font-black text-blue-600 hover:text-slate-900 transition-all flex items-center gap-1 uppercase tracking-widest group"
+          >
+            View Full Calendar
+            <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">

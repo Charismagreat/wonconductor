@@ -164,10 +164,10 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
 
       {/* 3. Projects Section (Drafts) */}
       <section>
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">제작 중인 프로젝트</h2>
-          <span className="text-slate-300 font-bold ml-auto">{filteredProjects.length}</span>
+        <div className="flex items-center mb-8">
+          <div className="w-1.5 h-6 bg-amber-500 rounded-full mr-4" />
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mr-3">제작 중인 프로젝트</h2>
+          <span className="px-3 py-1 bg-slate-100 text-slate-500 text-sm font-bold rounded-full">{filteredProjects.length}</span>
         </div>
 
         {filteredProjects.length === 0 ? (
@@ -219,10 +219,10 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
 
       {/* 4. Published Apps Section */}
       <section>
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-1.5 h-6 bg-blue-500 rounded-full" />
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">발행된 마이크로 앱</h2>
-          <span className="text-slate-300 font-bold ml-auto">{filteredApps.length}</span>
+        <div className="flex items-center mb-8">
+          <div className="w-1.5 h-6 bg-blue-500 rounded-full mr-4" />
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight mr-3">발행된 마이크로 앱</h2>
+          <span className="px-3 py-1 bg-slate-100 text-slate-500 text-sm font-bold rounded-full">{filteredApps.length}</span>
         </div>
 
         {filteredApps.length === 0 ? (

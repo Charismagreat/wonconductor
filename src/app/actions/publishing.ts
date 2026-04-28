@@ -210,26 +210,37 @@ export async function publishMicroAppAction(data: {
   const user = await getSessionAction();
   if (!user) throw new Error('인증이 필요합니다.');
 
-  const now = new Date().toISOString();
-
-  const config = {
-    name: data.name,
-    templateId: data.templateId,
-    sourceTableId: data.sourceTableId,
-    mappingConfig: JSON.stringify(data.mappingConfig),
-    uiSettings: JSON.stringify(data.uiSettings),
-    rbacRoles: JSON.stringify(['CEO', 'ACCOUNTANT']),
-    createdBy: user.id,
-    createdAt: now,
-    updatedAt: now
-  };
-
-  const insertRes = await insertRows('micro_app_config', [config]);
-  const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-  const newId = insertedRow.id;
+  // Create a project first to get a projectId
+  const { createMicroAppProjectAction, updateMicroAppProjectAction, publishProjectAction } = await import('./micro-app');
   
-  revalidatePath('/publishing/new');
-  return { success: true };
+  try {
+    // 1. 초안 프로젝트 생성
+    const projRes = await createMicroAppProjectAction(data.name);
+    if (!projRes.success || !projRes.id) throw new Error('프로젝트 생성 실패');
+    
+    // 2. 프로젝트 정보 업데이트
+    await updateMicroAppProjectAction(projRes.id, {
+      templateId: data.templateId,
+      mappingConfig: data.mappingConfig,
+      uiSettings: data.uiSettings,
+    });
+
+    // 3. 소스 테이블 추가
+    const { addSourcesToProjectAction } = await import('./micro-app');
+    // sourceTableId가 콤마로 구분된 여러 개일 수 있으므로 배열로 변환
+    const sourceIds = data.sourceTableId.split(',').map(s => s.trim());
+    await addSourcesToProjectAction(projRes.id, sourceIds.map(id => ({ id, name: id })));
+
+    // 4. 최종 발행
+    const pubRes = await publishProjectAction(projRes.id);
+    if (!pubRes.success) throw new Error(pubRes.error);
+
+    revalidatePath('/publishing/new');
+    return { success: true };
+  } catch (error: any) {
+    console.error('publishMicroAppAction failed:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
@@ -452,22 +463,45 @@ export async function getAISuggestedProjectSetupAction(appId: string) {
  * 사용자 요청에 따라 원본 소스 테이블의 뷰 설정(정렬, 컬럼명 등)을 자동으로 상속받습니다.
  */
 export async function getMicroAppConfigAction(id: string) {
-  const results = await queryTable('micro_app_config');
+  const { queryTable } = await import('@/egdesk-helpers');
+  const { ensureProjectTable } = await import('./micro-app');
+  
+  await ensureProjectTable();
+  const results = await queryTable('micro_app_projects', { filters: { projectId: id }, limit: 1 });
   console.log(`[getMicroAppConfigAction] Searching for Published App ID: "${id}"`);
   
-  let config = (results || []).find((c: any) => c.id === id);
-  if (!config && id) {
-    config = (results || []).find((c: any) => String(c.id).trim() === String(id).trim());
+  let project = results?.[0];
+  if (!project && id) {
+    // 혹시라도 공백 등이 있을 경우를 대비해 전체 검색 후 매칭
+    const all = await queryTable('micro_app_projects');
+    project = (all || []).find((c: any) => String(c.projectId).trim() === String(id).trim());
   }
 
-  if (!config) {
-    console.error(`[getMicroAppConfigAction] Config NOT FOUND for ID: ${id}`);
+  if (!project) {
+    console.error(`[getMicroAppConfigAction] Project Config NOT FOUND for ID: ${id}`);
     return null;
   }
 
-  const parsedMapping = config.mappingConfig ? JSON.parse(config.mappingConfig) : [];
-  const parsedUiSettings = config.uiSettings ? JSON.parse(config.uiSettings) : {};
-  const parsedRbacRoles = config.rbacRoles ? JSON.parse(config.rbacRoles) : [];
+  const parsedMapping = project.mappingConfig ? (typeof project.mappingConfig === 'string' ? JSON.parse(project.mappingConfig) : project.mappingConfig) : [];
+  const parsedUiSettings = project.uiSettings ? (typeof project.uiSettings === 'string' ? JSON.parse(project.uiSettings) : project.uiSettings) : {};
+  const parsedRbacRoles = ['CEO', 'ADMIN']; // 기본 역할
+  
+  let sources = [];
+  try {
+    sources = typeof project.sources === 'string' ? JSON.parse(project.sources) : project.sources;
+  } catch(e) {}
+  const sourceTableId = Array.isArray(sources) ? sources.map((s:any) => s.id).join(',') : '';
+
+  const config = {
+    id: project.projectId,
+    projectId: project.projectId,
+    name: project.name,
+    description: project.description,
+    templateId: project.templateId || 'custom-app',
+    sourceTableId: sourceTableId,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt
+  };
 
   // [고도화] 원본 테이블의 뷰 설정 상속 (Inheritance)
   if (config.sourceTableId) {
@@ -503,34 +537,46 @@ export async function getMicroAppConfigAction(id: string) {
   };
 }
 
-/**
- * 마이크로 앱 목록을 가져옵니다.
- */
 export async function listMicroAppsAction() {
   const user = await getSessionAction();
   if (!user) return [];
 
   try {
-    const results = await queryTable('micro_app_config', {
-      orderBy: 'createdAt',
+    const { ensureProjectTable } = await import('./micro-app');
+    await ensureProjectTable();
+    
+    const projects = await queryTable('micro_app_projects', {
+      orderBy: 'updatedAt',
       orderDirection: 'DESC'
     });
 
-    const projects = await queryTable('micro_app_projects');
-    const projectMap = new Map((projects || []).map((p: any) => [p.id, p]));
+    // 상태가 PUBLISHED인 것만 필터링 (클라이언트에서 필터링하거나 직접 필터)
+    const publishedProjects = (projects || []).filter((p: any) => p.status === 'PUBLISHED');
 
-    return (results || []).map((config: any) => {
-      const project = projectMap.get(config.projectId);
+    return publishedProjects.map((project: any) => {
+      let sources = [];
+      try {
+        sources = typeof project.sources === 'string' ? JSON.parse(project.sources) : project.sources;
+      } catch(e) {}
+      
+      const sourceTableId = Array.isArray(sources) ? sources.map((s:any) => s.id).join(',') : '';
+
       return {
-        ...config,
-        name: project?.name || '이름 없는 앱',
-        mappingConfig: config.mappingConfig ? JSON.parse(config.mappingConfig) : [],
-        uiSettings: config.uiSettings ? JSON.parse(config.uiSettings) : { theme: 'blue' },
-        rbacRoles: config.rbacRoles ? JSON.parse(config.rbacRoles) : ['CEO', 'ADMIN']
+        id: project.projectId || String(project.id), // 프로젝트 ID를 앱 ID로 사용
+        projectId: project.projectId || String(project.id),
+        name: project.name || '이름 없는 앱',
+        description: project.description,
+        templateId: project.templateId || 'custom-app',
+        sourceTableId: sourceTableId,
+        mappingConfig: project.mappingConfig ? (typeof project.mappingConfig === 'string' ? JSON.parse(project.mappingConfig) : project.mappingConfig) : [],
+        uiSettings: project.uiSettings ? (typeof project.uiSettings === 'string' ? JSON.parse(project.uiSettings) : project.uiSettings) : { theme: 'blue' },
+        rbacRoles: ['CEO', 'ADMIN'],
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt
       };
     });
   } catch (error) {
-    console.log('micro_app_config table not found or error, returning empty list.');
+    console.error('Failed to list published micro apps:', error);
     return [];
   }
 }
@@ -695,8 +741,26 @@ async function fetchSingleSourceData(sourceTableId: string, options: any = {}) {
   } = await import('@/egdesk-helpers');
 
   // 1. 데이터 가져오기 (가상 테이블 핸들러가 포함된 통합 queryTable 사용)
-  const rows = await queryTable(sourceTableId, { ...options, limit: options.limit || 10000 });
+  // [수정] MCP 백엔드 한도(보통 1000건)를 우회하기 위해 청크 단위로 페이징하여 요청한 limit까지 모두 가져옵니다.
+  const targetLimit = options.limit || 10000;
+  const CHUNK_SIZE = 1000;
+  let allRows: any[] = [];
+  let currentOffset = options.offset || 0;
+
+  while (allRows.length < targetLimit) {
+    const fetchLimit = Math.min(CHUNK_SIZE, targetLimit - allRows.length);
+    const rowsChunk = await queryTable(sourceTableId, { ...options, limit: fetchLimit, offset: currentOffset });
+    
+    if (!rowsChunk || rowsChunk.length === 0) break;
+    
+    allRows = allRows.concat(rowsChunk);
+    currentOffset += rowsChunk.length;
+    
+    // 서버 응답 건수가 요청 건수보다 작으면 마지막 페이지 도달로 간주
+    if (rowsChunk.length < fetchLimit) break;
+  }
   
+  const rows = allRows;
   // 2. 기본 스키마(컬럼) 정보 가져오기 (중앙 레지스트리 활용)
   let columns: any[] = await getUnifiedTableSchema(sourceTableId);
 

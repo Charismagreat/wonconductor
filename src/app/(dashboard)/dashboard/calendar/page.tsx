@@ -3,6 +3,7 @@ import PageHeader from '@/components/PageHeader';
 import { Calendar } from 'lucide-react';
 import { getCalendarEvents } from '@/lib/services/calendar-service';
 import FullCalendarView from '@/components/calendar/FullCalendarView';
+import UpcomingEventsWidget from '@/components/dashboard/UpcomingEventsWidget';
 
 /**
  * 🗓️ System Calendar Page (Dashboard/Admin)
@@ -22,6 +23,8 @@ export default async function CalendarPage() {
       />
 
       <main className="max-w-[1600px] mx-auto mt-12 space-y-12">
+        <UpcomingEventsWidget events={events} hideLink={true} />
+        
         <FullCalendarView 
           events={events} 
           isAdmin={true} 

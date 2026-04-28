@@ -19,48 +19,11 @@ const PROJECT_TABLE = 'micro_app_projects';
 /**
  * 마이크로 앱 프로젝트 테이블이 존재하는지 확인합니다.
  */
-async function ensureProjectTable() {
-  // 1. micro_app_config 테이블 확립 및 관리
-  try {
-    const configSchema = await getTableSchema('micro_app_config');
-    const idCol = (configSchema as any[]).find((c: any) => c.name === 'id');
-    
-    if (idCol && idCol.type !== 'INTEGER' && !String(idCol.type).includes('AUTOINCREMENT')) {
-        console.log('[ensureProjectTable] micro_app_config ID type mismatch. Current:', idCol.type);
-        
-        const rows = await queryTable('micro_app_config', { limit: 1 });
-        if (rows.length === 0) {
-            console.log('[ensureProjectTable] micro_app_config is empty, dropping for recreation...');
-            await deleteTable('micro_app_config');
-            throw new Error('Table dropped for recreation');
-        }
-    }
-  } catch (err) {
-    try {
-      await createTable('Micro App Config', [
-        { name: 'id', type: 'TEXT', notNull: true },
-        { name: 'projectId', type: 'TEXT', notNull: true },
-        { name: 'templateId', type: 'TEXT' },
-        { name: 'sourceTableId', type: 'TEXT' },
-        { name: 'mappingConfig', type: 'TEXT' },
-        { name: 'uiSettings', type: 'TEXT' },
-        { name: 'rbacRoles', type: 'TEXT' },
-        { name: 'createdBy', type: 'TEXT' },
-        { name: 'createdAt', type: 'TEXT' },
-        { name: 'updatedAt', type: 'TEXT' }
-      ], { tableName: 'micro_app_config' });
-    } catch (e2: any) {
-      if (e2.message?.includes('UNIQUE constraint failed: user_tables.table_name')) {
-        console.log('[ensureProjectTable] micro_app_config metadata already exists. Skipping recreation.');
-      } else {
-        console.error('[ensureProjectTable] Failed to create micro_app_config:', e2.message);
-      }
-    }
-  }
+export async function ensureProjectTable() {
 
-  // 2. micro_app_projects 테이블 관리 (TEXT ID 기반)
+  // 2. micro_app_projects 테이블 관리 (projectId를 고유 TEXT ID로 사용, id는 EGDesk 자동 정수 부여)
   const projectSchema = [
-    { name: 'id', type: 'TEXT', notNull: true },
+    { name: 'projectId', type: 'TEXT', notNull: true },
     { name: 'name', type: 'TEXT', notNull: true },
     { name: 'description', type: 'TEXT' },
     { name: 'sources', type: 'TEXT', notNull: true },
@@ -89,24 +52,38 @@ async function ensureProjectTable() {
       // 혹시 listTables 에는 나오지만 실제론 없는 상태(찌꺼기)일 수 있으므로 삭제 시도
       await deleteTable('micro_app_projects').catch(() => {});
       
-      await createTable('Micro App Projects', projectSchema, { tableName: 'micro_app_projects' });
+      await createTable('Micro App Projects', projectSchema, { 
+        tableName: 'micro_app_projects',
+        uniqueKeyColumns: ['projectId'],
+        duplicateAction: 'update'
+      });
     } else {
-      // 마이그레이션 체크 (INTEGER -> TEXT)
+      // 마이그레이션 체크 (id가 TEXT인지 확인하고 projectId로 변환)
       try {
         const schema: any = await getTableSchema('micro_app_projects');
         const idCol = schema?.find((c: any) => c.name === 'id');
-        if (idCol && idCol.type === 'INTEGER') {
-            console.log("[MICRO_APP] Detected INTEGER ID schema. Converting to TEXT...");
+        const projIdCol = schema?.find((c: any) => c.name === 'projectId');
+        
+        if (idCol && idCol.type === 'TEXT' && !projIdCol) {
+            console.log("[MICRO_APP] Detected TEXT ID schema without projectId. Converting to proper EGDesk schema...");
             const rows = await queryTable('micro_app_projects');
             await deleteTable('micro_app_projects');
             
-            await createTable('Micro App Projects', projectSchema, { tableName: 'micro_app_projects' });
+            await createTable('Micro App Projects', projectSchema, { 
+              tableName: 'micro_app_projects',
+              uniqueKeyColumns: ['projectId'],
+              duplicateAction: 'update'
+            });
             
             if (rows && rows.length > 0) {
-                const migratedRows = rows.map((r: any) => ({ ...r, id: String(r.id) }));
+                const migratedRows = rows.map((r: any) => {
+                    const migrated = { ...r, projectId: r.id };
+                    delete migrated.id; // Remove the text 'id' so EGDesk can generate an integer one
+                    return migrated;
+                });
                 await insertRows('micro_app_projects', migratedRows);
             }
-            console.log("[MICRO_APP] Migration to TEXT ID completed.");
+            console.log("[MICRO_APP] Migration to proper EGDesk schema completed.");
         }
       } catch (e) {
          console.warn('[ensureProjectTable] Migration check failed:', e);
@@ -131,7 +108,7 @@ export async function createMicroAppProjectAction(name: string) {
   const now = new Date().toISOString();
   const projectId = `proj_${Date.now()}`;
   const projectData = {
-    id: projectId,
+    projectId: projectId, // EGDesk 정수 id 대신 projectId를 텍스트 식별자로 사용
     name,
     description: '',
     sources: JSON.stringify([]),
@@ -187,12 +164,12 @@ export async function getMicroAppProjectAction(id: string) {
   console.log(`[getMicroAppProjectAction] Searching for ID: "${id}"`);
   console.log(`[getMicroAppProjectAction] Total Projects in DB: ${results?.length || 0}`);
   
-  // 1. 정확한 ID 일치 확인
-  let project = (results || []).find((p: any) => p.id === id);
+  // 1. 정확한 ID 일치 확인 (projectId 컬럼 혹은 기존 id 컬럼 모두 체크)
+  let project = (results || []).find((p: any) => p.projectId === id || p.id === id);
   
   // 2. 혹시 모를 ID 형식 차이(공백 등) 처리 후 재확인
   if (!project && id) {
-    project = (results || []).find((p: any) => String(p.id).trim() === String(id).trim());
+    project = (results || []).find((p: any) => String(p.projectId || p.id).trim() === String(id).trim());
   }
 
   if (!project) {
@@ -204,6 +181,7 @@ export async function getMicroAppProjectAction(id: string) {
   
   return {
     ...project,
+    id: project.projectId || project.id, // 하위 호환성을 위해 반환 객체에서는 id 필드에 text id 매핑
     sources: project.sources ? JSON.parse(project.sources) : [],
     tags: JSON.parse(project.tags || '[]'),
     mappingConfig: project.mappingConfig ? JSON.parse(project.mappingConfig) : [],
@@ -228,7 +206,7 @@ export async function addSourcesToProjectAction(appId: string, newSources: Array
     }
   }
   
-  await updateRows(PROJECT_TABLE, { sources: JSON.stringify(sources), updatedAt: new Date().toISOString() }, { filters: { id: appId } });
+  await updateRows(PROJECT_TABLE, { sources: JSON.stringify(sources), updatedAt: new Date().toISOString() }, { filters: { projectId: appId } });
   revalidatePath(`/publishing/edit/${appId}`);
   revalidatePath('/publishing');
   return { success: true };
@@ -250,7 +228,7 @@ export async function removeAllSourcesFromProjectAction(appId: string) {
   await updateRows(PROJECT_TABLE, { 
     sources: JSON.stringify([]), 
     updatedAt: new Date().toISOString() 
-  }, { filters: { id: appId } });
+  }, { filters: { projectId: appId } });
   
   revalidatePath(`/publishing/edit/${appId}`);
   revalidatePath('/publishing');
@@ -268,7 +246,7 @@ export async function removeSourceFromProjectAction(appId: string, sourceId: str
 
   const sources = project.sources.filter((s: any) => s.id !== sourceId);
   
-  await updateRows(PROJECT_TABLE, { sources: JSON.stringify(sources), updatedAt: new Date().toISOString() }, { filters: { id: appId } });
+  await updateRows(PROJECT_TABLE, { sources: JSON.stringify(sources), updatedAt: new Date().toISOString() }, { filters: { projectId: appId } });
   revalidatePath(`/publishing/edit/${appId}`);
   revalidatePath('/publishing');
   return { success: true };
@@ -280,7 +258,7 @@ export async function removeSourceFromProjectAction(appId: string, sourceId: str
 export async function deleteMicroAppProjectAction(id: string) {
   if (!id) throw new Error('프로젝트 ID가 필요합니다.');
   await ensureProjectTable();
-  await deleteRows(PROJECT_TABLE, { filters: { id } });
+  await deleteRows(PROJECT_TABLE, { filters: { projectId: id } });
   revalidatePath('/publishing');
   return { success: true };
 }
@@ -305,7 +283,7 @@ export async function updateMicroAppProjectAction(id: string, data: {
   
   try {
     console.log(`[DB 업데이트 시도] 프로젝트 ID: ${id}, 데이터:`, JSON.stringify(updateData));
-    await updateRows(PROJECT_TABLE, updateData, { filters: { id } });
+    await updateRows(PROJECT_TABLE, updateData, { filters: { projectId: id } });
     
     revalidatePath(`/publishing/edit/${id}`);
     revalidatePath('/publishing');
@@ -323,30 +301,11 @@ export async function publishProjectAction(projectId: string) {
   const project = await getMicroAppProjectAction(projectId);
   if (!project) throw new Error('프로젝트를 찾을 수 없습니다.');
 
-  // micro_app_config 테이블 형식에 맞춰 변환
-  // 모든 소스 ID를 콤마로 결합하여 저장
-  const allSourceIds = project.sources.map((s: any) => s.id).join(',');
-  
-  const config = {
-    projectId,
-    templateId: project.templateId || 'custom-app',
-    sourceTableId: allSourceIds,
-    mappingConfig: typeof project.mappingConfig === 'string' ? project.mappingConfig : JSON.stringify(project.mappingConfig || []),
-    uiSettings: typeof project.uiSettings === 'string' ? project.uiSettings : JSON.stringify(project.uiSettings || { theme: 'blue' }),
-    rbacRoles: JSON.stringify(['CEO', 'ADMIN']),
-    createdBy: project.createdBy,
-    createdAt: project.createdAt,
-    updatedAt: new Date().toISOString()
-  };
   try {
-    // [사용자 요청 반영] 항상 새로운 앱 인스턴스 발행 (Instance Spawning)
-    const insertRes = await insertRows('micro_app_config', [config]);
-    const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-    const publishedId = insertedRow.id;
-    console.log(`[발행] 신규 앱 인스턴스 발행 완료 (ID: ${config.projectId}, Template: ${config.templateId})`);
+    console.log(`[발행] 프로젝트 상태 변경 (ID: ${projectId}, Template: ${project.templateId})`);
     
     // 프로젝트 상태를 PUBLISHED로 변경
-    await updateRows(PROJECT_TABLE, { status: 'PUBLISHED', updatedAt: new Date().toISOString() }, { filters: { id: projectId } });
+    await updateRows(PROJECT_TABLE, { status: 'PUBLISHED', updatedAt: new Date().toISOString() }, { filters: { projectId: projectId } });
     
     revalidatePath('/publishing');
     revalidatePath('/dashboard');
@@ -358,14 +317,15 @@ export async function publishProjectAction(projectId: string) {
 }
 
 /**
- * 발행된 마이크로 앱을 제거합니다.
+ * 발행된 마이크로 앱을 제거(Unpublish)합니다.
+ * 실제 프로젝트는 보존하고 상태만 DRAFT로 변경합니다.
  */
 export async function deleteMicroAppAction(id: string) {
   const user = await getSessionAction();
   if (!user) throw new Error('인증이 필요합니다.');
 
-  // micro_app_config에서 제거
-  await deleteRows('micro_app_config', { filters: { id } });
+  // 상태를 DRAFT로 되돌리기
+  await updateRows(PROJECT_TABLE, { status: 'DRAFT', updatedAt: new Date().toISOString() }, { filters: { projectId: id } });
   
   // 메인 대시보드와 스튜디오 화면 갱신
   revalidatePath('/publishing');
@@ -373,3 +333,44 @@ export async function deleteMicroAppAction(id: string) {
   
   return { success: true };
 }
+
+/**
+ * 기존 앱을 복제하여 새로운 앱으로 발행합니다.
+ */
+export async function duplicateAndPublishProjectAction(originalId: string) {
+  const session = await getSessionAction();
+  if (!session) throw new Error('인증이 필요합니다.');
+
+  await ensureProjectTable();
+  const project = await getMicroAppProjectAction(originalId);
+  if (!project) throw new Error('원본 프로젝트를 찾을 수 없습니다.');
+
+  const now = new Date().toISOString();
+  const projectId = `proj_${Date.now()}`;
+  
+  const newProjectData = {
+    projectId: projectId,
+    name: `${project.name} (복제본)`,
+    description: project.description || '',
+    sources: JSON.stringify(project.sources || []),
+    tags: JSON.stringify(project.tags || []),
+    templateId: project.templateId,
+    mappingConfig: JSON.stringify(project.mappingConfig || []),
+    uiSettings: JSON.stringify(project.uiSettings || { theme: 'blue' }),
+    status: 'PUBLISHED', // 복제와 동시에 발행 처리
+    createdBy: String(session.id),
+    createdAt: now,
+    updatedAt: now
+  };
+  
+  try {
+      await insertRows('micro_app_projects', [newProjectData]);
+      revalidatePath('/publishing');
+      revalidatePath('/dashboard');
+      return { success: true, id: projectId };
+  } catch (error: any) {
+      console.error('[duplicateAndPublishProjectAction] Failed to duplicate project:', error);
+      throw new Error(`프로젝트 복제 실패: ${error.message}`);
+  }
+}
+

@@ -29,27 +29,30 @@ export function TemplateRenderer({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     async function fetchData() {
       try {
         if (!sourceTableId || sourceTableId === 'undefined') return;
-        setLoading(true);
+        if (active) setLoading(true);
 
         // 콤마로 구분된 소스 ID들을 배열로 변환
         const ids = typeof sourceTableId === 'string' 
           ? sourceTableId.split(',').map(id => id.trim()).filter(id => id)
           : sourceTableId;
 
-        const results = await fetchPublishingDataAction(ids, { limit: 10000, projectId: id });
-        setData(results);
+        // 대규모 데이터를 지원하기 위해 기본 한도를 50,000건으로 넉넉하게 상향 조정
+        const results = await fetchPublishingDataAction(ids, { limit: 50000, projectId: id });
+        if (active) setData(results);
       } catch (err: any) {
         console.error('Failed to fetch data for micro-app:', err);
-        setError('데이터를 불러오는 중 오류가 발생했습니다.');
+        if (active) setError('데이터를 불러오는 중 오류가 발생했습니다.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     fetchData();
+    return () => { active = false; };
   }, [sourceTableId]);
 
   if (loading) {

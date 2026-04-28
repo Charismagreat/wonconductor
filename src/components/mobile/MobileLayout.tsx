@@ -19,9 +19,10 @@ interface MobileLayoutProps {
   title?: string;
   hideNavigation?: boolean;
   branding?: string;
+  headerRightContent?: React.ReactNode;
 }
 
-export function MobileLayout({ children, user, title, hideNavigation = false, branding }: MobileLayoutProps) {
+export function MobileLayout({ children, user, title, hideNavigation = false, branding, headerRightContent }: MobileLayoutProps) {
   const pathname = usePathname();
 
   const navItems = [
@@ -44,6 +45,7 @@ export function MobileLayout({ children, user, title, hideNavigation = false, br
           <h1 className="text-xl font-black tracking-tight">{title || '마이 워크스페이스 2.0'}</h1>
         </div>
         <div className="flex items-center gap-3">
+          {headerRightContent}
           <button className="p-2 rounded-xl glass hover:bg-opacity-80 transition-all active:scale-95">
             <Search size={20} className="text-foreground/70" />
           </button>

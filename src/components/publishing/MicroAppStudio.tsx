@@ -14,6 +14,7 @@ import {
   Palette,
   Settings,
   Edit2,
+  Edit3,
   Check,
   X,
   ShieldCheck,
@@ -53,6 +54,7 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
   const [aiPrompt, setAiPrompt] = useState(project.tags?.join(', ') || '');
   const [customHtml, setCustomHtml] = useState(project.uiSettings.customHtml || '');
   const [customCss, setCustomCss] = useState(project.uiSettings.customCss || '');
+  const [tableDisplayName, setTableDisplayName] = useState(project.uiSettings?.tableDisplayName || '');
   const [sourceSchemas, setSourceSchemas] = useState<any[]>([]);
   const router = useRouter();
   
@@ -540,27 +542,27 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                           </div>
                         ) : (
                           project.sources.map((source: any) => {
-                            const schema = sourceSchemas.find(s => s.id === source.id);
-                            const currentMappings = project.mappingConfig || [];
-                            
-                            return (
-                              <div key={source.id} className="space-y-6">
-                                <div className="flex items-center justify-between mb-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-6 bg-blue-600 rounded-full" />
-                                    <h5 className="font-black text-slate-900 text-sm">{source.name} <span className="text-[10px] text-slate-400 font-medium ml-2 uppercase tracking-widest">Source Table</span></h5>
-                                  </div>
-                                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    {currentMappings.length} Columns Active
-                                  </div>
-                                </div>
-                                
-                                <div className="flex flex-wrap gap-3">
-                                  {/* 스키마 기반 모든 컬럼 나열 */}
-                                  {schema ? (
-                                    schema.columns.map((col: any) => {
-                                      const mapping = currentMappings.find((m: any) => m.sourceColumn === col.name);
-                                      const isActive = !!mapping;
+                                      const schema = sourceSchemas.find(s => s.id === source.id);
+                                      const currentMappings = project.mappingConfig || [];
+                                      
+                                      return (
+                                        <div key={source.id} className="space-y-6">
+                                          <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-2 h-6 bg-blue-600 rounded-full" />
+                                              <h5 className="font-black text-slate-900 text-sm">{source.name} <span className="text-[10px] text-slate-400 font-medium ml-2 uppercase tracking-widest">Source Table</span></h5>
+                                            </div>
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                              {currentMappings.filter((m: any) => !m.sourceTableId || m.sourceTableId === source.id).length} Columns Active
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="flex flex-wrap gap-3">
+                                            {/* 스키마 기반 모든 컬럼 나열 */}
+                                            {schema ? (
+                                              schema.columns.map((col: any) => {
+                                                const mapping = currentMappings.find((m: any) => m.sourceColumn === col.name && (!m.sourceTableId || m.sourceTableId === source.id));
+                                                const isActive = !!mapping;
                                       
                                       return (
                                         <div 
@@ -572,10 +574,11 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                                               let newMapping;
                                               if (isActive) {
                                                 // 제거
-                                                newMapping = currentMappings.filter((m: any) => m.sourceColumn !== col.name);
+                                                newMapping = currentMappings.filter((m: any) => !(m.sourceColumn === col.name && (!m.sourceTableId || m.sourceTableId === source.id)));
                                               } else {
                                                 // 추가 (displayName을 영문 ID가 아닌 한글 표시 이름으로 설정)
                                                 newMapping = [...currentMappings, { 
+                                                  sourceTableId: source.id,
                                                   sourceColumn: col.name, 
                                                   displayName: col.displayName || col.name, 
                                                   type: col.type || 'text' 
@@ -732,11 +735,36 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                       <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-widest border border-blue-100">WYSIWYG Mode</span>
                     </div>
                     <div className="bg-white rounded-[48px] border border-slate-100 shadow-2xl overflow-hidden min-h-[600px]">
+                      {/* Custom Table Display Name Input (Red Box Area) */}
+                      <div className="p-6 border-b border-slate-50 flex flex-col gap-2 bg-slate-50/50 relative">
+                        <div className="absolute right-6 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-blue-500/20">
+                          Live Data
+                        </div>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                          <Edit3 size={12} />
+                          리포트 테이블 표시명 (선택)
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="기본 데이터 소스 이름 대신 표시할 제목을 입력하세요 (예: 1분기 영업실적 요약)"
+                          value={tableDisplayName}
+                          onChange={(e) => setTableDisplayName(e.target.value)}
+                          onBlur={async () => {
+                            if (tableDisplayName !== project.uiSettings?.tableDisplayName) {
+                              await updateMicroAppProjectAction(project.id, {
+                                uiSettings: { ...project.uiSettings, tableDisplayName }
+                              });
+                            }
+                          }}
+                          className="w-full max-w-md bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300"
+                        />
+                      </div>
+
                       <TemplateRenderer 
                         templateId={project.templateId}
-                        sourceTableId={project.sources.map((s: any) => s.id)}
+                        sourceTableId={project.sources.map((s: any) => s.id).join(',')}
                         mappingConfig={project.mappingConfig}
-                        uiSettings={project.uiSettings}
+                        uiSettings={{ ...project.uiSettings, tableDisplayName }}
                         appName={project.name}
                         id={project.id}
                       />

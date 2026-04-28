@@ -24,20 +24,15 @@ export default async function MicroAppPage(props: { params: Promise<{ id: string
       title={config.name} 
       hideNavigation={true}
       branding="APP STUDIO PUBLISHED"
+      headerRightContent={
+        <div className="px-2 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-blue-500/20">
+          Live Data
+        </div>
+      }
     >
       <div className="p-4 sm:p-6 animate-in fade-in duration-700">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-900/5">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-            <div>
-              <h1 className="text-xl font-black text-slate-900">{config.name}</h1>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                Published via {config.templateId} Template
-              </p>
-            </div>
-            <div className="px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest shadow-lg shadow-blue-500/20">
-              Live Data
-            </div>
-          </div>
+
           
           <div className="p-0">
             <TemplateRenderer 

@@ -190,10 +190,18 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
       const totalBalance = processedAccounts.reduce((sum, acc) => sum + acc.balance, 0);
       
       const processedTransactions = rawData.map(item => {
-        const inflow = findNumeric(item, mapping.inflow, ['inflow', 'deposit', 'inAmt', 'in_amt', 'deposit_amt', 'IN_AMT', '입금', '입금액', '입금금액']);
-        const outflow = findNumeric(item, mapping.outflow, ['outflow', 'withdrawal', 'outAmt', 'out_amt', 'withdraw_amt', 'OUT_AMT', '출금', '출금액', '출금금액']);
+        let inflow = findNumeric(item, mapping.inflow, ['inflow', 'deposit', 'inAmt', 'in_amt', 'deposit_amt', 'IN_AMT', '입금', '입금액', '입금금액']);
+        let outflow = findNumeric(item, mapping.outflow, ['outflow', 'withdrawal', 'outAmt', 'out_amt', 'withdraw_amt', 'OUT_AMT', '출금', '출금액', '출금금액']);
         
-        let dateVal = item[mapping.date] || item.date || item.TRAN_DATE || item.transactionDate || item.tranDate || item.date_time || item.transaction_datetime || '';
+        if (inflow === 0 && outflow === 0) {
+          const genericAmt = findNumeric(item, 'amount', ['amount', 'amt', '승인금액', '결제금액', '금액']);
+          if (genericAmt > 0) {
+             if (item.noteType === 'received' || String(item.type).includes('deposit') || String(item.category).includes('수입')) inflow = genericAmt;
+             else outflow = genericAmt;
+          }
+        }
+
+        let dateVal = item[mapping.date] || item.date || item.TRAN_DATE || item.transactionDate || item.tranDate || item.date_time || item.transaction_datetime || item.issueDate || item.approvalDate || item.paymentDate || '';
         if (typeof dateVal === 'string' && dateVal.length === 8 && !dateVal.includes('-')) {
             dateVal = `${dateVal.substring(0, 4)}-${dateVal.substring(4, 6)}-${dateVal.substring(6, 8)}`;
         }
@@ -243,14 +251,23 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
     let totalOut = 0;
 
     const processed = rawData.map(item => {
-      const inflow = findNumeric(item, mapping.inflow, ['inflow', 'deposit', 'inAmt', 'deposit_amt', '입금', '입금액', '입금금액']);
-      const outflow = findNumeric(item, mapping.outflow, ['outflow', 'withdrawal', 'outAmt', 'out_amt', 'withdraw_amt', '출금', '출금액', '출금금액']);
+      let inflow = findNumeric(item, mapping.inflow, ['inflow', 'deposit', 'inAmt', 'deposit_amt', '입금', '입금액', '입금금액']);
+      let outflow = findNumeric(item, mapping.outflow, ['outflow', 'withdrawal', 'outAmt', 'out_amt', 'withdraw_amt', '출금', '출금액', '출금금액']);
+      
+      if (inflow === 0 && outflow === 0) {
+        const genericAmt = findNumeric(item, 'amount', ['amount', 'amt', '승인금액', '결제금액', '금액']);
+        if (genericAmt > 0) {
+           if (item.noteType === 'received' || String(item.type).includes('deposit') || String(item.category).includes('수입')) inflow = genericAmt;
+           else outflow = genericAmt;
+        }
+      }
+
       const rowBalance = findNumeric(item, 'BALANCE', ['balance', 'cur_bal', '잔액', '현잔액', '거래후잔액']);
       
       const bank = findString(item, mapping.bankName, ['bank', 'org', 'name', '은행']) || '기타 계좌';
       const accNum = findString(item, mapping.accountNumber, ['acc', 'no', 'number', '계좌']) || '';
       
-      let date = item[mapping.date] || item.date || item.transactionDate || item.tranDate || item.date_time || item.transaction_datetime || '';
+      let date = item[mapping.date] || item.date || item.transactionDate || item.tranDate || item.date_time || item.transaction_datetime || item.issueDate || item.approvalDate || item.paymentDate || '';
       if (typeof date === 'string' && date.length === 8 && !date.includes('-')) {
         date = `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
       }
@@ -320,7 +337,7 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
             <div className="h-4 w-[1px] bg-slate-200" />
             <p className="text-slate-500 font-medium flex items-center gap-2">
               <Database className="w-4 h-4 text-emerald-500" />
-              데이터 소스: <span className="text-emerald-600 font-bold">{data?._sourceName || '실시간 연동'}</span>
+              데이터 소스: <span className="text-emerald-600 font-bold">{uiSettings?.tableDisplayName || data?._sourceName || '실시간 연동'}</span>
             </p>
           </div>
         </div>

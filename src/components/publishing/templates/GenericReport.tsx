@@ -23,8 +23,12 @@ export function GenericReport({ id, data, mapping, uiSettings, appName }: Generi
       // 1. 현재 테이블(dataset)에 존재하는 실제 컬럼 목록을 추출
       const validColumnNames = new Set(rawColumns.map((c: any) => c.name));
       
-      // 2. 전체 매핑 설정 중 현재 테이블에 존재하는 컬럼만 필터링
-      const filteredMapping = mapping.filter((m: any) => validColumnNames.has(m.sourceColumn));
+      // 2. 전체 매핑 설정 중 현재 테이블에 존재하고, sourceTableId가 일치하는 컬럼만 필터링
+      const filteredMapping = mapping.filter((m: any) => {
+        const isColumnValid = validColumnNames.has(m.sourceColumn);
+        const isTableValid = !m.sourceTableId || m.sourceTableId === sourceData.id;
+        return isColumnValid && isTableValid;
+      });
       
       // 3. 필터링된 매핑이 하나라도 있으면 해당 매핑만 반환 (없으면 빈 배열 반환하여 잘못된 컬럼 렌더링 방지)
       if (filteredMapping.length > 0) {
@@ -60,7 +64,7 @@ export function GenericReport({ id, data, mapping, uiSettings, appName }: Generi
                 <div className="flex items-center gap-3">
                   <div className="w-1.5 h-6 bg-blue-600 rounded-full" />
                   <h3 className="text-sm font-black text-slate-800 tracking-widest">
-                    {dataset._sourceName || dataset.name || dataset.id || `Source ${idx + 1}`}
+                    {uiSettings?.tableDisplayName || dataset._sourceName || dataset.name || dataset.id || `Source ${idx + 1}`}
                   </h3>
                 </div>
                 <div className="text-[10px] font-bold text-slate-400 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">

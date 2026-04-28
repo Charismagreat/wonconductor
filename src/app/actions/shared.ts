@@ -5,32 +5,6 @@ import { queryTable } from '@/egdesk-helpers';
 export const SALT_SIZE = 16;
 export const KEY_LEN = 64;
 
-/**
- * 외부 의존성 없이 작동하는 안전한 ID 생성기
- */
-export function generateSafeId() {
-    return 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2, 10);
-}
-
-/**
- * 프록시 Prisma 백엔드의 Int 제약을 피하기 위한 숫자형 ID 생성기
- */
-export function generateNumericId() {
-    return Math.floor(Math.random() * 2147483647);
-}
-
-/**
- * 전역에서 사용할 수 있는 안전한 ID 생성기
- */
-export function generateId(): string {
-    try {
-        if (typeof crypto.randomUUID === 'function') {
-            return crypto.randomUUID();
-        }
-    } catch (e) {}
-    // Fallback for older Node versions or environments
-    return crypto.randomBytes(16).toString('hex');
-}
 
 export function hashPassword(password: string): string {
     const salt = crypto.randomBytes(SALT_SIZE).toString('hex');
@@ -54,14 +28,14 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 export async function checkReportAuthorization(reportId: string, userId: string, role: string) {
     if (role === 'ADMIN' || role === 'EDITOR') return true;
     
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { id: String(reportId) } });
     const report = reports[0];
     
     if (!report) return false;
     if (report.ownerId === userId) return true;
     
     // 1. 개별 사용자 권한 확인
-    const userAccess = await queryTable('report_access', { 
+    const userAccess = await queryTable('dashboard_access', { 
         filters: { reportId: String(reportId), userId: String(userId) } 
     });
     if (userAccess.length > 0) return true;
@@ -70,7 +44,7 @@ export async function checkReportAuthorization(reportId: string, userId: string,
     const users = await queryTable('user', { filters: { id: String(userId) } });
     const user = users[0];
     if (user && user.departmentId) {
-        const deptAccess = await queryTable('report_access', {
+        const deptAccess = await queryTable('dashboard_access', {
             filters: { reportId: String(reportId), departmentId: String(user.departmentId) }
         });
         if (deptAccess.length > 0) return true;
@@ -85,7 +59,7 @@ export async function checkReportAuthorization(reportId: string, userId: string,
 export const SYSTEM_TABLES = [
     {
         tableName: 'user', displayName: 'System Users', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'username', type: 'TEXT', notNull: true },
             { name: 'email', type: 'TEXT' },
             { name: 'password', type: 'TEXT' },
@@ -100,8 +74,9 @@ export const SYSTEM_TABLES = [
         ] as any[]
     },
     {
-        tableName: 'report', displayName: 'System Reports', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+        tableName: 'dashboard_master', displayName: 'Dashboard Master Metadata', schema: [
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+            { name: 'reportId', type: 'TEXT', unique: true },
             { name: 'name', type: 'TEXT', notNull: true },
             { name: 'sheetName', type: 'TEXT' },
             { name: 'description', type: 'TEXT' },
@@ -119,7 +94,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'workflow_steering', displayName: 'AI Workflow Steering', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'reportId', type: 'TEXT', notNull: true },
             { name: 'rowId', type: 'TEXT' },
             { name: 'eventType', type: 'TEXT', defaultValue: 'INSERT' },
@@ -132,8 +107,8 @@ export const SYSTEM_TABLES = [
         ] as any[]
     },
     {
-        tableName: 'report_row', displayName: 'Virtual Report Rows', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+        tableName: 'dashboard_data', displayName: 'Dashboard Virtual Rows', schema: [
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'reportId', type: 'TEXT', notNull: true },
             { name: 'data', type: 'TEXT', notNull: true },
             { name: 'contentHash', type: 'TEXT' },
@@ -146,7 +121,7 @@ export const SYSTEM_TABLES = [
         ] as any[]
     },
     {
-        tableName: 'report_access', displayName: 'Report Access Controls', schema: [
+        tableName: 'dashboard_access', displayName: 'Dashboard Access Controls', schema: [
             { name: 'reportId', type: 'TEXT', notNull: true },
             { name: 'userId', type: 'TEXT' }, // NULL 가능 (부서 권한일 경우)
             { name: 'departmentId', type: 'TEXT' }, // 부서 ID (사용자 권한일 경우 NULL)
@@ -156,8 +131,8 @@ export const SYSTEM_TABLES = [
         ] as any[]
     },
     {
-        tableName: 'report_row_history', displayName: 'Report Row History', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+        tableName: 'dashboard_data_history', displayName: 'Dashboard Row History', schema: [
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'rowId', type: 'TEXT', notNull: true },
             { name: 'oldData', type: 'TEXT' },
             { name: 'newData', type: 'TEXT' },
@@ -168,7 +143,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'workspace_item', displayName: 'Workspace Image Items', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'creatorId', type: 'TEXT' },
             { name: 'imageUrl', type: 'TEXT' },
             { name: 'originalText', type: 'TEXT' },
@@ -180,12 +155,15 @@ export const SYSTEM_TABLES = [
             { name: 'rowId', type: 'TEXT' },
             { name: 'metadata', type: 'TEXT' }, // 샘플 데이터 태깅 용도
             { name: 'createdAt', type: 'TEXT', notNull: true },
-            { name: 'updatedAt', type: 'TEXT', notNull: true }
+            { name: 'updatedAt', type: 'TEXT', notNull: true },
+            { name: 'location_lat', type: 'REAL' },
+            { name: 'location_lng', type: 'REAL' },
+            { name: 'location_name', type: 'TEXT' }
         ] as any[]
     },
     {
         tableName: 'notification', displayName: 'User Notifications', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'userId', type: 'TEXT', notNull: true },
             { name: 'title', type: 'TEXT', notNull: true },
             { name: 'message', type: 'TEXT' },
@@ -198,7 +176,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'workflow_template', displayName: 'Workflow Templates', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'name', type: 'TEXT', notNull: true },
             { name: 'triggerReportId', type: 'TEXT', notNull: true },
             { name: 'triggerCondition', type: 'TEXT' }, // JSON string
@@ -208,7 +186,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'workflow_instance', displayName: 'Workflow Instances', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'templateId', type: 'TEXT', notNull: true },
             { name: 'triggerRowId', type: 'TEXT', notNull: true },
             { name: 'status', type: 'TEXT', defaultValue: 'RUNNING' },
@@ -218,7 +196,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'action_task', displayName: 'Action Tasks', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'instanceId', type: 'TEXT' }, // 워크플로우 인스턴스와 배정된 경우
             { name: 'reportId', type: 'TEXT' }, // 특정 보고서와 직접 연결된 경우
             { name: 'title', type: 'TEXT', notNull: true },
@@ -235,7 +213,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'action_task_history', displayName: 'Action Task History', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'taskId', type: 'TEXT', notNull: true },
             { name: 'oldStatus', type: 'TEXT' },
             { name: 'newStatus', type: 'TEXT', notNull: true },
@@ -245,7 +223,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'department', displayName: 'Organization Departments', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'name', type: 'TEXT', notNull: true },
             { name: 'description', type: 'TEXT' },
             { name: 'icon', type: 'TEXT' },
@@ -255,7 +233,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'input_guardrail', displayName: 'Input Data Guardrails', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'reportId', type: 'TEXT' }, // NULL이면 전역 규칙
             { name: 'columnName', type: 'TEXT' },
             { name: 'ruleType', type: 'TEXT', notNull: true }, // regex, range, options, type_check 등
@@ -267,7 +245,7 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'dashboard_chart', displayName: 'Dashboard Chart Widgets', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
             { name: 'userId', type: 'TEXT' },
             { name: 'config', type: 'TEXT', notNull: true }, // JSON content
             { name: 'layout', type: 'TEXT' }, // JSON content
@@ -278,8 +256,8 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'micro_app_config', displayName: 'Micro App Configurations', schema: [
-            { name: 'id', type: 'TEXT', notNull: true },
-            { name: 'name', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+            { name: 'projectId', type: 'TEXT', notNull: true },
             { name: 'templateId', type: 'TEXT', notNull: true },
             { name: 'sourceTableId', type: 'TEXT', notNull: true },
             { name: 'mappingConfig', type: 'TEXT' }, // JSON
@@ -304,9 +282,23 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'source_view_settings', displayName: 'Centralized Source View Settings', schema: [
-            { name: 'id', type: 'TEXT', notNull: true }, // sourceTableId
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+            { name: 'sourceId', type: 'TEXT', notNull: true }, // sourceTableId (slug)
             { name: 'view_config', type: 'TEXT', notNull: true }, // JSON: { columns: [{ name, displayName, order, visible, type }] }
             { name: 'updatedAt', type: 'TEXT', notNull: true }
+        ] as any[]
+    },
+    {
+        tableName: 'table_master', displayName: 'Physical Table Registry', schema: [
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+            { name: 'tableName', type: 'TEXT', unique: true, notNull: true },
+            { name: 'displayName', type: 'TEXT' },
+            { name: 'category', type: 'TEXT' }, // INDUSTRY, EXCEL, SYSTEM
+            { name: 'schema', type: 'TEXT' }, // JSON Column Schema
+            { name: 'rowCount', type: 'INTEGER', defaultValue: 0 },
+            { name: 'isDeleted', type: 'INTEGER', defaultValue: 0 },
+            { name: 'createdAt', type: 'TEXT', notNull: true },
+            { name: 'updatedAt', type: 'TEXT' }
         ] as any[]
     }
 ];

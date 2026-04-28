@@ -232,8 +232,13 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
 
   const handlePinChart = async (id: string, config: any, layout?: any) => {
     try {
-      await savePinnedChartAction(id, { ...config, layout });
-      setPinnedIds(prev => [...prev, id]);
+      const res = await savePinnedChartAction(id, { ...config, layout });
+      const newId = res.success && res.id ? String(res.id) : id;
+      
+      if (newId !== id) {
+          setCharts(prev => prev.map(c => c.id === id ? { ...c, id: newId } : c));
+      }
+      setPinnedIds(prev => [...prev, newId]);
       alert('차트가 리포트 갤러리에 고정되었습니다!');
     } catch (error) {
       console.error('Pin Error:', error);

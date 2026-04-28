@@ -14,7 +14,7 @@ export async function getReportsAction() {
     }
 
     try {
-        const reports = await queryTable('report', { limit: 1000 });
+        const reports = await queryTable('dashboard_master', { limit: 1000 });
         return reports || [];
     } catch (err) {
         console.error('[Guardrail Action] Error fetching reports:', err);

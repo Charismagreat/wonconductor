@@ -255,7 +255,7 @@ export async function deleteNotificationGroupAction(link: string) {
             
             // workspace_item 및 report_row 하드 삭제 시도하여 데이터 정합성 확보
             await deleteRows('workspace_item', { filters: { id: itemId } });
-            await deleteRows('report_row', { filters: { id: itemId } });
+            await deleteRows('dashboard_data', { filters: { id: itemId } });
         }
 
         revalidatePath('/notifications');

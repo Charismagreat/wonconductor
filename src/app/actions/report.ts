@@ -10,7 +10,7 @@ import {
     renameTable
 } from '@/egdesk-helpers';
 import { 
-    generateId, 
+ 
     checkReportAuthorization 
 } from './shared';
 import { getSessionAction } from './auth';
@@ -23,10 +23,10 @@ import { ReportService } from '@/lib/services/report-service';
  * 보고서를 삭제 상태로 변경합니다. (Soft Delete)
  */
 export async function deleteReportAction(reportId: string) {
-    await updateRows('report', { 
+    await updateRows('dashboard_master', { 
         isDeleted: 1,
         deletedAt: new Date().toISOString()
-    }, { filters: { id: String(reportId) } });
+    }, { filters: { reportId: String(reportId) } });
     revalidatePath('/');
     revalidatePath('/archive');
 }
@@ -35,10 +35,10 @@ export async function deleteReportAction(reportId: string) {
  * 삭제된 보고서를 복구합니다.
  */
 export async function restoreReportAction(reportId: string) {
-    await updateRows('report', { 
+    await updateRows('dashboard_master', { 
         isDeleted: 0,
         deletedAt: null
-    }, { filters: { id: String(reportId) } });
+    }, { filters: { reportId: String(reportId) } });
     revalidatePath('/');
     revalidatePath('/archive');
 }
@@ -47,7 +47,7 @@ export async function restoreReportAction(reportId: string) {
  * 보고서를 완전히 삭제하고 연관된 모든 데이터를 정리합니다.
  */
 export async function permanentDeleteReportAction(reportId: string) {
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     
     await ReportService.permanentDeleteReport(reportId, report?.tableName);
@@ -60,7 +60,7 @@ export async function permanentDeleteReportAction(reportId: string) {
  * 보고서의 이름을 변경합니다.
  */
 export async function renameReportAction(reportId: string, newName: string) {
-    await updateRows('report', { name: newName }, { filters: { id: String(reportId) } });
+    await updateRows('dashboard_master', { name: newName }, { filters: { reportId: String(reportId) } });
     revalidatePath(`/report/${reportId}`);
     revalidatePath('/');
 }
@@ -70,12 +70,12 @@ export async function renameReportAction(reportId: string, newName: string) {
  * AI를 통해 컬럼 추천을 받습니다.
  */
 export async function getSchemaRecommendationAction(reportId: string) {
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     if (!report) throw new Error('보고서를 찾을 수 없습니다.');
 
     const currentColumns = JSON.parse(report.columns);
-    const sampleRows = await queryTable('report_row', { 
+    const sampleRows = await queryTable('dashboard_data', { 
         filters: { reportId: String(reportId) },
         limit: 20
     });
@@ -95,8 +95,8 @@ export async function updateReportAccessAction(reportId: string, userIds: string
         throw new Error('접근 권한이 없습니다.');
     }
 
-    await SystemTableService.ensureTable('report_access');
-    await deleteRows('report_access', { filters: { reportId } });
+    await SystemTableService.ensureTable('dashboard_access');
+    await deleteRows('dashboard_access', { filters: { reportId } });
     
     const records: any[] = [];
     
@@ -129,7 +129,7 @@ export async function updateReportAccessAction(reportId: string, userIds: string
     }
 
     if (records.length > 0) {
-        await insertRows('report_access', records);
+        await insertRows('dashboard_access', records);
     }
 
     revalidatePath(`/report/${reportId}`);
@@ -144,8 +144,8 @@ export async function updateReportAccessAction(reportId: string, userIds: string
 export async function getReportAccessListAction(reportId: string) {
     if (!reportId) return { users: [], departments: [] };
     try {
-        await SystemTableService.ensureTable('report_access');
-        const accessList = await queryTable('report_access', { filters: { reportId: String(reportId) } });
+        await SystemTableService.ensureTable('dashboard_access');
+        const accessList = await queryTable('dashboard_access', { filters: { reportId: String(reportId) } });
         
         const userIds = accessList.map((a: any) => a.userId).filter(Boolean);
         const departmentIds = accessList.map((a: any) => a.departmentId).filter(Boolean);
@@ -190,9 +190,9 @@ export async function createManualReportAction(name: string, sheetName: string, 
         ];
     }
 
-    const reportId = generateId();
-    await insertRows('report', [{
-        id: reportId,
+    const reportIdStr = `rep-${Date.now()}`;
+    const insertRes = await insertRows('dashboard_master', [{
+        reportId: reportIdStr,
         name,
         sheetName,
         columns: JSON.stringify(finalColumns),
@@ -200,6 +200,9 @@ export async function createManualReportAction(name: string, sheetName: string, 
         createdAt: new Date().toISOString(),
         lastSerial: 0
     }]);
+
+    const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+    const reportId = reportIdStr;
 
     revalidatePath('/');
     redirect(`/report/${reportId}?action=new`);
@@ -214,7 +217,7 @@ export async function updateReportSchemaAction(
     convertExistingData: boolean = false,
     newName?: string
 ) {
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     if (!report) throw new Error('보고서를 찾을 수 없습니다.');
     const oldColumns = JSON.parse(report.columns || '[]');
@@ -231,11 +234,11 @@ export async function updateReportSchemaAction(
             
             const updateValues: any = { tableName: newTableName, columns: JSON.stringify(columns) };
             if (newName) updateValues.name = newName;
-            await updateRows('report', updateValues, { filters: { id: String(reportId) } });
+            await updateRows('dashboard_master', updateValues, { filters: { reportId: String(reportId) } });
         } else {
             const updateValues: any = { columns: JSON.stringify(columns) };
             if (newName) updateValues.name = newName;
-            await updateRows('report', updateValues, { filters: { id: String(reportId) } });
+            await updateRows('dashboard_master', updateValues, { filters: { reportId: String(reportId) } });
             
             if (newName && report.tableName) {
                 await renameTable(report.tableName, report.tableName, newName).catch(() => {});
@@ -244,7 +247,7 @@ export async function updateReportSchemaAction(
     } else {
         const updateValues: any = { columns: JSON.stringify(columns) };
         if (newName) updateValues.name = newName;
-        await updateRows('report', updateValues, { filters: { id: String(reportId) } });
+        await updateRows('dashboard_master', updateValues, { filters: { reportId: String(reportId) } });
     }
 
     // 2. 기존 데이터 변환 (가상 테이블 중심)

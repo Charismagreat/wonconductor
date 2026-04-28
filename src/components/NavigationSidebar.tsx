@@ -83,7 +83,7 @@ export default function NavigationSidebar({ user, isCollapsed = false, onToggle,
       desc: 'AI 마이크로앱 조립 및 스튜디오'
     },
     {
-      name: 'ANALYSIS STUDIO',
+      name: 'CHART STUDIO',
       href: '/dashboard/studio',
       icon: Compass,
       active: pathname === '/dashboard/studio',

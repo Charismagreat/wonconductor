@@ -48,10 +48,10 @@ export function DeleteReportButton({ reportId, reportName }: DeleteReportButtonP
             <AlertTriangle className="text-red-500" size={32} />
           </div>
           
-          <h3 className="text-xl font-black text-slate-900 mb-2">보고서 영구 삭제</h3>
+          <h3 className="text-xl font-black text-slate-900 mb-2">테이블 삭제</h3>
           <p className="text-sm font-medium text-slate-500 leading-relaxed px-4">
             <span className="text-slate-900 font-bold">"{reportName}"</span><br />
-            정말로 삭제하시겠습니까? 관련 데이터가 모두 보관함(Archive)으로 이동됩니다.
+            정말로 삭제하시겠습니까? 데이터가 모두 보관함(Archive)으로 이동됩니다.
           </p>
         </div>
 

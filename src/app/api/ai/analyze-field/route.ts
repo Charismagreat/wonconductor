@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         const imageBase64 = imageFile ? Buffer.from(await imageFile.arrayBuffer()).toString('base64') : null;
 
         // 2. Fetch available tables to help AI decide context
-        const reports = await queryTable('report', { limit: 20 });
+        const reports = await queryTable('dashboard_master', { limit: 20 });
         const reportContext = reports.map(r => `- ${r.name} (ID: ${r.id}, Description: ${r.description})`).join('\n');
 
         // 3. AIS Prompt Construction

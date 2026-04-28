@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SystemConfigService } from '@/lib/services/system-config-service';
 import { listTables, createTable, queryTable, insertRows } from '@/egdesk-helpers';
-import { hashPassword, generateId, SYSTEM_TABLES } from '@/app/actions/shared';
+import { hashPassword, SYSTEM_TABLES } from '@/app/actions/shared';
 
 /**
  * API to initialize the system settings for a new company.
@@ -43,7 +43,6 @@ export async function POST(request: Request) {
             const adminPassword = hashPassword('admin123');
             try {
             await insertRows('user', [{
-                id: generateId(),
                 username: 'admin',
                 password: adminPassword,
                 role: 'ADMIN',

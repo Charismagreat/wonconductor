@@ -8,7 +8,7 @@ import {
     deleteRows,
     executeSQL
 } from '@/egdesk-helpers';
-import { generateId, hashPassword } from './shared';
+import { hashPassword } from './shared';
 import { getSessionAction } from './auth';
 
 /**
@@ -48,12 +48,14 @@ export async function upsertDepartmentAction(data: { id?: string, name: string, 
             description: data.description 
         }, { filters: { id: data.id } });
     } else {
-        await insertRows('department', [{
-            id: generateId(),
+        const insertRes = await insertRows('department', [{
+            
             name: data.name,
             description: data.description,
             createdAt: new Date().toISOString()
         }]);
+        const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+        const deptId = insertedRow.id;
     }
 
     revalidatePath('/admin/organization');
@@ -83,27 +85,28 @@ export async function createMemberAction(data: any) {
         if (existing) {
             departmentId = existing.id;
         } else {
-            departmentId = generateId();
-            await insertRows('department', [{
-                id: departmentId,
+            const insertRes = await insertRows('department', [{
+                
                 name: data.departmentName,
                 createdAt: new Date().toISOString()
             }]);
+            const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+            departmentId = insertedRow.id;
         }
     }
 
-    const userId = generateId();
     const { departmentName, ...cleanData } = data; // user 테이블에 없는 필드 제거
-
-    await insertRows('user', [{
+    const insertRes = await insertRows('user', [{
         ...cleanData,
-        id: userId,
+        
         departmentId,
         username: data.username || `user_${data.employeeId || Date.now()}`,
         password: hashPassword('1234'), // 기본 패스워드 설정
         isActive: 1,
         createdAt: new Date().toISOString()
     }]);
+    const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+    const userId = insertedRow.id;
 
     revalidatePath('/admin/organization');
     return { success: true };
@@ -124,12 +127,13 @@ export async function updateMemberAction(memberId: string, data: any) {
         if (existing) {
             departmentId = existing.id;
         } else {
-            departmentId = generateId();
-            await insertRows('department', [{
-                id: departmentId,
+            const insertRes = await insertRows('department', [{
+                
                 name: data.departmentName,
                 createdAt: new Date().toISOString()
             }]);
+            const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+            departmentId = insertedRow.id;
         }
     }
 
@@ -187,12 +191,13 @@ export async function syncOrganizationExcelAction(excelRows: any[]) {
         // 부서가 없으면 자동 생성
         let deptId = deptMap.get(deptName);
         if (deptName && !deptId) {
-            deptId = generateId();
-            await insertRows('department', [{
-                id: deptId,
+            const insertRes = await insertRows('department', [{
+                
                 name: deptName,
                 createdAt: new Date().toISOString()
             }]);
+            const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+            deptId = insertedRow.id;
             deptMap.set(deptName, deptId);
             stats.deptsCreated++;
         }
@@ -210,7 +215,7 @@ export async function syncOrganizationExcelAction(excelRows: any[]) {
         } else {
             // 신규 유저 생성
             usersToInsert.push({
-                id: generateId(),
+                
                 username: `user_${employeeId}`, // 기본 유저네임
                 fullName,
                 email,

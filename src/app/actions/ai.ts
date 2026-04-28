@@ -8,10 +8,6 @@ import {
     deleteRows,
     createTable
 } from '@/egdesk-helpers';
-import { 
-    generateId, 
-    generateNumericId 
-} from './shared';
 import { getSessionAction } from './auth';
 import { analyzeExcelImage, extractDataFromImage, analyzeComplexDocument } from '@/lib/ai-vision';
 import { getVisualizationRecommendation } from '@/lib/dashboard-ai';
@@ -114,7 +110,7 @@ export async function savePinnedChartAction(chartId: string, config: any) {
     if (!user) throw new Error('인증이 필요합니다.');
     
     const pinned = await loadAllPinnedChartsAction();
-    const existingIndex = pinned.findIndex(p => p.id === chartId);
+    const existingIndex = pinned.findIndex(p => String(p.id) === String(chartId));
     
     if (existingIndex > -1) {
         pinned[existingIndex] = { 
@@ -123,8 +119,9 @@ export async function savePinnedChartAction(chartId: string, config: any) {
             updatedAt: new Date().toISOString() 
         };
     } else {
+        // 신규 차트 추가 (ID는 DB 저장 시 정수로 변환됨)
         pinned.push({
-            id: chartId,
+            id: chartId, // 임시 UUID
             userId: user.id,
             config,
             createdAt: new Date().toISOString(),
@@ -132,9 +129,15 @@ export async function savePinnedChartAction(chartId: string, config: any) {
         });
     }
     
-    await saveAllPinnedChartsAction(pinned);
+    // saveAllPinnedChartsAction에서 ID를 정수로 변환하고 결과를 반환받음
+    const result = await saveAllPinnedChartsAction(pinned);
     revalidatePath('/dashboard');
-    return { success: true };
+    
+    // 신규 추가된 경우 새로 생성된 정수 ID를 반환
+    return { 
+        success: true, 
+        id: result?.newId || chartId 
+    };
 }
 
 /**

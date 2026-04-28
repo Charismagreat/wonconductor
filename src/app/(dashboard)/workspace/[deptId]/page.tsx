@@ -121,7 +121,7 @@ export default async function DepartmentWorkspacePage({
                             </div>
                             <div className="flex gap-3">
                                 <button className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-500/20">긴급 지시 발행</button>
-                                <button className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm">리포트 생성</button>
+                                <button className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm">일반 테이블 생성</button>
                             </div>
                         </div>
                     )}

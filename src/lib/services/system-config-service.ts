@@ -1,4 +1,4 @@
-import { queryTable, updateRows, listTables, createTable, insertRows } from '@/egdesk-helpers';
+import { queryTable, updateRows, listTables, createTable, insertRows, getTableSchema, executeSQL, deleteTable } from '@/egdesk-helpers';
 import { SYSTEM_TABLES } from '@/app/actions/shared';
 
 export interface SystemSettings {
@@ -98,6 +98,33 @@ export class SystemConfigService {
                     console.log(`[SystemConfigService] Created table: ${table.tableName}`);
                 } catch (e: any) {
                     console.warn(`[SystemConfigService] Failed to create table ${table.tableName}:`, e.message);
+                }
+            } else {
+                // [Self-Healing] 컬럼 누락 체크 (특히 report 테이블의 id 컬럼)
+                try {
+                    const schema = await getTableSchema(table.tableName).catch(() => []);
+                    const hasId = schema.some((c: any) => c.name.toLowerCase() === 'id');
+                    
+                    if (!hasId && table.tableName === 'dashboard_master') {
+                        console.log(`[SystemConfigService] Migrating 'dashboard_master' table to include 'id' column...`);
+                        
+                        // 1. 기존 데이터 백업
+                        const oldRows = await queryTable('dashboard_master', { limit: 10000 }).catch(() => []);
+                        
+                        // 2. 기존 테이블 삭제 (SQLite는 ALTER COLUMN PK 지원이 제한적이므로 재생성 방식 사용)
+                        await deleteTable('dashboard_master').catch(() => {});
+                        
+                        // 3. 신규 테이블 생성 (id 포함)
+                        await createTable(table.displayName, table.schema, { tableName: table.tableName });
+                        
+                        // 4. 데이터 복구
+                        if (oldRows.length > 0) {
+                            await insertRows('dashboard_master', oldRows);
+                        }
+                        console.log(`[SystemConfigService] Migration of 'dashboard_master' table completed successfully.`);
+                    }
+                } catch (err: any) {
+                    console.warn(`[SystemConfigService] Schema check failed for ${table.tableName}:`, err.message);
                 }
             }
         }

@@ -15,7 +15,7 @@ export async function getTodayAttendanceAction() {
 
     try {
         // SQL 엔진의 500 에러를 회피하기 위해 전체 조회 후 JS 레벨에서 필터링
-        const result = await executeSQL('SELECT * FROM report_row');
+        const result = await executeSQL('SELECT * FROM dashboard_data');
         
         if (result.rows && result.rows.length > 0) {
             // 오늘 날짜의 해당 사용자가 작성한 '출근' 타입 행 찾기

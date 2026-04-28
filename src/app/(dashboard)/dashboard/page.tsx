@@ -21,7 +21,7 @@ export default async function ReportGalleryPage() {
       className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
     >
       <Plus size={18} />
-      새 분석 시작하기
+      새 차트 만들기
     </Link>
   );
 
@@ -41,7 +41,7 @@ export default async function ReportGalleryPage() {
               <ImageIcon size={40} className="text-slate-200" />
             </div>
             <h2 className="text-xl font-black text-slate-900 uppercase tracking-widest mb-2">갤러리가 비어 있습니다</h2>
-            <p className="text-slate-400 font-medium max-w-sm">Data Analysis Studio에서 차트를 분석하고 핀 아이콘을 눌러 이곳에 나만의 리포트를 구성해 보세요.</p>
+            <p className="text-slate-400 font-medium max-w-sm">Data Chart Studio에서 차트를 분석하고 핀 아이콘을 눌러 이곳에 나만의 리포트를 구성해 보세요.</p>
           </div>
         ) : (
           <GalleryClient initialCharts={pinnedCharts} />

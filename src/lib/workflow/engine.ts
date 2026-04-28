@@ -24,7 +24,7 @@ export async function triggerWorkflow(reportId: string, rowData: any, creatorId:
         // 1. AI에게 분석 및 조치 추천 요청 (이 로직 내부에서 steering 테이블에 저장됨)
         // rowId를 찾기 위해 queryTable 호출
         const { queryTable } = await import('@/egdesk-helpers');
-        const rows = await queryTable('report_row', { 
+        const rows = await queryTable('dashboard_data', { 
             filters: { reportId: reportId },
             limit: 1,
             orderBy: 'createdAt',

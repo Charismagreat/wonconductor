@@ -28,7 +28,7 @@ export async function addRowAction(reportId: string, rowData: any) {
   const isAuthorized = await checkReportAuthorization(reportId, user.id, user.role);
   if (!isAuthorized) throw new Error('해당 보고서에 대한 접근 권한이 없습니다.');
 
-  const reports: any = await queryTable('report', { filters: { id: String(reportId) } });
+  const reports: any = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
   const report = reports[0];
   if (!report) throw new Error('보고서를 찾을 수 없습니다.');
 
@@ -43,7 +43,7 @@ export async function addRowAction(reportId: string, rowData: any) {
 
   // 2. 중복 체크
   try {
-      const existingRows: any = await queryTable('report_row', {
+      const existingRows: any = await queryTable('dashboard_data', {
           filters: { reportId: String(reportId), contentHash: String(hash), isDeleted: '0' }
       });
       if (existingRows.length > 0) throw new Error('이미 동일한 내용의 데이터가 존재합니다. (중복 방지)');
@@ -60,7 +60,7 @@ export async function addRowAction(reportId: string, rowData: any) {
       cleanedData[idCol.name] = `${idCol.autoPrefix || 'DID-'}${nextSerial.toString().padStart(6, '0')}`;
       
       // 일련번호 업데이트 (실패해도 진행)
-      updateRows('report', { lastSerial: nextSerial }, { filters: { id: String(reportId) } }).catch(() => {});
+      updateRows('dashboard_master', { lastSerial: nextSerial }, { filters: { reportId: String(reportId) } }).catch(() => {});
   }
 
   // 4. 저장 (물리 + 가상 테이블)
@@ -95,7 +95,7 @@ export async function addRowsAction(reportId: string, rows: any[]) {
     const isAuthorized = await checkReportAuthorization(reportId, user.id, user.role);
     if (!isAuthorized) throw new Error('해당 보고서에 대한 접근 권한이 없습니다.');
 
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     if (!report) throw new Error('보고서를 찾을 수 없습니다.');
   
@@ -107,7 +107,7 @@ export async function addRowsAction(reportId: string, rows: any[]) {
     let skippedCount = 0;
     
     // 기존 해시값 로드 (중복 방지용)
-    const existingRows = await queryTable('report_row', { filters: { reportId: String(reportId), isDeleted: '0' } });
+    const existingRows = await queryTable('dashboard_data', { filters: { reportId: String(reportId), isDeleted: '0' } });
     const existingHashes = new Set(existingRows.map((r: any) => r.contentHash));
 
     for (const rowData of rows) {
@@ -147,11 +147,11 @@ export async function addRowsAction(reportId: string, rows: any[]) {
             updatedAt: new Date().toISOString(),
             isDeleted: 0
         }));
-        await insertRows('report_row', virtualRows);
+        await insertRows('dashboard_data', virtualRows);
         
         // 마지막 일련번호 업데이트
         if (idCol) {
-            await updateRows('report', { lastSerial: nextSerial - 1 }, { filters: { id: String(reportId) } });
+            await updateRows('dashboard_master', { lastSerial: nextSerial - 1 }, { filters: { reportId: String(reportId) } });
         }
     }
   
@@ -178,10 +178,10 @@ export async function updateSingleRowAction(reportId: string, rowId: string, new
     const isAuthorized = await checkReportAuthorization(reportId, user.id, user.role);
     if (!isAuthorized) throw new Error('해당 보고서에 대한 접근 권한이 없습니다.');
 
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     const columns = JSON.parse(report.columns);
-    const rows = await queryTable('report_row', { filters: { id: String(rowId) } });
+    const rows = await queryTable('dashboard_data', { filters: { id: String(rowId) } });
     const row = rows[0];
 
     if (user.role === 'VIEWER' && row.creatorId !== user.id) {
@@ -190,7 +190,7 @@ export async function updateSingleRowAction(reportId: string, rowId: string, new
 
     // 1. 가상 테이블 업데이트
     const updatedDataStr = JSON.stringify(newData);
-    await updateRows('report_row', {
+    await updateRows('dashboard_data', {
         data: updatedDataStr,
         updatedAt: new Date().toISOString(),
         updaterId: user.id
@@ -226,13 +226,13 @@ export async function bulkUpdateRowsAction(reportId: string, rowIds: string[], f
     const user = await getSessionAction();
     if (!user) throw new Error('인증이 필요합니다.');
     
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     const columns = JSON.parse(report.columns);
     const colDef = columns.find((c: any) => c.name === fieldName);
 
     for (const id of rowIds) {
-        const [row] = await queryTable('report_row', { filters: { id: String(id) } });
+        const [row] = await queryTable('dashboard_data', { filters: { id: String(id) } });
         if (!row || (user.role === 'VIEWER' && row.creatorId !== user.id)) continue;
 
         const rowData = JSON.parse(row.data);
@@ -250,7 +250,7 @@ export async function bulkUpdateRowsAction(reportId: string, rowIds: string[], f
         rowData[fieldName] = newValue;
         const newHash = await RowService.generateContentHash(rowData, columns);
 
-        await updateRows('report_row', {
+        await updateRows('dashboard_data', {
             data: JSON.stringify(rowData),
             contentHash: newHash,
             updaterId: user.id,
@@ -277,14 +277,14 @@ export async function deleteRowsAction(reportId: string, rowIds: string[]) {
     const user = await getSessionAction();
     if (!user) throw new Error('인증이 필요합니다.');
 
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
 
     for (const id of rowIds) {
-        const [row] = await queryTable('report_row', { filters: { id: String(id) } });
+        const [row] = await queryTable('dashboard_data', { filters: { id: String(id) } });
         if (!row || (user.role === 'VIEWER' && row.creatorId !== user.id)) continue;
 
-        await updateRows('report_row', {
+        await updateRows('dashboard_data', {
             isDeleted: 1,
             contentHash: null,
             deletedAt: new Date().toISOString(),
@@ -321,23 +321,23 @@ export async function restoreRowsAction(reportId: string, rowIds: string[]) {
     const user = await getSessionAction();
     if (!user) throw new Error('인증이 필요합니다.');
 
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     const columns = JSON.parse(report.columns);
 
     let successCount = 0;
     for (const id of rowIds) {
-        const [row] = await queryTable('report_row', { filters: { id: String(id) } });
+        const [row] = await queryTable('dashboard_data', { filters: { id: String(id) } });
         if (!row) continue;
 
         const rowData = JSON.parse(row.data);
         const hash = await RowService.generateContentHash(rowData, columns);
 
         // 중복 체크 (이미 활성 상태인 동일 데이터가 있는지)
-        const [existing] = await queryTable('report_row', { filters: { reportId, contentHash: hash, isDeleted: '0' } });
+        const [existing] = await queryTable('dashboard_data', { filters: { reportId, contentHash: hash, isDeleted: '0' } });
         if (existing) continue;
 
-        await updateRows('report_row', {
+        await updateRows('dashboard_data', {
             isDeleted: 0,
             contentHash: hash,
             deletedAt: null,
@@ -361,12 +361,12 @@ export async function restoreRowsAction(reportId: string, rowIds: string[]) {
  * 데이터의 변경 이력을 조회합니다.
  */
 export async function getRowHistoryAction(rowId: string) {
-    const [row] = await queryTable('report_row', { filters: { id: String(rowId) } });
+    const [row] = await queryTable('dashboard_data', { filters: { id: String(rowId) } });
     if (!row) throw new Error('데이터를 찾을 수 없습니다.');
 
     let histories: any[] = [];
     try {
-        histories = await queryTable('report_row_history', { 
+        histories = await queryTable('dashboard_data_history', { 
             filters: { rowId: String(rowId) },
             orderBy: 'changedAt',
             orderDirection: 'DESC'
@@ -396,11 +396,11 @@ export async function getRowHistoryAction(rowId: string) {
  */
 export async function checkSyncStatusAction(reportId: string) {
     try {
-        const reports = await queryTable('report', { filters: { id: String(reportId) } });
+        const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
         const report = reports[0];
         if (!report || !report.tableName) return { status: 'no-physical' };
 
-        const virtualResult: any = await queryTable('report_row', { filters: { reportId: String(reportId), isDeleted: '0' } });
+        const virtualResult: any = await queryTable('dashboard_data', { filters: { reportId: String(reportId), isDeleted: '0' } });
         const virtualCount = Array.isArray(virtualResult) ? virtualResult.length : (virtualResult?.rows?.length || 0);
 
         const physicalResult: any = await queryTable(report.tableName, { limit: 100000 });
@@ -429,12 +429,12 @@ export async function repairVirtualTableAction(reportId: string) {
     const user = await getSessionAction();
     if (!user || user.role !== 'ADMIN') throw new Error('관리자 권한이 필요합니다.');
 
-    const reports = await queryTable('report', { filters: { id: String(reportId) } });
+    const reports = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
     const report = reports[0];
     if (!report || !report.tableName) throw new Error('물리 테이블 정보가 없습니다.');
 
     // 1. 가상 데이터 모두 삭제
-    await deleteRows('report_row', { filters: { reportId: String(reportId) } });
+    await deleteRows('dashboard_data', { filters: { reportId: String(reportId) } });
 
     // 2. 물리 데이터 로드
     const physicalRows: any = await queryTable(report.tableName, { limit: 100000 });
@@ -459,7 +459,7 @@ export async function repairVirtualTableAction(reportId: string) {
         
         // 500개씩 끊어서 벌크 인서트 (SQLite 제약 고려)
         for (let i = 0; i < virtualRows.length; i += 500) {
-            await insertRows('report_row', virtualRows.slice(i, i + 500));
+            await insertRows('dashboard_data', virtualRows.slice(i, i + 500));
         }
     }
 

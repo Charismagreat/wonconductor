@@ -7,7 +7,7 @@ import { queryTable, insertRows, deleteRows, updateRows } from '@/egdesk-helpers
 const PINNED_CHARTS_PATH = path.join(process.cwd(), 'pinned_charts.json');
 
 export interface ChartConfig {
-    id: string;
+    id: string | number;
     userId: string;
     config: any;
     layout?: any;
@@ -182,25 +182,22 @@ function mapRowToChartConfig(row: any): ChartConfig {
 /**
  * 차트 목록을 DB에 저장합니다.
  */
-export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<void> {
+export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<{ success: boolean, newId?: number | string }> {
     try {
-        // 기존 챠트 조회 (차이점 파악을 위함)
+        let lastNewId: number | string | undefined;
         const existing = await queryTable('dashboard_chart');
-        const existingIds = new Set(existing.map((e: any) => e.id));
-        const newIds = new Set(charts.map(c => c.id));
+        const existingIds = new Set(existing.map((e: any) => String(e.id)));
+        const newIds = new Set(charts.map(c => String(c.id)));
         
-        // 1. 삭제된 항목 처리
-        const toDelete = existing.filter((e: any) => !newIds.has(e.id));
+        const toDelete = existing.filter((e: any) => !newIds.has(String(e.id)));
         if (toDelete.length > 0) {
             await deleteRows('dashboard_chart', { 
                 filters: { id: toDelete.map((e: any) => e.id).join(',') } 
             });
         }
         
-        // 2. 신규 및 업데이트 처리
         for (const c of charts) {
-            const chartData = {
-                id: c.id,
+            const chartData: any = {
                 userId: String(c.userId),
                 config: JSON.stringify(c.config),
                 layout: JSON.stringify(c.layout || {}),
@@ -208,17 +205,19 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
                 updatedAt: new Date().toISOString()
             };
             
-            if (existingIds.has(c.id)) {
-                // 업데이트
-                await updateRows('dashboard_chart', chartData, { filters: { id: c.id } });
+            if (existingIds.has(String(c.id))) {
+                await updateRows('dashboard_chart', chartData, { filters: { id: String(c.id) } });
             } else {
-                // 삽입
-                await insertRows('dashboard_chart', [{
+                // 신규 삽입: ID를 제외하여 서버 자동 생성 유도
+                const insertRes = await insertRows('dashboard_chart', [{
                     ...chartData,
                     createdAt: c.createdAt || new Date().toISOString()
                 }]);
+                const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+                lastNewId = insertedRow.id;
             }
         }
+        return { success: true, newId: lastNewId };
     } catch (e) {
         console.error('[ChartService] Failed to save pinned charts to DB:', e);
         throw e;

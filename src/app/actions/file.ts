@@ -7,9 +7,6 @@ import {
     createTable,
     insertRows
 } from '@/egdesk-helpers';
-import { 
-    generateNumericId 
-} from './shared';
 import { getSessionAction } from './auth';
 import { parseExcelWorkbook } from '@/lib/excel-parser';
 import { normalizeTableName, mapToPhysicalType } from '@/lib/db-utils';
@@ -93,7 +90,7 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
       const res = await listTables();
       const sysTables = (res?.tables || []).map((t: any) => t.tableName.toLowerCase());
       
-      const reportRes = await queryTable('report', { limit: 10000 });
+      const reportRes = await queryTable('dashboard_master', { limit: 10000 });
       const reportRows = Array.isArray(reportRes) ? reportRes : (reportRes?.rows || []);
       const virtualTables = reportRows
         .map((r: any) => r.tableName?.toLowerCase())
@@ -113,7 +110,8 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
     for (const table of sheet.tables) {
       if (table.columns.length === 0) continue; 
 
-      const reportId = String(generateNumericId());
+      // reportId will be captured from insertRows result
+      let reportId: string = '';
       const basePhysicalName = normalizeTableName(table.name);
       let physicalTableName = basePhysicalName;
       let counter = 1;
@@ -192,8 +190,8 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
           });
       }
 
-      await insertRows('report', [{
-        id: reportId,
+      const reportInsertRes = await insertRows('dashboard_master', [{
+        
         name: table.name,
         sheetName: sheet.sheetName,
         tableName: physicalTableName, 
@@ -204,9 +202,21 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
         lastSerial: maxSerial 
       }]);
 
+      // Register in table_master (Physical Registry)
+      await insertRows('table_master', [{
+        tableName: physicalTableName,
+        displayName: table.name,
+        category: 'EXCEL',
+        schema: JSON.stringify(table.columns),
+        rowCount: table.rows.length,
+        createdAt: new Date().toISOString()
+      }]).catch(() => {});
+      const insertedReport = Array.isArray(reportInsertRes) ? reportInsertRes[0] : (reportInsertRes.rows?.[0] || reportInsertRes);
+      reportId = String(insertedReport.id);
+
       if (table.rows.length > 0) {
-        const vRes = await insertRows('report_row', table.rows.map(row => ({
-          id: generateNumericId(),
+        const vRes = await insertRows('dashboard_data', table.rows.map(row => ({
+          // id: auto-generated,
           reportId: reportId,
           data: JSON.stringify(row),
           creatorId: userId,

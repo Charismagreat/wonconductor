@@ -99,7 +99,8 @@ export function ReportDetailClient({
                         isReadOnly={isReadOnly || report.isReadOnly}
                         userRole={user?.role}
                         currentUserId={user?.id}
-                        initialSortConfig={multiSortConfig} // 다중 정렬 배열 전달
+                        initialSortConfig={multiSortConfig}
+                        initialItemsPerPage={report.itemsPerPage || 20}
                         onToggleAddRecord={() => {
                             setShowAddRecordForm(!showAddRecordForm);
                             setShowBulkUpload(false);

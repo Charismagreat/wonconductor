@@ -4,8 +4,6 @@ import { getSessionAction } from '@/app/actions/auth';
 import { queryTable, updateRows, insertRows } from '@/egdesk-helpers';
 import { revalidatePath } from 'next/cache';
 
-import { generateNumericId } from '@/app/actions/shared';
-
 /**
  * 로그인한 사용자의 모든 할 일(To-Do) 목록을 가져옵니다.
  */
@@ -77,7 +75,6 @@ export async function updateTaskStatusAction(taskId: string, newStatus: string) 
             }
 
             await insertRows('action_task_history', [{
-                id: generateNumericId(),
                 taskId: String(taskId),
                 oldStatus: oldStatus,
                 newStatus: newStatus,

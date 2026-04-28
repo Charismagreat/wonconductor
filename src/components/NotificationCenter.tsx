@@ -21,15 +21,15 @@ export default function NotificationCenter({ variant = 'icon' }: NotificationCen
 
     const fetchStatus = async () => {
         try {
-            const data = await getUnreadNotificationsAction();
-            // [최적화] 동일 작업(link)에 대한 알림이 여러 개여도 배지는 1개로 표시
-            if (Array.isArray(data)) {
+            const res = await getUnreadNotificationsAction();
+            const data = Array.isArray(res) ? res : (res?.rows || []);
+            
+            if (data.length > 0) {
                 const uniqueKeys = new Set(data.map((noti: any) => 
                     noti.link && noti.link.includes('openItem=') ? noti.link : noti.id
                 ));
                 setUnreadCount(uniqueKeys.size);
             } else {
-                console.error('[NotificationCenter] fetchStatus did not return an array:', data);
                 setUnreadCount(0);
             }
         } catch (err) {

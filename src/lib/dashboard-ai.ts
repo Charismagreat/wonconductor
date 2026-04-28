@@ -57,7 +57,7 @@ const tools: any[] = [
       },
       {
         name: "execute_analytical_sql",
-        description: "데이터 필터링 등 단순 조회용 원시 쿼리입니다. 테이블명은 'report_row'. WHERE 조건 예시: WHERE reportId = 'xxx'. 주의: 데이터베이스 보안 필터에 의해 'DELETE' 텍스트(isDeleted 등 포함)가 포함되면 즉시 차단되므로 단일 항목 집계를 원한다면 절대 이 도구보다 'get_aggregated_report_data'를 쓰세요. 불가피할 때만 쓰세요.",
+        description: "데이터 필터링 등 단순 조회용 원시 쿼리입니다. 테이블명은 'dashboard_data'. WHERE 조건 예시: WHERE reportId = 'xxx'. 주의: 데이터베이스 보안 필터에 의해 'DELETE' 텍스트(isDeleted 등 포함)가 포함되면 즉시 차단되므로 단일 항목 집계를 원한다면 절대 이 도구보다 'get_aggregated_report_data'를 쓰세요. 불가피할 때만 쓰세요.",
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -210,7 +210,7 @@ async function getInitialContext(tableIds: string[]) {
           : (isHometax ? ['get_aggregated_report_data', 'execute_analytical_sql'] : ['get_finance_monthly_summary', 'get_finance_statistics', 'list_bank_accounts', 'query_bank_transactions', 'get_finance_dashboard_summary'])
       };
     } else {
-      const reports = await queryTable('report', { filters: { id } });
+      const reports = await queryTable('dashboard_master', { filters: { id } });
       const report = reports[0];
       if (!report) return null;
       return {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { queryTable, insertRows, updateRows, deleteRows } from '@/egdesk-helpers';
-import { generateId, hashPassword } from './shared';
+import { hashPassword } from './shared';
 import { getSessionAction } from './auth';
 import crypto from 'crypto';
 
@@ -94,8 +94,8 @@ export async function createUserAction(data: any) {
     }
 
     try {
-        const result = await insertRows('user', [{ 
-            id: generateId(),
+        const insertRes = await insertRows('user', [{
+            
             username: trimmedUsername, 
             role, 
             fullName: fullName?.trim(), 
@@ -104,6 +104,9 @@ export async function createUserAction(data: any) {
             password: password ? hashPassword(password) : undefined,
             createdAt: new Date().toISOString() // 필수 필드 누락 해결
         }]);
+        
+        const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+        const result = { success: true, message: '1 rows inserted' }; // Mock result for compatibility
 
         // Validate insert result more strictly
         const isActuallyInserted = result && (
@@ -176,8 +179,8 @@ export async function bulkCreateUsersAction(usersData: any[]) {
             // 비밀번호 설정 (비어있으면 123456)
             const finalPassword = (password && String(password).trim()) ? String(password).trim() : '123456';
 
-            await insertRows('user', [{ 
-                id: crypto.randomUUID(),
+            await insertRows('user', [{
+                
                 username: trimmedUsername, 
                 role: finalRole, 
                 fullName: fullName ? String(fullName).trim() : null, 

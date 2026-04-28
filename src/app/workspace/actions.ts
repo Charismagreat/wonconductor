@@ -18,7 +18,8 @@ import { GuardrailService } from '@/lib/services/guardrail-service';
 import { WORKSPACE_STATUS } from '@/lib/constants/workspace-status';
 
 // 워크스페이스 전용 ID 생성기 (표준 규격)
-const generateWorkspaceId = () => `id-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+// ID 자동 부여
+
 
 
 /**
@@ -73,7 +74,7 @@ export async function getWorkspaceFeedAction() {
         }
 
         try {
-            const reportsResult = await queryTable('report', { filters: { isDeleted: '0' } });
+            const reportsResult = await queryTable('dashboard_master', { filters: { isDeleted: '0' } });
             reports = (reportsResult?.rows || reportsResult || []) as any[];
         } catch (e) {
             console.error("[Feed Debug] report query failed:", e);
@@ -144,7 +145,7 @@ export async function getWorkspaceFeedAction() {
             };
         });
 
-        // 3. 기존 report_row 데이터를 피드 형식으로 변환 (하위 호환성 유지)
+        // 3. 기존 dashboard_data 데이터를 피드 형식으로 변환 (하위 호환성 유지)
         const formattedReportRows = rawRows
             .map((row: any) => {
                 const report = reportMap.get(String(row.reportId));
@@ -256,10 +257,9 @@ export async function submitWorkspaceDataAction(formData: FormData) {
                     const uploadResult = await uploadFileAction(uploadFormData);
                     const imageUrl = uploadResult.url;
 
-                    const itemId = generateWorkspaceId();
-                    // 전용 테이블(workspace_item)에 저장
-                    await insertRows('workspace_item', [{
-                        id: itemId,
+                    // 전용 테이블(workspace_item)에 저장 (id 생략 -> 서버 자동 부여)
+                    const insertRes = await insertRows('workspace_item', [{
+                        
                         creatorId: user.id || 'system',
                         imageUrl: imageUrl, // 이미지 전용 컬럼 활용
                         originalText: text,
@@ -272,6 +272,9 @@ export async function submitWorkspaceDataAction(formData: FormData) {
                         location_lng: lng,
                         location_name: locationName
                     }]);
+
+                    const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+                    const itemId = String(insertedRow.id);
 
                     // 개별 항목 배경 분석 트리거
                     analyzeWorkspaceItemAction(itemId).catch(err => {
@@ -309,10 +312,9 @@ export async function submitWorkspaceDataAction(formData: FormData) {
             }
         }
 
-        // 전용 테이블(workspace_item)에 즉시 등록
-        const itemId = generateWorkspaceId();
-        await insertRows('workspace_item', [{
-            id: itemId,
+        // 전용 테이블(workspace_item)에 즉시 등록 (id 생략 -> 서버 자동 부여)
+        const insertRes = await insertRows('workspace_item', [{
+            
             creatorId: user.id || 'system',
             imageUrl: imageUrl,
             originalText: text,
@@ -325,6 +327,9 @@ export async function submitWorkspaceDataAction(formData: FormData) {
             location_lng: lng,
             location_name: locationName
         }]);
+
+        const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
+        const itemId = String(insertedRow.id);
 
         // [핵심] 배경 분석 트리거 (await 하지 않음 - 사용자 응답 속도 최우선)
         // 분석 시작 (백그라운드)
@@ -389,7 +394,7 @@ export async function getWorkspaceItemDataAction(itemId: string) {
 
             if (item.reportId) {
                 try {
-                    const reportRes = await queryTable('report', { filters: { id: String(item.reportId) } });
+                    const reportRes = await queryTable('dashboard_master', { filters: { id: String(item.reportId) } });
                     const report = Array.isArray(reportRes) ? reportRes[0] : (reportRes.rows?.[0]);
                     if (report) {
                         reportName = report.name;
@@ -441,7 +446,7 @@ export async function getWorkspaceItemDataAction(itemId: string) {
             let columns = [];
             if (row.reportId && row.reportId !== 'system-unclassified') {
                 try {
-                    const reportRes = await queryTable('report', { filters: { id: String(row.reportId) } });
+                    const reportRes = await queryTable('dashboard_master', { filters: { id: String(row.reportId) } });
                     const report = Array.isArray(reportRes) ? reportRes[0] : (reportRes.rows?.[0]);
                     if (report) {
                         reportName = report.name;
@@ -491,7 +496,7 @@ export async function confirmWorkspaceDataAction(
         console.log(`[Workspace Final Save] Report: ${reportId} | WorkspaceItem: ${workspaceItemId} | Data:`, rowData);
         
         // 1. 가드레일 검증 (prevalidation이 전달된 경우 재검증 생략 — 중복 DB 쿼리 방지)
-        const reports = await queryTable('report', { filters: { id: reportId } });
+        const reports = await queryTable('dashboard_master', { filters: { id: reportId } });
         const report = Array.isArray(reports) ? reports[0] : (reports.rows?.[0]);
         const tableName = report?.tableName;
 
@@ -818,12 +823,12 @@ export async function deleteWorkspaceItemAction(itemId: string) {
             
             console.log(`[Workspace Delete] Item marked as deleted: ${itemId}`);
         } else {
-            // workspace_item에 없다면 report_row(미분류)에서 확인
-            const rows = await queryTable('report_row', { filters: { id: String(itemId) } });
+            // workspace_item에 없다면 dashboard_data(미분류)에서 확인
+            const rows = await queryTable('dashboard_data', { filters: { id: String(itemId) } });
             const row = Array.isArray(rows) ? rows[0] : (rows.rows?.[0]);
             if (row) {
-                // report_row의 경우 isDeleted 플래그 활용
-                await updateRows('report_row', { 
+                // dashboard_data의 경우 isDeleted 플래그 활용
+                await updateRows('dashboard_data', { 
                     isDeleted: 1, 
                     updatedAt: new Date().toISOString() 
                 }, { filters: { id: String(itemId) } });

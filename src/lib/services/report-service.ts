@@ -20,7 +20,7 @@ export class ReportService {
             renameMap[col.originalName] = col.name;
         });
 
-        const allRows = await queryTable('report_row', { filters: { reportId: String(reportId) } });
+        const allRows = await queryTable('dashboard_data', { filters: { reportId: String(reportId) } });
         const validNewKeys = new Set(newColumns.map(c => c.name));
 
         for (const row of allRows) {
@@ -68,7 +68,7 @@ export class ReportService {
 
             if (hasChanged) {
                 const updatedDataStr = JSON.stringify(newRowData);
-                await updateRows('report_row', { data: updatedDataStr, updatedAt: new Date().toISOString() }, { filters: { id: String(row.id) } });
+                await updateRows('dashboard_data', { data: updatedDataStr, updatedAt: new Date().toISOString() }, { filters: { id: String(row.id) } });
 
                 // 물리 테이블 동기화
                 if (tableName) {
@@ -100,12 +100,12 @@ export class ReportService {
      * 보고서를 영구 삭제하고 연관된 물리 테이블 및 데이터를 정리합니다.
      */
     static async permanentDeleteReport(reportId: string, tableName?: string) {
-        await deleteRows('report_row', { filters: { reportId: String(reportId) } });
+        await deleteRows('dashboard_data', { filters: { reportId: String(reportId) } });
         if (tableName) {
             try {
                 await deleteTable(tableName);
             } catch (err) {}
         }
-        await deleteRows('report', { filters: { id: String(reportId) } });
+        await deleteRows('dashboard_master', { filters: { id: String(reportId) } });
     }
 }

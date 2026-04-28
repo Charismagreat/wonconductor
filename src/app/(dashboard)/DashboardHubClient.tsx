@@ -37,28 +37,31 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
   const [showManualModal, setShowManualModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'reports' | 'backups'>('reports');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedCategory, setSelectedCategory] = useState<string>('전체보기');
 
   // 카테고리 추출 및 정리
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    cats.add('All');
+    cats.add('전체보기');
     reports.forEach(r => {
       // 1. 직접 부여된 category 확인
       if (r.category) {
-        cats.add(r.category);
+        cats.add(r.category === 'System' ? '시스템 테이블' : r.category === 'Finance' ? '금융 테이블' : r.category);
       } 
       // 2. uiConfig 내의 category 확인
       else if (r.uiConfig) {
         try {
           const config = JSON.parse(r.uiConfig);
           if (config.category) cats.add(config.category);
-        } catch (e) {}
+          else cats.add('일반 테이블');
+        } catch (e) { cats.add('일반 테이블'); }
+      } else {
+        cats.add('일반 테이블');
       }
     });
     return Array.from(cats).sort((a, b) => {
-      if (a === 'All') return -1;
-      if (b === 'All') return 1;
+      if (a === '전체보기') return -1;
+      if (b === '전체보기') return 1;
       return a.localeCompare(b);
     });
   }, [reports]);
@@ -67,7 +70,10 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
   const filteredReports = useMemo(() => {
     return reports.filter(r => {
       // 카테고리 필터
-      let rCat = r.category || 'Uncategorized';
+      let rCat = r.category || '일반 테이블';
+      if (rCat === 'System') rCat = '시스템 테이블';
+      else if (rCat === 'Finance') rCat = '금융 테이블';
+
       if (!r.category && r.uiConfig) {
         try {
           const config = JSON.parse(r.uiConfig);
@@ -75,7 +81,7 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
         } catch (e) {}
       }
 
-      const matchesCategory = selectedCategory === 'All' || rCat === selectedCategory;
+      const matchesCategory = selectedCategory === '전체보기' || rCat === selectedCategory;
       
       // 검색어 필터
       const searchLower = searchQuery.toLowerCase();
@@ -211,7 +217,11 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredReports.map((report: any) => {
-                   const rCat = report.category || (report.uiConfig ? JSON.parse(report.uiConfig).category : 'Uncategorized');
+                   let rawCat = report.category || '일반 테이블';
+                   if (!report.category && report.uiConfig) {
+                     try { rawCat = JSON.parse(report.uiConfig).category || '일반 테이블'; } catch(e) {}
+                   }
+                   const rCat = rawCat === 'System' ? '시스템 테이블' : rawCat === 'Finance' ? '금융 테이블' : rawCat;
                    
                    return (
                     <div key={report.id} className="relative group bg-white border border-slate-100 rounded-[32px] hover:border-blue-500/30 hover:shadow-2xl hover:shadow-slate-900/10 transition-all duration-500 overflow-hidden">
@@ -228,10 +238,10 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                       <div className="p-7 relative z-10 pointer-events-none">
                         <div className="flex items-start gap-4 mb-6">
                           <div className={`p-3 rounded-2xl transition-all duration-500 shrink-0 ${
-                              report.isFinanceTable ? 'bg-indigo-50 text-indigo-600' :
-                              report.isSystemTable ? 'bg-purple-50 text-purple-600' :
-                              report.isDirectTable ? 'bg-slate-50 text-slate-600' :
-                              (isStaff ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-700 group-hover:bg-blue-600 group-hover:text-white group-hover:scale-110 shadow-sm')
+                              report.isFinanceTable ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white group-hover:scale-110 shadow-sm' :
+                              report.isSystemTable ? 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 shadow-sm' :
+                              report.isDirectTable ? 'bg-zinc-50 text-zinc-600' :
+                              (isStaff ? 'bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white group-hover:scale-110 shadow-sm' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white group-hover:scale-110 shadow-sm')
                             }`}>
                             {report.isFinanceTable ? <Wallet size={20} /> :
                               report.isSystemTable ? <Database size={20} /> :
@@ -258,7 +268,12 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                               </div>
                               
                               <div className="flex flex-col items-end gap-2 shrink-0">
-                                <span className="px-2 py-0.5 bg-slate-50 text-slate-400 text-[8px] font-black rounded-md border border-slate-100 uppercase tracking-tighter shrink-0">
+                                <span className={`px-2 py-0.5 text-[8px] font-black rounded-md border uppercase tracking-tighter shrink-0 ${
+                                  report.isFinanceTable ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                  report.isSystemTable ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                                  report.isDirectTable ? 'bg-zinc-50 text-zinc-600 border-zinc-200' :
+                                  (isStaff ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100')
+                                }`}>
                                   {rCat}
                                 </span>
                                 <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">

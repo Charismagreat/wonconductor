@@ -105,7 +105,7 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
   if (!isMounted) return null;
 
   return (
-    <div className="max-w-[1600px] mx-auto px-8 md:px-12 pt-10 pb-20 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
       
       {/* 1. Stats Grid - Unified with Workflow Hub */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -127,15 +127,15 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
         ))}
       </div>
 
-      {/* 2. Page Title & Control Bar - Unified with Workflow Hub */}
-      <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 border-l-8 border-l-blue-600">
-        <div className="flex items-center gap-6">
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100">
-            <Rocket size={28} />
+      {/* 2. Quick Search & Control Bar - Unified with Workflow Hub */}
+      <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-l-8 border-l-blue-600">
+        <div className="flex items-center gap-5">
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100">
+            <Layout size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-1">APP STUDIO</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">AI-Powered Micro App Orchestration</p>
+            <h1 className="text-xl font-black text-slate-800 tracking-tight">앱 및 프로젝트 통합 관리</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">App & Project Management</p>
           </div>
         </div>
         

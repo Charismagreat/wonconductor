@@ -19,7 +19,8 @@ export default async function DataInputPage({
   }
 
   // 1단계: 보고서 기본 정보 로드
-  const reports = await queryTable('report', { filters: { id } });
+  const filter = /^\d+$/.test(id) ? { id: Number(id) } : { reportId: id };
+  const reports = await queryTable('dashboard_master', { filters: filter });
   const report = reports[0];
 
   if (!report) {
@@ -27,7 +28,7 @@ export default async function DataInputPage({
   }
 
   // 권한 체크를 위한 별도 조회 (Many-to-Many 대응)
-  const accessList = await queryTable('report_access', {
+  const accessList = await queryTable('dashboard_access', {
     filters: { reportId: id, userId: String(session.id) }
   });
   const hasExplicitAccess = accessList.length > 0;
@@ -58,7 +59,7 @@ export default async function DataInputPage({
   }
 
   // 2단계: 행 필터링 - 실무자(VIEWER)이고 소유자가 아닌 경우 본인이 작정한 행만 조회
-  const rowsData = await queryTable('report_row', {
+  const rowsData = await queryTable('dashboard_data', {
     filters: {
       reportId: id,
       ...(isManagement ? {} : { creatorId: String(session.id) }),

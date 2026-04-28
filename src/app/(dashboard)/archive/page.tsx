@@ -6,7 +6,7 @@ import { ArchiveActions } from '@/components/ArchiveActions';
 import PageHeader from '@/components/PageHeader';
 
 export default async function ArchivePage() {
-  const rawAllDeletedReports = await queryTable('report', {
+  const rawAllDeletedReports = await queryTable('dashboard_master', {
     limit: 1000,
     orderBy: 'deletedAt',
     orderDirection: 'DESC'
@@ -16,8 +16,8 @@ export default async function ArchivePage() {
   const deletedReports: any[] = [];
   for (const r of allDeletedReports) {
     try {
-      const rowCountResult = await aggregateTable('report_row', 'id', 'COUNT', { 
-        filters: { reportId: r.id } 
+      const rowCountResult = await aggregateTable('dashboard_data', 'id', 'COUNT', { 
+        filters: { reportId: r.reportId || String(r.id) } 
       });
       deletedReports.push({
         ...r,

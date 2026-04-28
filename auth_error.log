@@ -10,3 +10,39 @@ Stack: TypeError: fetch failed
 Stack: TypeError: fetch failed
 
 [2026-04-21T10:10:00.888Z] DEBUG: queryTable result for [admin]: [{"id":"63f06cf5-78ca-4cff-a5a4-aed44e157312","username":"admin","email":null,"password":"fae89b24e0064e7491b4c2527c08f8e1:10d9a7c1d2de3bf5db8c9fab0d5014e1fd047b3002e576caa22271919ea08eb8cf4171c49fb3a0fd30de93e38a8be60e2604f5031cfe804fea27a4b1d39c8805","role":"ADMIN","fullName":"System Administrator","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-20T04:34:54.583Z"}]
+[2026-04-27T09:16:39.777Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T09:25:05.990Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T09:37:23.729Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T09:49:57.474Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T10:21:36.555Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T10:21:50.079Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T10:22:05.218Z] Login Error for [admin_user]: fetch failed
+Stack: TypeError: fetch failed
+    at node:internal/deps/undici/undici:16416:13
+    at async callUserDataTool (C:\dev\egdesk_won3\ExcelToDB\.next\dev\server\chunks\ssr\[root-of-the-server]__0nx2c1c._.js:2428:20)
+    at async queryTable (C:\dev\egdesk_won3\ExcelToDB\.next\dev\server\chunks\ssr\[root-of-the-server]__0nx2c1c._.js:3041:17)
+    at async loginAction (C:\dev\egdesk_won3\ExcelToDB\.next\dev\server\chunks\ssr\[root-of-the-server]__10m4sjr._.js:65:24)
+    at async executeActionAndPrepareForRender (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:64:5248)
+    at async C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:64:1986
+    at async handleAction (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:62:25378)
+    at async renderToHTMLOrFlightImpl (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:69:55630)
+    at async doRender (C:\dev\egdesk_won3\ExcelToDB\.next\dev\server\chunks\ssr\node_modules_07jhyn9._.js:4025:28)
+    at async AppPageRouteModule.handleResponse (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:71:63567)
+    at async handleResponse (C:\dev\egdesk_won3\ExcelToDB\.next\dev\server\chunks\ssr\node_modules_07jhyn9._.js:4300:32)
+    at async Module.handler (C:\dev\egdesk_won3\ExcelToDB\.next\dev\server\chunks\ssr\node_modules_07jhyn9._.js:4703:20)
+    at async DevServer.renderToResponseWithComponentsImpl (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\base-server.js:1454:9)
+    at async DevServer.renderPageComponent (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\base-server.js:1506:24)
+    at async DevServer.renderToResponseImpl (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\base-server.js:1556:32)
+    at async DevServer.pipeImpl (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\base-server.js:1043:25)
+    at async NextNodeServer.handleCatchallRenderRequest (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\next-server.js:338:17)
+    at async DevServer.handleRequestImpl (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\base-server.js:934:17)
+    at async C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\dev\next-dev-server.js:394:20
+    at async Span.traceAsyncFn (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\trace\trace.js:164:20)
+    at async DevServer.handleRequest (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\dev\next-dev-server.js:390:24)
+    at async invokeRender (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\lib\router-server.js:253:21)
+    at async handleRequest (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\lib\router-server.js:452:24)
+    at async requestHandlerImpl (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\lib\router-server.js:501:13)
+    at async Server.requestListener (C:\dev\egdesk_won3\ExcelToDB\node_modules\next\dist\server\lib\start-server.js:225:13)
+
+[2026-04-27T10:28:44.131Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]
+[2026-04-27T10:29:01.535Z] DEBUG: queryTable result for [admin_user]: [{"id":1,"username":"admin_user","email":null,"password":"756cab3b15d1b24af3e77e4ef376460d:6b86e9b4269fdb0fe8b43c1d78893e70ee0c5c6e384d847290f4d75643bc98b43ff6490d8a1ca78a053e8ed191871190faad40b29e708d14f43ffb91f648b8b4","role":"ADMIN","fullName":"초기 관리자","employeeId":null,"departmentId":null,"position":null,"isActive":1,"metadata":null,"createdAt":"2026-04-13T00:40:52.293Z"}]

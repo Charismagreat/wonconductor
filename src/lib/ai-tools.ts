@@ -11,14 +11,14 @@ export async function runAITool(name: string, args: any) {
       // 1. 통일된 가상 ID를 사용하여 통합 데이터 쿼리 (The Smart Way Phase 2)
       // 이제 queryTable이 내부적으로 조인 로직을 처리하므로 로직이 매우 단순해집니다.
       const { queryTable } = require('@/egdesk-helpers');
-      const integratedRows = await queryTable('finance-hub-bank-table', { limit: 100 });
+      const integratedRows = await queryTable('bank_transactions', { limit: 100 });
 
       // 2. 리턴 데이터 구성 (AI 전달용)
       const stats = {
         bankBreakdown: integratedRows,
         _totalCount: integratedRows.length,
         _isFullList: true,
-        _source: "Unified Virtual Table (finance-hub-bank-table)",
+        _source: "Unified Virtual Table (bank_transactions)",
         fullTableMarkdown: ""
       };
 
@@ -40,7 +40,7 @@ export async function runAITool(name: string, args: any) {
       return await getStatistics({ startDate: args.startDate, endDate: args.endDate });
     case "list_bank_accounts": {
       // [개정] 통합 가상 테이블을 사용하여 MY DB와 동일한 계좌 목록을 가져옵니다.
-      const items = await queryTable('finance-hub-bank-table', { limit: 100 });
+      const items = await queryTable('bank_transactions', { limit: 100 });
       return items.filter((acc: any) => {
         const bId = String(acc.bankId || '').toLowerCase();
         const aName = String(acc.accountName || '').toLowerCase();
@@ -49,7 +49,7 @@ export async function runAITool(name: string, args: any) {
     }
     case "query_bank_transactions": {
       // [개정] 가상 테이블을 통해 정규화된 거래 내역을 가져옵니다.
-      const txs = await queryTable('finance-hub-bank-table', {
+      const txs = await queryTable('bank_transactions', {
         startDate: args.startDate,
         endDate: args.endDate,
         limit: args.limit || 100,
@@ -66,7 +66,7 @@ export async function runAITool(name: string, args: any) {
     }
     case "query_card_transactions": {
       // [개정] 가상 테이블을 통해 정규화된 카드 거래 내역을 가져옵니다.
-      const txs = await queryTable('finance-hub-card-table', {
+      const txs = await queryTable('card_approvals', {
         startDate: args.startDate,
         endDate: args.endDate,
         limit: args.limit || 100,
@@ -82,7 +82,7 @@ export async function runAITool(name: string, args: any) {
       });
     }
     case "get_card_usage_by_approval_date": {
-      const txs = await queryTable('finance-hub-card-table', {
+      const txs = await queryTable('card_approvals', {
         startDate: args.startDate,
         endDate: args.endDate,
         limit: 1000,
@@ -102,6 +102,7 @@ export async function runAITool(name: string, args: any) {
         period: `${args.startDate} ~ ${args.endDate}`,
         categorySummary,
         transactions: txs.slice(0, 100).map((t: any) => ({
+          id: t.id,
           approvalDate: t.approvalDate || t.date,
           cardNumber: t.cardNumber || t.cardNo,
           description: t.description || t.merchantName,
@@ -115,22 +116,22 @@ export async function runAITool(name: string, args: any) {
       // 삭제된 데이터 자동 필터링: SQL에 isDeleted 조건 주입
       let sql = args.sql as string;
       // WHERE 절이 이미 있으면 AND 추가, 없으면 WHERE 추가
-      // report_row 테이블을 대상으로 하는 쿼리에만 적용
-      if (/report_row/i.test(sql) && !/isDeleted/i.test(sql)) {
+      // dashboard_data 테이블을 대상으로 하는 쿼리에만 적용
+      if (/dashboard_data/i.test(sql) && !/isDeleted/i.test(sql)) {
         if (/WHERE/i.test(sql)) {
           sql = sql.replace(/WHERE/i, 'WHERE isDeleted = 0 AND');
         } else {
-          // FROM report_row 뒤에 WHERE 절 삽입
-          sql = sql.replace(/(FROM\s+report_row\b)/i, '$1 WHERE isDeleted = 0');
+          // FROM dashboard_data 뒤에 WHERE 절 삽입
+          sql = sql.replace(/(FROM\s+dashboard_data\b)/i, '$1 WHERE isDeleted = 0');
         }
       }
       return await executeSQL(sql);
     }
     case "get_aggregated_report_data": {
-      // 업종별 템플릿은 별도의 물리 테이블로 생성되므로, report_row가 아닌 경우 해당 테이블을 직접 쿼리
-      const targetTable = (args.tableId && args.tableId !== 'report_row' && !args.tableId.includes('-')) ? args.tableId : 'report_row';
+      // 업종별 템플릿은 별도의 물리 테이블로 생성되므로, dashboard_data가 아닌 경우 해당 테이블을 직접 쿼리
+      const targetTable = (args.tableId && args.tableId !== 'dashboard_data' && !args.tableId.includes('-')) ? args.tableId : 'dashboard_data';
       const filters: any = { isDeleted: '0' };
-      if (targetTable === 'report_row') filters.reportId = args.tableId;
+      if (targetTable === 'dashboard_data') filters.reportId = args.tableId;
       
       const rows = await queryTable(targetTable, { 
         filters,
@@ -149,7 +150,7 @@ export async function runAITool(name: string, args: any) {
       
       const summary: Record<string, Record<string, number>> = {};
       validRows.forEach((row: any) => {
-        const rowData = targetTable === 'report_row' 
+        const rowData = targetTable === 'dashboard_data' 
           ? (typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}))
           : row;
 
@@ -197,15 +198,15 @@ export async function runAITool(name: string, args: any) {
       // [개정] 물리 테이블 매핑을 제거하고 queryTable의 자동 핸들링에 맡깁니다.
       // 가상 ID(finance-hub-*)가 들어오면 queryTable이 알아서 조인 로직을 수행합니다.
       if (targetTable.includes('bank_transactions') || targetTable.includes('bank-table')) {
-        targetTable = 'finance-hub-bank-table';
+        targetTable = 'bank_transactions';
         delete filters.isDeleted;
-      } else if (targetTable.includes('card_transactions') || targetTable.includes('card-table')) {
-        targetTable = 'finance-hub-card-table';
+      } else if (targetTable.includes('card_transactions') || targetTable.includes('card-table') || targetTable.includes('card_approvals')) {
+        targetTable = 'card_approvals';
         delete filters.isDeleted;
-      } else if (targetTable !== 'report_row' && !targetTable.includes('-')) {
+      } else if (targetTable !== 'dashboard_data' && !targetTable.includes('-')) {
         // 물리 테이블인 경우
       } else {
-        targetTable = 'report_row';
+        targetTable = 'dashboard_data';
         filters.reportId = args.tableId;
       }
 

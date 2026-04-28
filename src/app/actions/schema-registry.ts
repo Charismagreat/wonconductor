@@ -56,11 +56,11 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
       console.warn(`[SchemaRegistry] Failed to fetch from table_knowledge:`, e);
     }
 
-    // 2. report 테이블에서 물리 테이블 매핑 확인
+    // 2. dashboard_master 테이블에서 물리 테이블 매핑 확인
     let physicalTableName = id;
     try {
-      const reports = await queryTable('report', { 
-        filters: { id },
+      const reports = await queryTable('dashboard_master', { 
+        filters: { reportId: id },
         limit: 1 
       }).catch(() => []);
       
@@ -70,7 +70,7 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
         console.log(`>>> [SchemaRegistry] Mapping virtual ID '${id}' to physical table '${physicalTableName}'`);
       }
     } catch (e) {
-      console.warn(`[SchemaRegistry] Failed to fetch mapping from report table:`, e);
+      console.warn(`[SchemaRegistry] Failed to fetch mapping from dashboard_master table:`, e);
     }
 
     // 3. 물리 스키마 조회
@@ -90,18 +90,20 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
     
     if (sRows.length > 0) {
       const firstRow = sRows[0];
+      // [수정] 모든 테이블(report 포함)에서 정수형 고유 ID(id)를 포함하도록 변경
       return Object.keys(firstRow)
-        .filter(k => k !== 'id' && k !== '_physicalId')
+        .filter(k => k !== '_physicalId')
         .map(k => ({
           name: k,
-          displayName: k,
-          type: inferColumnType(k)
+          displayName: k === 'id' ? 'ID' : k,
+          type: k === 'id' ? 'number' : inferColumnType(k)
         }));
     }
 
     // 5. 금융 가상 테이블 고정 폴백 (마지막 수단)
     const financeColMap: Record<string, any[]> = {
-      'finance-hub-bank-table': [
+      'bank_transactions': [
+        { name: 'id', displayName: 'ID', type: 'number' },
         { name: 'date', displayName: '날짜', type: 'date' },
         { name: '_bankName', displayName: '은행명', type: 'string' },
         { name: 'accountNumber', displayName: '계좌번호', type: 'string' },
@@ -110,7 +112,8 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
         { name: 'deposit', displayName: '입금액', type: 'currency' },
         { name: 'balance', displayName: '잔액', type: 'currency' }
       ],
-      'finance-hub-card-table': [
+      'card_approvals': [
+        { name: 'id', displayName: 'ID', type: 'number' },
         { name: 'date', displayName: '날짜', type: 'date' },
         { name: '_bankName', displayName: '카드사', type: 'string' },
         { name: 'accountNumber', displayName: '카드번호', type: 'string' },
@@ -133,14 +136,14 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
 
 /**
  * 테이블 ID를 기반으로 친숙한 이름을 가져옵니다.
- * 1. report 테이블 매핑 확인
+ * 1. dashboard_master 테이블 매핑 확인
  * 2. 금융 가상 테이블 고정 폴백
  */
 export async function getUnifiedTableName(id: string): Promise<string> {
   try {
-    // 1. report 테이블에서 이름 확인
-    const reports = await queryTable('report', { 
-      filters: { id },
+    // 1. dashboard_master 테이블에서 이름 확인
+    const reports = await queryTable('dashboard_master', { 
+      filters: { reportId: id },
       limit: 1 
     }).catch(() => []);
     
@@ -151,14 +154,14 @@ export async function getUnifiedTableName(id: string): Promise<string> {
 
     // 2. 금융 가상 테이블 고정 폴백
     const friendlyNames: Record<string, string> = {
-      'finance-hub-bank-table': '은행 계좌 거래 내역 (FinanceHub)',
-      'finance-hub-card-table': '신용카드 거래 내역 (FinanceHub)',
-      'finance-hub-promissory-table': '전자어음 보유 현황',
-      'finance-hub-hometax-sales-tax': '홈택스 매출 세금계산서',
-      'finance-hub-hometax-sales-bill': '홈택스 매출 계산서',
-      'finance-hub-hometax-purchase-tax': '홈택스 매입 세금계산서',
-      'finance-hub-hometax-purchase-bill': '홈택스 매입 계산서',
-      'finance-hub-hometax-sales-cash-receipt': '홈택스 현금영수증(매출)'
+      'bank_transactions': '은행 계좌 거래 내역',
+      'card_approvals': '신용카드 거래 내역',
+      'promissory_notes': '전자어음 보유 현황',
+      'hometax_sales_tax_invoices': '홈택스 매출 세금계산서',
+      'hometax_sales_bills': '홈택스 매출 계산서',
+      'hometax_purchase_tax_invoices': '홈택스 매입 세금계산서',
+      'hometax_purchase_bills': '홈택스 매입 계산서',
+      'hometax_cash_receipts': '홈택스 현금영수증(매출)'
     };
 
     return friendlyNames[id] || id;

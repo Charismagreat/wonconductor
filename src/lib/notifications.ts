@@ -206,11 +206,11 @@ export async function createInAppNotification(data: {
     type?: 'INFO' | 'WARNING' | 'ALERT';
 }) {
     const { insertRows } = await import('@/egdesk-helpers');
-    const { generateId } = await import('@/app/actions/shared');
+
 
     try {
         await insertRows('notification', [{
-            id: generateId(),
+            
             userId: String(data.userId),
             title: data.title,
             message: data.message || null,
@@ -236,11 +236,11 @@ export async function logActivity(data: {
     type?: 'ACTIVITY';
 }) {
     const { insertRows } = await import('@/egdesk-helpers');
-    const { generateId } = await import('@/app/actions/shared');
+
 
     try {
         await insertRows('notification', [{
-            id: generateId(),
+            
             userId: data.userId,
             title: data.title,
             message: data.message || null,

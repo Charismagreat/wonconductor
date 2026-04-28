@@ -4,7 +4,6 @@ import { cookies } from 'next/headers';
 import { revalidatePath as flushCache } from 'next/cache';
 import { queryTable, insertRows, updateRows } from '@/egdesk-helpers';
 import { 
-    generateId, 
     hashPassword, 
     verifyPassword 
 } from './shared';
@@ -59,7 +58,8 @@ export async function loginAction(username: string, password?: string) {
         
         try {
             const fs = require('fs');
-            const logPath = 'c:\\dev\\ExcelToDB\\auth_error.log';
+            const path = require('path');
+            const logPath = path.join(process.cwd(), 'auth_error.log');
             const debugLog = `[${new Date().toISOString()}] DEBUG: queryTable result for [${trimmedUsername}]: ${JSON.stringify(result)}\n`;
             fs.appendFileSync(logPath, debugLog);
         } catch (e) {}
@@ -102,7 +102,8 @@ export async function loginAction(username: string, password?: string) {
     } catch (err: any) {
         try {
             const fs = require('fs');
-            const logPath = 'c:\\dev\\ExcelToDB\\auth_error.log';
+            const path = require('path');
+            const logPath = path.join(process.cwd(), 'auth_error.log');
             // We need to try to get the result from the scope if possible, but it might not be defined.
             // So we just log what we have.
             const logContent = `[${new Date().toISOString()}] Login Error for [${trimmedUsername}]: ${err.message}\nStack: ${err.stack}\n\n`;

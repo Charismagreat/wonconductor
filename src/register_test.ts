@@ -3,7 +3,7 @@ import { TABLES } from "./egdesk.config";
 
 async function main() {
   const tableDef = TABLES.table1;
-  await insertRows("report", [{
+  await insertRows("dashboard_master", [{
     id: "test-report-id",
     name: tableDef.displayName,
     sheetName: "Main Database",

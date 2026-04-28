@@ -93,11 +93,11 @@ export async function initializeDemoSetupAction() {
             const reportId = `rep-${tpl.id.replace('tpl_', '')}`;
             
             // Check if report already exists
-            const existing = await queryTable('report', { filters: { tableName: tpl.id } });
+            const existing = await queryTable('dashboard_master', { filters: { tableName: tpl.id } });
             const existingRows = Array.isArray(existing) ? existing : (existing?.rows || []);
             
             if (existingRows.length === 0) {
-                await insertRows('report', [{
+                await insertRows('dashboard_master', [{
                     id: reportId,
                     name: tpl.displayName,
                     sheetName: tpl.category,
@@ -111,6 +111,16 @@ export async function initializeDemoSetupAction() {
                     updatedAt: new Date().toISOString(),
                     lastSerial: (tpl.initialData?.length || 0)
                 }]);
+
+                // Register in table_master (Physical Registry)
+                await insertRows('table_master', [{
+                    tableName: tpl.id,
+                    displayName: tpl.displayName,
+                    category: 'INDUSTRY',
+                    schema: JSON.stringify(physicalColumns),
+                    rowCount: (tpl.initialData?.length || 0),
+                    createdAt: new Date().toISOString()
+                }]).catch(() => {});
             }
 
             // Inject Sample Data if available

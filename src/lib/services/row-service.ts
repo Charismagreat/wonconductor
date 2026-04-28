@@ -3,7 +3,6 @@ import { queryTable, updateRows, insertRows } from '@/egdesk-helpers';
 import { ValidationService } from './validation-service';
 import { HistoryService } from './history-service';
 import { DbSyncService } from './db-sync-service';
-import { generateNumericId } from '@/app/actions/shared';
 
 export class RowService {
     /**
@@ -45,7 +44,7 @@ export class RowService {
         // 2. 가상 테이블에서 최대값 확인 (물리 테이블이 없거나 실패한 경우)
         if (currentSerial === 0) {
             try {
-                const results: any = await queryTable('report_row', { filters: { reportId: String(reportId) }, limit: 100000 });
+                const results: any = await queryTable('dashboard_data', { filters: { reportId: String(reportId) }, limit: 100000 });
                 const rows = Array.isArray(results) ? results : (results?.rows || []);
                 rows.forEach((r: any) => {
                     try {
@@ -80,8 +79,7 @@ export class RowService {
         }
 
         // 2. 가상 테이블 저장
-        const result = await insertRows('report_row', [{
-            id: generateNumericId(),
+        const result = await insertRows('dashboard_data', [{
             reportId,
             data: JSON.stringify(finalData),
             contentHash: hash,

@@ -132,6 +132,30 @@ export class DbSyncService {
             await this.log('ERROR', `Step 4 Warning: Failed to delete old table: ${delErr.message}.`);
         }
 
+        // 5) table_master 업데이트
+        try {
+            const tableMasterRows = await queryTable('table_master', { filters: { tableName: currentTableName } });
+            const tableMasterRow = Array.isArray(tableMasterRows) ? tableMasterRows[0] : (tableMasterRows?.rows?.[0]);
+            
+            if (tableMasterRow) {
+                await updateRows('table_master', {
+                    tableName: newTableName,
+                    schema: JSON.stringify(newColumns),
+                    updatedAt: new Date().toISOString()
+                }, { filters: { tableName: currentTableName } });
+            } else {
+                await insertRows('table_master', [{
+                    tableName: newTableName,
+                    displayName: reportName,
+                    category: 'EXCEL', // Default for migrated tables
+                    schema: JSON.stringify(newColumns),
+                    createdAt: new Date().toISOString()
+                }]);
+            }
+        } catch (e) {
+            await this.log('ERROR', `Step 5 Warning: Failed to update table_master: ${e instanceof Error ? e.message : String(e)}`);
+        }
+
         await this.log('INFO', `Blue-Green Migration COMPLETED for report ${reportId}.`);
         return newTableName;
     }

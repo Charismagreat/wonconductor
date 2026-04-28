@@ -6,7 +6,6 @@ import {
     insertRows, 
     updateRows 
 } from '@/egdesk-helpers';
-import { generateId } from './shared';
 import { getSessionAction } from './auth';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -20,7 +19,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { ap
 export async function recommendWorkflowAction(reportId: string, rowId: string, rowData: any) {
     try {
         // 1. 맥락 데이터 준비
-        const reports = await queryTable('report', { filters: { id: reportId } });
+        const reports = await queryTable('dashboard_master', { filters: { id: reportId } });
         const report = reports[0];
         if (!report) return;
 
@@ -74,7 +73,7 @@ export async function recommendWorkflowAction(reportId: string, rowId: string, r
 
         // 2. steering 테이블에 저장
         await insertRows('workflow_steering', [{
-            id: generateId(),
+            
             reportId,
             rowId,
             eventType: 'INSERT',
@@ -107,8 +106,8 @@ export async function getPendingSteeringActionsAction() {
 
     // 상세 정보 보정 (Join 대용)
     return await Promise.all(pendings.map(async (p: any) => {
-        const [report] = await queryTable('report', { filters: { id: p.reportId } });
-        const [row] = await queryTable('report_row', { filters: { id: p.rowId } });
+        const [report] = await queryTable('dashboard_master', { filters: { id: p.reportId } });
+        const [row] = await queryTable('dashboard_data', { filters: { id: p.rowId } });
         return {
             ...p,
             reportName: report?.name || '알 수 없는 보고서',
@@ -153,7 +152,7 @@ export async function decideSteeringActionAction(steeringId: string, decision: '
                 : null;
             
             await insertRows('action_task', [{
-                id: generateId(),
+            
                 reportId: steering.reportId,
                 title: finalRec.task.title,
                 description: finalRec.task.description,

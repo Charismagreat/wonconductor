@@ -1,10 +1,9 @@
 import { queryTable, insertRows } from '@/egdesk-helpers';
-import { generateId, generateNumericId } from '@/app/actions/shared';
 
 export type ChangeType = 'INSERT' | 'UPDATE' | 'DELETE' | 'RESTORE';
 
 export class HistoryService {
-    private static tableName = 'report_row_history';
+    private static tableName = 'dashboard_data_history';
 
     /**
      * 이력 테이블이 존재하는지 확인하고 없으면 생성합니다.
@@ -38,7 +37,6 @@ export class HistoryService {
             await this.ensureHistoryTable();
 
             const historyData = {
-                id: generateNumericId(),
                 rowId: String(rowId),
                 oldData: typeof oldData === 'string' ? oldData : JSON.stringify(oldData),
                 newData: typeof newData === 'string' ? newData : JSON.stringify(newData),

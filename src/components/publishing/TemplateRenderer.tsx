@@ -6,12 +6,14 @@ import { fetchPublishingDataAction, getAISuggestedProjectSetupAction } from '@/a
 import { CashReport } from './templates/CashReport';
 import { GenericReport } from './templates/GenericReport';
 import { CustomHtmlReport } from './templates/CustomHtmlReport';
+import { DynamicWidgetReport } from './templates/DynamicWidgetReport';
 
 interface TemplateRendererProps {
   templateId: string;
   sourceTableId: string | string[];
   mappingConfig: any;
   uiSettings: any;
+  onUpdateUiSettings?: (newUiSettings: any) => Promise<void>;
   appName: string;
   id: string;
 }
@@ -21,6 +23,7 @@ export function TemplateRenderer({
   sourceTableId,
   mappingConfig,
   uiSettings,
+  onUpdateUiSettings,
   appName,
   id,
 }: TemplateRendererProps) {
@@ -36,7 +39,7 @@ export function TemplateRenderer({
         if (active) setLoading(true);
 
         // 콤마로 구분된 소스 ID들을 배열로 변환
-        const ids = typeof sourceTableId === 'string' 
+        const ids = typeof sourceTableId === 'string'
           ? sourceTableId.split(',').map(id => id.trim()).filter(id => id)
           : sourceTableId;
 
@@ -77,12 +80,12 @@ export function TemplateRenderer({
   switch (templateId) {
     case 'cash-report':
       return (
-        <CashReport 
+        <CashReport
           id={id}
-          data={data} 
-          mapping={mappingConfig} 
-          uiSettings={uiSettings} 
-          appName={appName} 
+          data={data}
+          mapping={mappingConfig}
+          uiSettings={uiSettings}
+          appName={appName}
         />
       );
 
@@ -93,6 +96,7 @@ export function TemplateRenderer({
           data={data}
           mapping={mappingConfig}
           uiSettings={uiSettings}
+          onUpdateUiSettings={onUpdateUiSettings}
           appName={appName}
         />
       );
@@ -106,7 +110,18 @@ export function TemplateRenderer({
           appName={appName}
         />
       );
-    
+
+    case 'dynamic-widget':
+      return (
+        <DynamicWidgetReport
+          id={id}
+          data={data}
+          mapping={mappingConfig}
+          uiSettings={uiSettings}
+          appName={appName}
+        />
+      );
+
     default:
       return (
         <div className="text-center py-20">

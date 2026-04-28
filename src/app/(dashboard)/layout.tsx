@@ -34,8 +34,9 @@ export default async function DashboardLayout({
 
   return (
     <BrandingProvider settings={settings}>
-      <DashboardLayoutClient 
-        sidebar={<NavigationSidebar user={user} microApps={microApps} />}
+      <DashboardLayoutClient
+        user={user}
+        microApps={microApps}
       >
         {children}
       </DashboardLayoutClient>

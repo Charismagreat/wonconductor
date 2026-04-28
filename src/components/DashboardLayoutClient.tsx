@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import NotificationCenter from './NotificationCenter';
+import NavigationSidebar from './NavigationSidebar';
 
 interface DashboardLayoutClientProps {
-  sidebar: React.ReactNode;
+  user: any;
+  microApps: any[];
   children: React.ReactNode;
 }
 
@@ -12,7 +14,7 @@ interface DashboardLayoutClientProps {
  * 🚀 DashboardLayoutClient
  * Standardized Default Export for Absolute Module Resolution
  */
-export default function DashboardLayoutClient({ sidebar, children }: DashboardLayoutClientProps) {
+export default function DashboardLayoutClient({ user, microApps, children }: DashboardLayoutClientProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -31,13 +33,14 @@ export default function DashboardLayoutClient({ sidebar, children }: DashboardLa
     localStorage.setItem('sidebar-collapsed', String(newState));
   };
 
-  // Add the isCollapsed state to the sidebar component
-  const sidebarWithProps = React.isValidElement(sidebar) 
-    ? React.cloneElement(sidebar as React.ReactElement<any>, {
-        isCollapsed,
-        onToggle: handleToggle
-      })
-    : sidebar;
+  const sidebarWithProps = (
+    <NavigationSidebar 
+      user={user} 
+      microApps={microApps} 
+      isCollapsed={isCollapsed} 
+      onToggle={handleToggle} 
+    />
+  );
 
   return (
     <div className="flex min-h-screen bg-[#f8fafc]">

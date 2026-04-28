@@ -414,21 +414,33 @@ export async function getAISuggestedProjectSetupAction(appId: string) {
       [수행 과제]
       1. 데이터 특성과 '강조 태그'의 의도를 100% 결합하여 분석하세요.
       2. 추천된 설정의 '이유'를 설명하는 'description' 필드에는 반드시 사용자가 제공한 태그를 언급하며 그 태그가 어떻게 반영되었는지 설명하세요.
-      3. 가장 적합한 템플릿 아이디를 선택하세요. (cash-report, custom-app)
-      4. 'mappingConfig'를 생성하세요.
-      5. 'uiSettings' (theme, title, description)를 제안하세요.
+      3. 가장 적합한 템플릿 아이디를 선택하세요. 완전히 새로운 구조가 필요하므로 "dynamic-widget"을 선택하세요.
+      4. 사용자가 이미 설정한 데이터 매핑 구성을 기반으로 레이아웃을 구성하세요. mappingConfig 자체는 생성하지 않습니다.
+      5. 'uiSettings'를 통해 테마와 앱 이름, 설명, 그리고 핵심인 **layout(위젯 배치 설계도)**을 제안하세요.
+
+      [레이아웃 (layout) 작성 가이드]
+      - 위젯 종류 (type): "kpi", "chart", "pie", "list" 중 선택
+      - KPI (type: "kpi"): 총합, 평균 등 단일 숫자를 강조. "dataRef"에는 합산할 숫자 컬럼 지정 (예: inflow, outflow, balance, amount). "color"는 emerald, rose, blue 등.
+      - Chart (type: "chart"): 시간에 따른 추이. "subType"은 "line", "bar", "area". "xAxis"는 "date", "series"는 배열 형태로 데이터 컬럼 지정.
+      - Pie (type: "pie"): 비중 분석. "groupBy"에 카테고리 컬럼명(예: category), "dataRef"에 금액 컬럼 지정.
+      - List (type: "list"): 최근 거래 목록. "columns" 배열에 표시할 컬럼명 지정.
+      - grid: Tailwind의 col-span 속성을 이용해 위젯 크기를 결정합니다. (전체 가로폭은 12칸)
+        * 주의: KPI 위젯은 반드시 "col-span-12 md:col-span-4" 또는 "col-span-12 md:col-span-3"을 사용하여 한 줄에 3~4개가 배치되도록 하세요. 절대 "col-span-12" 단독으로 사용하여 전체 폭을 차지하게 하지 마세요.
+        * 주의: Chart나 List 위젯은 "col-span-12" 또는 "col-span-12 md:col-span-8"을 사용하여 넓게 배치하세요.
 
       [응답 양식 - 반드시 JSON으로만 응답]
       {
         "explanation": "이 디자인을 추천하는 비즈니스적 이유 (한글)",
-        "templateId": "cash-report" | "custom-app",
-        "mappingConfig": [
-          { "sourceColumn": "원본컬럼명", "displayName": "표시컬럼명", "type": "amount" | "text" | "date" }
-        ],
+        "templateId": "dynamic-widget",
         "uiSettings": {
           "theme": "blue" | "indigo" | "slate" | "emerald" | "rose" | "amber",
           "title": "추천 앱 이름",
-          "description": "앱에 대한 짧은 설명"
+          "description": "앱에 대한 짧은 설명",
+          "layout": [
+            { "type": "kpi", "title": "총 수입", "dataRef": "inflow", "grid": "col-span-12 md:col-span-4", "color": "emerald" },
+            { "type": "chart", "subType": "area", "title": "추이 분석", "xAxis": "date", "series": ["inflow", "outflow"], "grid": "col-span-12" },
+            { "type": "list", "title": "최근 내역", "grid": "col-span-12 md:col-span-8", "columns": ["date", "description", "amount", "bankName"] }
+          ]
         }
       }
     `;

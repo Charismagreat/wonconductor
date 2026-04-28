@@ -50,7 +50,11 @@ async function ensureProjectTable() {
         { name: 'updatedAt', type: 'TEXT' }
       ], { tableName: 'micro_app_config' });
     } catch (e2: any) {
-      console.error('[ensureProjectTable] Failed to create micro_app_config:', e2.message);
+      if (e2.message?.includes('UNIQUE constraint failed: user_tables.table_name')) {
+        console.log('[ensureProjectTable] micro_app_config metadata already exists. Skipping recreation.');
+      } else {
+        console.error('[ensureProjectTable] Failed to create micro_app_config:', e2.message);
+      }
     }
   }
 

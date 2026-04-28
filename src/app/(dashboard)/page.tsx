@@ -236,17 +236,23 @@ export default async function DashboardPage() {
   if (isAdminOrEditor) {
     const mappedSystemTables = systemTables
       .filter((t: any) => !mappedTableNames.has(t.tableName?.toLowerCase())) // 이미 가상 보고서와 연결된 물리 테이블은 중복 방지를 위해 제외
-      .map((t: any) => ({
-        id: t.tableName,
-        tableName: t.tableName, // 카드 UI에서 표시할 ID 필드 추가
-        name: t.displayName || t.tableName,
-        sheetName: 'System Table',
-        _count: { rows: t.rowCount !== null && t.rowCount !== undefined ? t.rowCount : 'N/A' },
-        isSystemTable: true,
-        ownerId: 'system',
-        isReadOnly: t.tableName === 'user' ? false : true,
-        category: 'System'
-      }));
+      .map((t: any) => {
+        const tName = t.displayName || t.tableName;
+        // '마스터' 혹은 'master'라는 이름이 들어간 물리 테이블은 시스템 제약에서 해제하여 일반 테이블처럼 취급
+        const isMaster = tName?.includes('마스터') || t.tableName?.toLowerCase().includes('master');
+        
+        return {
+          id: t.tableName,
+          tableName: t.tableName, // 카드 UI에서 표시할 ID 필드 추가
+          name: tName,
+          sheetName: isMaster ? 'Master Data' : 'System Table',
+          _count: { rows: t.rowCount !== null && t.rowCount !== undefined ? t.rowCount : 'N/A' },
+          isSystemTable: !isMaster,
+          ownerId: 'system',
+          isReadOnly: isMaster ? false : (t.tableName === 'user' ? false : true),
+          category: isMaster ? '일반 테이블' : 'System'
+        };
+      });
     reports = [...reports, ...mappedSystemTables];
   }
 

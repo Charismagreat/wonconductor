@@ -179,30 +179,36 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
             {filteredProjects.map((project) => (
               <div 
                 key={project.id}
-                className="group bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-amber-500/20 transition-all flex flex-col relative"
+                className="group bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md hover:border-amber-500/30 transition-all flex flex-col gap-4 relative"
               >
-                <div className="flex items-center justify-between mb-6">
-                  <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Settings size={24} />
+                {/* 상단: 아이콘 + 텍스트 + 배지/버튼 */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Settings size={20} />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <h3 className="text-sm font-black text-slate-800 truncate">{project.name}</h3>
+                      <p className="text-[10px] text-slate-400 font-medium truncate">
+                        {project.sources.length}개의 데이터 소스 연결됨
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest">Draft</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[8px] font-black uppercase tracking-widest">Draft</span>
                     <button 
                       onClick={(e) => handleDeleteProject(e, project.id, project.name)}
-                      className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                      className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-                <h3 className="text-lg font-black text-slate-800 mb-2">{project.name}</h3>
-                <p className="text-xs text-slate-400 font-medium mb-8">
-                  {project.sources.length}개의 데이터 소스 연결됨
-                </p>
-                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <span className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(project.updatedAt).toLocaleDateString()}</span>
+
+                <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest mt-auto">
+                  <span className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(project.updatedAt).toLocaleDateString()}</span>
                   <Link href={`/publishing/edit/${project.id}`} className="text-amber-600 hover:underline flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                    STUDIO 입장 <ArrowRight size={12} />
+                    STUDIO 입장 <ArrowRight size={10} />
                   </Link>
                 </div>
               </div>
@@ -228,41 +234,47 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
             {filteredApps.map((app) => (
               <div 
                 key={app.id} 
-                className="group bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-500/20 transition-all flex flex-col"
+                className="group bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all flex flex-col gap-4"
               >
-                <div className="flex items-center justify-between mb-6">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
-                    app.templateId === 'cash-report' ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'
-                  }`}>
-                    {app.templateId === 'cash-report' ? <Wallet size={24} /> : <Layout size={24} />}
+                {/* 상단: 아이콘 + 텍스트 + 배지/버튼 */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors group-hover:scale-105 ${
+                      app.templateId === 'cash-report' ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'
+                    }`}>
+                      {app.templateId === 'cash-report' ? <Wallet size={20} /> : <Layout size={20} />}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <h3 className="text-sm font-black text-slate-800 group-hover:text-blue-600 transition-colors truncate">{app.name}</h3>
+                      <p className="text-[10px] text-slate-400 font-medium truncate">
+                        {app.templateId === 'cash-report' ? '프리미엄 리포트' : '커스텀 리포트'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest">Live</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="px-2 py-0.5 bg-emerald-500 text-white rounded-md text-[8px] font-black uppercase tracking-widest">Live</span>
                     <button 
                       onClick={(e) => handleDeleteApp(e, app.id, app.name)}
-                      className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                      className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                       title="앱 삭제"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-                <h3 className="text-lg font-black text-slate-800 mb-2 group-hover:text-blue-600 transition-colors">{app.name}</h3>
-                <p className="text-xs text-slate-400 font-medium mb-8 line-clamp-1">
-                  {app.templateId === 'cash-report' ? '추천 템플릿 기반 프리미엄 리포트' : '커스텀 데이터 범용 리포트'}
-                </p>
-                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  <span className="flex items-center gap-1.5"><Calendar size={12} /> {new Date(app.createdAt).toLocaleDateString()}</span>
+
+                <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest mt-auto">
+                  <span className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(app.createdAt).toLocaleDateString()}</span>
                   <div className="flex items-center gap-4">
                     <Link href={`/publishing/edit/${app.projectId}`} className="text-slate-400 hover:text-blue-600 flex items-center gap-1 transition-colors">
-                      <Edit3 size={14} /> 수정
+                      <Edit3 size={12} /> 수정
                     </Link>
                     <Link 
                       href={`/m/${app.id}`} 
                       target="_blank"
                       className="text-blue-600 flex items-center gap-1 hover:underline font-black"
                     >
-                      열기 <ExternalLink size={12} />
+                      열기 <ExternalLink size={10} />
                     </Link>
                   </div>
                 </div>

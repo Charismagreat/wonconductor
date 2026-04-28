@@ -48,7 +48,8 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState(project.name);
   const [pending, setPending] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'code'>('general');
+  const [isAIPromptModalOpen, setIsAIPromptModalOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState(project.tags?.join(', ') || '');
   const [customHtml, setCustomHtml] = useState(project.uiSettings.customHtml || '');
   const [customCss, setCustomCss] = useState(project.uiSettings.customCss || '');
   const [sourceSchemas, setSourceSchemas] = useState<any[]>([]);
@@ -169,11 +170,14 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
       return;
     }
 
-    if (!window.confirm('AI가 현재 소스를 분석하여 가장 적합한 디자인과 매핑을 추천합니다. 계속하시겠습니까?')) return;
-    
+    setIsAIPromptModalOpen(false);
     console.log('[MicroAppStudio] AI Suggestion Started');
     setPending(true);
     try {
+      // 입력받은 프롬프트를 태그로 변환하여 서버에 저장
+      const newTags = aiPrompt.split(',').map((t: string) => t.trim()).filter(Boolean);
+      await updateMicroAppProjectAction(project.id, { tags: newTags });
+      
       const suggestion = await getAISuggestedProjectSetupAction(project.id);
       console.log('[MicroAppStudio] AI Suggestion Result:', suggestion);
       
@@ -296,6 +300,13 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
             ) : (
               <div className="group">
                 <div className="flex items-center gap-4">
+                  <Link 
+                    href="/publishing"
+                    className="p-3 bg-white text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl shadow-sm border border-slate-100 transition-all active:scale-90 mr-2"
+                    title="앱 스튜디오 목록으로 돌아가기"
+                  >
+                    <ArrowLeft size={24} strokeWidth={2.5} />
+                  </Link>
                   <h1 className="text-xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3 font-[family-name:var(--font-geist-sans)] leading-tight uppercase">
                     {project.name}
                     <Rocket className="text-blue-600 shrink-0" size={24} />
@@ -306,33 +317,6 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                   </div>
                 </div>
 
-                {/* 2. New Dedicated Tag Section */}
-                <div className="flex flex-wrap items-center gap-2 mt-4 animate-in slide-in-from-left-2 duration-500">
-                  <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
-                    <Sparkles size={14} className="text-indigo-600" />
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">AI Context Tags</span>
-                  </div>
-                  
-                  {project.tags?.map((tag: string) => (
-                    <span key={tag} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:border-rose-200 hover:text-rose-600 transition-all group cursor-default">
-                      #{tag}
-                      <button onClick={() => handleRemoveTag(tag)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                  
-                  <div className="relative group">
-                    <input 
-                      type="text"
-                      placeholder="+ 태그 추가 (예: CEO용)"
-                      onKeyDown={handleAddTag}
-                      onBlur={handleAddTag}
-                      disabled={pending}
-                      className="px-3 py-1.5 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-xs font-bold outline-none focus:bg-white focus:border-blue-500 focus:border-solid transition-all w-32 focus:w-48 shadow-sm"
-                    />
-                  </div>
-                </div>
                 
                 <div className="flex items-center gap-4 mt-6">
                   <div className="text-slate-500 font-bold leading-relaxed flex items-center gap-3">
@@ -354,21 +338,6 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
         </div>
       </section>
 
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-4 mb-8">
-        <button 
-          onClick={() => setActiveTab('general')}
-          className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
-        >
-          Data & Preview
-        </button>
-        <button 
-          onClick={() => setActiveTab('code')}
-          className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${activeTab === 'code' ? 'bg-slate-900 text-white shadow-xl' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
-        >
-          Custom HTML/CSS
-        </button>
-      </div>
 
       {/* 2. Main Content Card */}
       <section className="space-y-6">
@@ -400,43 +369,11 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
 
           {/* Source List Section */}
           <div className="p-0">
-            {activeTab === 'general' ? (
-              <div className="space-y-0">
+            {/* Main Single View */}
+            <div className="space-y-0">
                 {/* 1. Template Selection & Preview (Moved UP) */}
                 <div className="p-8 md:p-12 space-y-12 bg-slate-50/30 border-b border-slate-100">
-                  {/* AI Magic Orchestration Bar */}
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-6 rounded-[32px] border border-indigo-100 shadow-xl shadow-indigo-500/5 animate-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center border border-indigo-100 shadow-inner">
-                        <Sparkles size={24} className="animate-pulse" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-0.5">AI Magic Setup</h4>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">AI가 데이터에 맞는 최적의 템플릿과 디자인을 추천합니다.</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={handleAISuggest}
-                        disabled={pending}
-                        className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20 disabled:opacity-50 group"
-                        title="전체 구성(매핑+디자인) 추천"
-                      >
-                        <Sparkles size={16} className="group-hover:rotate-12 transition-transform" />
-                        AI Full Suggest
-                      </button>
 
-                      <button 
-                        onClick={handleDesignRefresh}
-                        disabled={pending}
-                        className="px-6 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-2 disabled:opacity-50 group"
-                        title="디자인 스타일만 추천"
-                      >
-                        <Palette size={16} className="group-hover:scale-110 transition-transform" />
-                        Design Refresh
-                      </button>
-                    </div>
-                  </div>
 
                   {/* Template Selection */}
                   <div className="space-y-6 pt-4">
@@ -452,7 +389,7 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                       ].map(t => (
                         <div
                           key={t.id}
-                          className={`p-8 rounded-[40px] border-2 transition-all flex flex-col relative overflow-hidden group bg-white ${project.templateId === t.id ? 'border-blue-600 shadow-2xl shadow-blue-900/10' : 'border-slate-100 hover:border-blue-200 shadow-sm'}`}
+                          className={`p-6 rounded-[24px] border-2 transition-all flex flex-col relative overflow-hidden group bg-white ${project.templateId === t.id ? 'border-blue-600 shadow-xl shadow-blue-900/10' : 'border-slate-100 hover:border-blue-200 shadow-sm'}`}
                         >
                           <button
                             onClick={async () => {
@@ -461,31 +398,48 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                             }}
                             className="text-left w-full"
                           >
-                            <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">{t.icon}</div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="text-lg font-black text-slate-900">{t.name}</div>
-                              {t.id === 'cash-report' && (
-                                <span className="px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md uppercase tracking-widest">Premium</span>
-                              )}
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="text-2xl group-hover:scale-110 transition-transform">{t.icon}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-base font-black text-slate-900">{t.name}</div>
+                                {t.id === 'cash-report' && (
+                                  <span className="px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-black rounded-md uppercase tracking-widest">Premium</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mb-6">{t.desc}</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mb-4 pl-1">{t.desc}</div>
                           </button>
                           
-                          <button 
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              await updateMicroAppProjectAction(project.id, { templateId: t.id });
-                              handlePublish();
-                            }}
-                            disabled={isPublishing}
-                            className={`mt-auto py-3 px-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${project.templateId === t.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-900 text-white hover:bg-blue-600'}`}
-                          >
-                            <Rocket size={14} />
-                            {isPublishing ? 'Publishing...' : 'Publish with this Template'}
-                          </button>
+                          <div className="mt-auto flex items-center gap-2 w-full pt-2">
+                            {/* AI Magic Buttons (Only for Premium Template when selected) */}
+                            {project.templateId === t.id && t.id === 'cash-report' && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setIsAIPromptModalOpen(true); }}
+                                disabled={pending}
+                                title="AI 최적화 세팅 (매핑 & 디자인 추천)"
+                                className="flex-1 py-2.5 bg-indigo-50 text-indigo-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 animate-in fade-in zoom-in duration-300"
+                              >
+                                <Sparkles size={12} className="text-indigo-500" />
+                                <span className="hidden sm:inline">AI 추천</span>
+                              </button>
+                            )}
+
+                            <button 
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await updateMicroAppProjectAction(project.id, { templateId: t.id });
+                                handlePublish();
+                              }}
+                              disabled={isPublishing}
+                              className={`flex-[2] py-2.5 px-2 w-full rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${project.templateId === t.id ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-900 text-white hover:bg-blue-600'}`}
+                            >
+                              <Rocket size={14} className="shrink-0" />
+                              <span className="truncate">{isPublishing ? 'Publishing...' : 'Publish'}</span>
+                            </button>
+                          </div>
 
                           {project.templateId === t.id && (
-                            <div className="absolute top-6 right-6 w-3 h-3 bg-blue-600 rounded-full animate-pulse" />
+                            <div className="absolute top-4 right-4 w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse" />
                           )}
                         </div>
                       ))}
@@ -654,6 +608,76 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                     </div>
                   </div>
 
+                  {/* Custom HTML/CSS Editor (Only visible when custom-html template is selected) */}
+                  {project.templateId === 'custom-html' && (
+                    <div className="pt-12 border-t border-slate-100">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                            <Bot size={16} />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Custom Code Injection Mode</h4>
+                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                              외부 HTML/CSS를 적용하고 <code className="mx-1 px-1 py-0.5 bg-slate-100 text-blue-500 rounded font-mono text-[9px]">{"{{columnName}}"}</code>으로 매핑하세요.
+                            </p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            setPending(true);
+                            try {
+                              await updateMicroAppProjectAction(project.id, {
+                                uiSettings: { 
+                                  ...project.uiSettings, 
+                                  customHtml, 
+                                  customCss 
+                                }
+                              });
+                              router.refresh();
+                            } catch (e) {
+                              alert('저장 중 오류가 발생했습니다.');
+                            } finally {
+                              setPending(false);
+                            }
+                          }}
+                          disabled={pending}
+                          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 shadow-md shadow-blue-500/20"
+                        >
+                          <CheckCircle2 size={14} />
+                          Apply Custom Code
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between px-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">HTML Architecture</label>
+                            <span className="text-[9px] font-bold text-emerald-500 uppercase">React-Safe DSL</span>
+                          </div>
+                          <textarea 
+                            value={customHtml}
+                            onChange={(e) => setCustomHtml(e.target.value)}
+                            placeholder="<!-- Paste your HTML here -->"
+                            className="w-full h-[400px] p-8 bg-slate-900 text-emerald-400 font-mono text-xs rounded-[40px] border border-slate-800 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all shadow-inner resize-y"
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between px-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Styling (CSS)</label>
+                            <span className="text-[9px] font-bold text-blue-400 uppercase">Scoped Styles</span>
+                          </div>
+                          <textarea 
+                            value={customCss}
+                            onChange={(e) => setCustomCss(e.target.value)}
+                            placeholder="/* Paste your CSS here */"
+                            className="w-full h-[400px] p-8 bg-slate-900 text-blue-300 font-mono text-xs rounded-[40px] border border-slate-800 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all shadow-inner resize-y"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Live Preview */}
                   <div className="pt-12 border-t border-slate-100">
                     <div className="flex items-center justify-between mb-8 px-2">
@@ -676,79 +700,6 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="p-8 md:p-12 space-y-10">
-                <div className="flex items-start gap-6 bg-slate-900 p-8 rounded-[40px] border border-slate-800 shadow-2xl">
-                  <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-                    <Bot size={24} />
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-white font-black text-lg">커스텀 코드 인젝션 모드</h4>
-                    <p className="text-slate-400 text-sm leading-relaxed max-w-2xl">
-                      외부 디자인 도구에서 추출한 HTML과 CSS를 아래에 붙여넣으세요. 
-                      <code className="mx-1 px-1.5 py-0.5 bg-slate-800 text-blue-400 rounded font-mono text-[10px]">{"{{totalBalance}}"}</code>와 같은 플레이스홀더를 사용하면 실시간 데이터가 자동으로 매핑됩니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">HTML Architecture</label>
-                      <span className="text-[9px] font-bold text-emerald-500 uppercase">React-Safe DSL</span>
-                    </div>
-                    <textarea 
-                      value={customHtml}
-                      onChange={(e) => setCustomHtml(e.target.value)}
-                      placeholder="<!-- Paste your HTML here -->"
-                      className="w-full h-[600px] p-8 bg-slate-900 text-emerald-400 font-mono text-xs rounded-[40px] border border-slate-800 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all shadow-inner"
-                    />
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Styling (CSS)</label>
-                      <span className="text-[9px] font-bold text-blue-400 uppercase">Scoped Styles</span>
-                    </div>
-                    <textarea 
-                      value={customCss}
-                      onChange={(e) => setCustomCss(e.target.value)}
-                      placeholder="/* Paste your CSS here */"
-                      className="w-full h-[600px] p-8 bg-slate-900 text-blue-300 font-mono text-xs rounded-[40px] border border-slate-800 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all shadow-inner"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-4">
-                  <button 
-                    onClick={async () => {
-                      setPending(true);
-                      try {
-                        await updateMicroAppProjectAction(project.id, {
-                          templateId: 'custom-html',
-                          uiSettings: { 
-                            ...project.uiSettings, 
-                            customHtml, 
-                            customCss 
-                          }
-                        });
-                        alert('커스텀 디자인이 저장되었습니다! [Data & Preview] 탭에서 결과를 확인하세요.');
-                        setActiveTab('general');
-                        router.refresh();
-                      } catch (e) {
-                        alert('저장 중 오류가 발생했습니다.');
-                      } finally {
-                        setPending(false);
-                      }
-                    }}
-                    disabled={pending}
-                    className="group px-12 py-5 bg-blue-600 text-white rounded-3xl font-black text-sm uppercase tracking-widest shadow-2xl shadow-blue-500/40 hover:bg-blue-500 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50"
-                  >
-                    <CheckCircle2 size={20} />
-                    Deploy Custom Design
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -763,6 +714,53 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
           onClose={() => setIsModalOpen(false)} 
           onSelect={handleAddSources}
         />
+      )}
+
+      {/* AI Prompt Modal */}
+      {isAIPromptModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Bot size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900">AI 대시보드 디자이너</h3>
+                <p className="text-xs font-bold text-slate-400">데이터 구조에 맞는 최적의 매핑과 디자인을 생성합니다.</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4 mb-8">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                AI에게 전달할 핵심 키워드 (선택)
+              </label>
+              <textarea
+                autoFocus
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="예: CEO 보고용 자금일보, 깔끔한 톤앤매너, 핵심 요약 위주"
+                className="w-full h-24 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none"
+              />
+            </div>
+            
+            <div className="flex items-center justify-end gap-3">
+              <button 
+                onClick={() => setIsAIPromptModalOpen(false)}
+                className="px-6 py-3 rounded-xl font-black text-xs text-slate-500 hover:bg-slate-100 transition-all uppercase tracking-widest"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleAISuggest}
+                disabled={pending}
+                className="px-8 py-3 rounded-xl font-black text-xs text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-widest flex items-center gap-2"
+              >
+                <Sparkles size={16} />
+                AI 추천 시작
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

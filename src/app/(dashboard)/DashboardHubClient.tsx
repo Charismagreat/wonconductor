@@ -38,51 +38,67 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
   const [activeTab, setActiveTab] = useState<'reports' | 'backups'>('reports');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('전체보기');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // 카테고리 추출 및 정리
-  const categories = useMemo(() => {
-    const cats = new Set<string>();
-    cats.add('전체보기');
-    reports.forEach(r => {
-      // 1. 직접 부여된 category 확인
+  // 데이터 전처리 및 태그 추출 로직
+  const { processedReports, allTags } = useMemo(() => {
+    const tagsSet = new Set<string>();
+    
+    const processed = reports.map(r => {
+      let cat = '일반 테이블';
+      const rTags: string[] = [];
+
+      // 1. 카테고리 추출 및 태그 분리
       if (r.category) {
-        cats.add(r.category === 'System' ? '시스템 테이블' : r.category === 'Finance' ? '금융 테이블' : r.category);
-      } 
-      // 2. uiConfig 내의 category 확인
-      else if (r.uiConfig) {
-        try {
-          const config = JSON.parse(r.uiConfig);
-          if (config.category) cats.add(config.category);
-          else cats.add('일반 테이블');
-        } catch (e) { cats.add('일반 테이블'); }
-      } else {
-        cats.add('일반 테이블');
+        if (r.category === 'System') cat = '시스템 테이블';
+        else if (r.category === 'Finance') cat = '금융 테이블';
+        else if (r.category === '일반 테이블') cat = '일반 테이블';
+        else rTags.push(r.category); // 커스텀 카테고리는 태그로 이동
       }
-    });
-    return Array.from(cats).sort((a, b) => {
-      if (a === '전체보기') return -1;
-      if (b === '전체보기') return 1;
-      return a.localeCompare(b);
-    });
-  }, [reports]);
 
-  // 필터링 로직
-  const filteredReports = useMemo(() => {
-    return reports.filter(r => {
-      // 카테고리 필터
-      let rCat = r.category || '일반 테이블';
-      if (rCat === 'System') rCat = '시스템 테이블';
-      else if (rCat === 'Finance') rCat = '금융 테이블';
-
-      if (!r.category && r.uiConfig) {
+      // 2. uiConfig 내의 데이터 추출
+      if (r.uiConfig) {
         try {
           const config = JSON.parse(r.uiConfig);
-          if (config.category) rCat = config.category;
+          if (config.category && config.category !== 'System' && config.category !== 'Finance' && config.category !== '일반 테이블') {
+            rTags.push(config.category);
+          } else if (config.category === 'System') cat = '시스템 테이블';
+          else if (config.category === 'Finance') cat = '금융 테이블';
+          
+          if (Array.isArray(config.tags)) {
+            config.tags.forEach((t: string) => rTags.push(t));
+          }
         } catch (e) {}
       }
 
-      const matchesCategory = selectedCategory === '전체보기' || rCat === selectedCategory;
+      const uniqueTags = Array.from(new Set(rTags)).filter(Boolean);
+      uniqueTags.forEach(t => tagsSet.add(t));
+
+      return {
+        ...r,
+        normalizedCategory: cat,
+        tags: uniqueTags
+      };
+    });
+
+    return {
+      processedReports: processed,
+      allTags: Array.from(tagsSet).sort()
+    };
+  }, [reports]);
+
+  // 카테고리는 고정 4종으로 통일
+  const categories = ['전체보기', '시스템 테이블', '금융 테이블', '일반 테이블'];
+
+  // 필터링 로직
+  const filteredReports = useMemo(() => {
+    return processedReports.filter(r => {
+      // 카테고리 필터
+      const matchesCategory = selectedCategory === '전체보기' || r.normalizedCategory === selectedCategory;
       
+      // 태그 필터 (AND 조건 - 선택된 태그를 모두 포함해야 함)
+      const matchesTags = selectedTags.length === 0 || selectedTags.every(t => r.tags.includes(t));
+
       // 검색어 필터
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = 
@@ -90,9 +106,15 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
         (r.tableName && r.tableName.toLowerCase().includes(searchLower)) ||
         (r.description && r.description.toLowerCase().includes(searchLower));
 
-      return matchesCategory && matchesSearch;
+      return matchesCategory && matchesTags && matchesSearch;
     });
-  }, [reports, selectedCategory, searchQuery]);
+  }, [processedReports, selectedCategory, selectedTags, searchQuery]);
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -176,22 +198,45 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                 </div>
               </div>
 
-              {/* Category Chips */}
-              <div className="flex flex-wrap gap-2 pt-6 border-t border-slate-50">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 relative ${
-                      selectedCategory === cat 
-                      ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20 ring-4 ring-slate-900/5' 
-                      : 'bg-white text-slate-400 hover:bg-slate-50 border border-slate-100 hover:border-slate-200'
-                    }`}
-                  >
-                    {selectedCategory === cat && <Check size={12} strokeWidth={3} className="text-blue-400" />}
-                    {cat}
-                  </button>
-                ))}
+              {/* Category Chips & Tag Cloud */}
+              <div className="pt-6 border-t border-slate-50 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 relative ${
+                        selectedCategory === cat 
+                        ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20 ring-4 ring-slate-900/5' 
+                        : 'bg-white text-slate-400 hover:bg-slate-50 border border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
+                      {selectedCategory === cat && <Check size={12} strokeWidth={3} className="text-blue-400" />}
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {allTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <div className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                      <Filter size={10} /> TAG FILTERS
+                    </div>
+                    {allTags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                          selectedTags.includes(tag)
+                          ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
+                          : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
 
@@ -217,12 +262,6 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredReports.map((report: any) => {
-                   let rawCat = report.category || '일반 테이블';
-                   if (!report.category && report.uiConfig) {
-                     try { rawCat = JSON.parse(report.uiConfig).category || '일반 테이블'; } catch(e) {}
-                   }
-                   const rCat = rawCat === 'System' ? '시스템 테이블' : rawCat === 'Finance' ? '금융 테이블' : rawCat;
-                   
                    return (
                     <div key={report.id} className="relative group bg-white border border-slate-100 rounded-[32px] hover:border-blue-500/30 hover:shadow-2xl hover:shadow-slate-900/10 transition-all duration-500 overflow-hidden">
                       {/* Entire card is a link */}
@@ -265,16 +304,25 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                                 <p className="text-[11px] text-slate-400 line-clamp-1 font-bold">
                                   {report.description || 'No description available for this table.'}
                                 </p>
+                                {report.tags && report.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {report.tags.map((t: string) => (
+                                      <span key={t} className="text-[9px] font-bold text-blue-500 bg-blue-50/50 px-1.5 py-0.5 rounded-md">
+                                        #{t}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="flex flex-col items-end gap-2 shrink-0">
                                 <span className={`px-2 py-0.5 text-[8px] font-black rounded-md border uppercase tracking-tighter shrink-0 ${
-                                  report.isFinanceTable ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                  report.isSystemTable ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                                  report.normalizedCategory === '금융 테이블' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                  report.normalizedCategory === '시스템 테이블' ? 'bg-purple-50 text-purple-600 border-purple-200' :
                                   report.isDirectTable ? 'bg-zinc-50 text-zinc-600 border-zinc-200' :
                                   (isStaff ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100')
                                 }`}>
-                                  {rCat}
+                                  {report.normalizedCategory}
                                 </span>
                                 <div className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
                                   {!isStaff && !report.isReadOnly && (
@@ -290,10 +338,10 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg text-[9px] font-bold text-slate-500 border border-slate-100">
                             <span className="text-blue-600 font-black">ID:</span> {report.id}
                           </div>
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[9px] font-bold shadow-lg shadow-blue-500/10">
-                            <span className="opacity-80">REPO:</span> {report.sheetName || 'MY DB'}
-                          </div>
                           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/50 rounded-lg text-[9px] font-bold text-blue-600">
+                            <span className="font-black">REPO:</span> {report.sheetName || 'MY DB'}
+                          </div>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[9px] font-bold shadow-lg shadow-blue-500/10">
                             <span className="font-black">{report._count?.rows ?? '0'}</span> Rows
                           </div>
                         </div>

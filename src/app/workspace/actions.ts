@@ -41,8 +41,8 @@ export async function getWorkspaceFeedAction() {
         let users: any[] = [];
 
         try {
-            // 1) 기존 report_row 테이블의 미분류 항목 조회
-            const rawRowsResult = await queryTable('report_row', { 
+            // 1) 기존 dashboard_data 테이블의 항목 조회 (이전 report_row 대응)
+            const rawRowsResult = await queryTable('dashboard_data', { 
                 limit: 50,
                 orderBy: 'createdAt',
                 orderDirection: 'DESC'
@@ -54,7 +54,7 @@ export async function getWorkspaceFeedAction() {
                 row.reportId === 'system-unclassified'
             );
         } catch (e) {
-            console.error("[Feed Debug] report_row query failed:", e);
+            console.error("[Feed Debug] dashboard_data query failed:", e);
         }
 
         try {
@@ -423,13 +423,13 @@ export async function getWorkspaceItemDataAction(itemId: string) {
             };
         }
 
-        // 만약 workspace_item이 아니라 report_row(기존 미분류)인 경우
-        console.log(`[Workspace Item Detail] Not found in workspace_item. Checking report_row for ID: ${itemId}`);
-        const rows = await queryTable('report_row', { filters: { id: itemId } });
+        // 만약 workspace_item이 아니라 dashboard_data(기존 미분류)인 경우
+        console.log(`[Workspace Item Detail] Not found in workspace_item. Checking dashboard_data for ID: ${itemId}`);
+        const rows = await queryTable('dashboard_data', { filters: { id: itemId } });
         const row = Array.isArray(rows) ? rows[0] : (rows.rows?.[0]);
 
         if (row) {
-            console.log(`[Workspace Item Detail] Found in [report_row]. ID: ${row.id}, Report: ${row.reportId}`);
+            console.log(`[Workspace Item Detail] Found in [dashboard_data]. ID: ${row.id}, Report: ${row.reportId}`);
             let parsedData: any = {};
             try {
                 parsedData = JSON.parse(row.data);
@@ -807,7 +807,7 @@ export async function deleteWorkspaceItemAction(itemId: string) {
     try {
         console.log(`[Workspace Delete] Item: ${itemId}`);
 
-        // 1. 이미지 파일 경로 확인 (workspace_item 또는 report_row)
+        // 1. 이미지 파일 경로 확인 (workspace_item 또는 dashboard_data)
         const items = await queryTable('workspace_item', { filters: { id: String(itemId) } });
         const item = Array.isArray(items) ? items[0] : (items.rows?.[0]);
 

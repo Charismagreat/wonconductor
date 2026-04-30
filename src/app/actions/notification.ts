@@ -253,7 +253,7 @@ export async function deleteNotificationGroupAction(link: string) {
             const itemId = decodeURIComponent(openItemMatch[1]);
             console.log(`[Notification Delete Sync] Deleting Linked Data Item: ${itemId}`);
             
-            // workspace_item 및 report_row 하드 삭제 시도하여 데이터 정합성 확보
+            // workspace_item 및 dashboard_data 하드 삭제 시도하여 데이터 정합성 확보
             await deleteRows('workspace_item', { filters: { id: itemId } });
             await deleteRows('dashboard_data', { filters: { id: itemId } });
         }

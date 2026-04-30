@@ -13,7 +13,9 @@ import {
   PieChart,
   X,
   Bot,
-  RotateCcw
+  RotateCcw,
+  Copy,
+  Check
 } from 'lucide-react';
 import { 
   getVisualizationRecommendationAction, 
@@ -23,6 +25,8 @@ import {
   clearAIStudioSessionAction
 } from '@/app/actions/ai';
 import { SmartChart } from '@/components/SmartChart';
+import { SourceSelectionModal } from '@/components/dashboard/SourceSelectionModal';
+import { Plus } from 'lucide-react';
 
 // 저장소 키 (하위 호환성 및 로그 확인용)
 const STORAGE_KEY = 'egdesk_ai_studio_state';
@@ -37,7 +41,9 @@ interface ChatMessage {
   content: string;
   type?: 'text' | 'suggestion' | 'chart';
   chartConfig?: any;
+  traces?: any[];
 }
+
 
 export function DashboardClient({ allTables, user }: DashboardClientProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -56,6 +62,17 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const isLoaded = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTraces, setActiveTraces] = useState<any[] | null>(null);
+  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 입력 내용에 따라 높이 자동 조절
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [input]);
 
   // 대화 내용이나 타이핑 상태가 바뀔 때마다 하단 스크롤
   useEffect(() => {
@@ -100,21 +117,32 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
 
   // [Persistence] 상태 변경 시 서버에 자동 저장 (Debounced)
   useEffect(() => {
-    if (!isLoaded.current) return;
+    if (!isLoaded.current || !user) return;
 
     const timer = setTimeout(async () => {
       setIsSaving(true);
       try {
+        // 데이터 경량화: 너무 큰 트레이스 결과는 요약하여 저장
+        const lightChatHistory = chatHistory.map(msg => ({
+          ...msg,
+          traces: msg.traces?.map(t => ({
+            ...t,
+            result: typeof t.result === 'object' 
+              ? JSON.parse(JSON.stringify(t.result).substring(0, 2000) + (JSON.stringify(t.result).length > 2000 ? '..."}' : ''))
+              : String(t.result).substring(0, 2000)
+          }))
+        }));
+
         const result = await saveAIStudioSessionAction({
           selectedIds,
-          chatHistory,
+          chatHistory: lightChatHistory,
           charts
         });
         if (!result.success) {
-          console.error('Failed to save session, will retry on next change.');
+          console.warn('Session auto-save failed:', result.error);
         }
       } catch (e) {
-        console.error('Error during session auto-save:', e);
+        console.warn('Session auto-save network error (will retry later):', e);
       } finally {
         setIsSaving(false);
       }
@@ -205,7 +233,8 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
 
       setChatHistory(prev => [...prev, {
         role: 'assistant',
-        content: data.content
+        content: data.content,
+        traces: data.traces
       }]);
     } catch (error) {
       console.error('AI Analysis Error:', error);
@@ -216,6 +245,13 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const handleCancelAnalysis = () => {
+    setIsTyping(false);
+    // 실제 서버 요청을 물리적으로 끊는 것은 AbortController가 필요하지만, 
+    // 여기서는 UI 상태를 즉시 복구하여 사용자가 다른 작업을 할 수 있게 합니다.
+    console.log('AI Analysis cancelled by user.');
   };
 
   const handleVersionChange = (id: string, version: number) => {
@@ -257,119 +293,34 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
   const currentTargetedConfig = currentTargetedChart?.versions[currentTargetedChart.currentVersion];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 min-h-[calc(100vh-12rem)]">
-      {/* 1. Left Sidebar: Table Picker */}
-      <aside className="w-full lg:w-80 flex flex-col gap-6">
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-slate-50">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <TableIcon size={16} className="text-blue-600" />
-              Analyze Data Sources
-            </h3>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <input 
-                type="text" 
-                placeholder="Search tables..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-xs font-medium focus:ring-2 focus:ring-blue-100 transition-all"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto max-h-[500px] p-2 space-y-1">
-            {filteredTables.map(table => (
-              <button
-                key={table.id}
-                onClick={() => toggleTable(table.id)}
-                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all group ${
-                  selectedIds.includes(table.id) 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
-                  : 'hover:bg-slate-50 text-slate-600'
-                }`}
-              >
-                <div className={`p-2 rounded-lg ${
-                  selectedIds.includes(table.id) ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-white'
-                }`}>
-                  <BarChart3 size={14} />
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 min-h-[calc(100vh-12rem)] animate-in fade-in duration-500">
+      {/* 1. Left Column: Full Height Chat Interface */}
+      <div className="xl:col-span-1 flex flex-col h-full min-h-[600px]">
+        <div className="flex-1 bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col overflow-hidden">
+          <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+                <Bot size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">AI Assistant</h3>
+                <div className="flex items-center gap-1">
+                  <span className={`w-1.5 h-1.5 ${isSaving ? 'bg-amber-500' : 'bg-green-500'} rounded-full animate-pulse`} />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {isSaving ? 'Saving...' : 'Synced'}
+                  </span>
                 </div>
-                <div className="flex-1 text-left overflow-hidden">
-                  <p className="text-xs font-black truncate">{table.displayName || table.name}</p>
-                  <p className={`text-[9px] tracking-tighter opacity-60 ${
-                    selectedIds.includes(table.id) ? 'text-blue-100' : 'text-slate-400'
-                  }`}>
-                    <span className="uppercase">ID:</span> {table.id}
-                  </p>
-                </div>
-                {selectedIds.includes(table.id) && <ChevronRight size={14} />}
-              </button>
-            ))}
-          </div>
-          
-          <div className="p-6 bg-slate-50 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Tables</p>
-              <span className="px-2 py-0.5 bg-blue-600 text-white rounded-full text-[9px] font-black">{selectedIds.length}</span>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {selectedIds.length === 0 ? (
-                 <span className="text-[10px] font-medium text-slate-300 italic">No tables selected</span>
-              ) : (
-                selectedIds.map(id => {
-                  const table = allTables.find(t => t.id === id);
-                  return (
-                    <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-600 rounded-lg text-[9px] font-black">
-                      {table?.displayName || table?.name || id}
-                      <X size={10} className="cursor-pointer shrink-0" onClick={() => toggleTable(id)} />
-                    </span>
-                  );
-                })
-              )}
-            </div>
-            {selectedIds.length > 0 && (
-              <button 
-                onClick={() => handleSend("현재 선택한 테이블들의 데이터를 분석해서 시각화 차트를 추천해줘.")}
-                disabled={isTyping}
-                className="w-full mt-4 py-2 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-500/20"
-              >
-                {isTyping ? 'Analyzing...' : 'Auto-Generate Charts'}
-              </button>
-            )}
+            <button 
+              onClick={resetSession}
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all flex items-center gap-2"
+              title="새 분석 시작 (초기화)"
+            >
+              <RotateCcw size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Reset</span>
+            </button>
           </div>
-        </div>
-      </aside>
-
-      {/* 2. Main Area: AI Analysis Studio */}
-      <div className="flex-1 flex flex-col gap-8">
-         {/* Content View */}
-         <div className="flex-1 grid grid-cols-1 xl:grid-cols-3 gap-8">
-            {/* 2a. Chat Interface */}
-            <div className="xl:col-span-1 bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col overflow-hidden max-h-[750px]">
-               <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
-                      <Bot size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900">AI Assistant</h3>
-                      <div className="flex items-center gap-1">
-                        <span className={`w-1.5 h-1.5 ${isSaving ? 'bg-amber-500' : 'bg-green-500'} rounded-full animate-pulse`} />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          {isSaving ? 'Saving...' : 'Synced'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={resetSession}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all flex items-center gap-2"
-                    title="새 분석 시작 (초기화)"
-                  >
-                    <RotateCcw size={14} />
-                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Reset</span>
-                  </button>
-                </div>
 
                <div 
                  ref={chatContainerRef}
@@ -385,7 +336,7 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                           <ReactMarkdown 
                              remarkPlugins={[remarkGfm]}
                              components={{
-                                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
                                 table: ({ children }) => (
                                   <div className="overflow-x-auto my-4 rounded-2xl border border-slate-200 shadow-sm">
                                     <table className="w-full text-xs text-left border-collapse bg-white">
@@ -403,8 +354,22 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                            >
                              {msg.content}
                            </ReactMarkdown>
-                       </div>
-                    </div>
+
+                           {/* Thought Trace (Option C) */}
+                           {msg.traces && msg.traces.length > 0 && (
+                             <div className="mt-4 pt-4 border-t border-slate-200/50">
+                               <button 
+                                 onClick={() => setActiveTraces(msg.traces || null)}
+                                 className="flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-blue-600 transition-all uppercase tracking-widest group"
+                               >
+                                 <Sparkles className="w-3 h-3 group-hover:animate-pulse" />
+                                 <span>AI Thought Trace ({msg.traces.length} steps)</span>
+                                 <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                               </button>
+                             </div>
+                           )}
+                        </div>
+                     </div>
                   ))}
                   {isTyping && (
                     <div className="flex justify-start">
@@ -433,10 +398,11 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
 
                   <div className="relative group">
                     <textarea 
+                      ref={textareaRef}
                       placeholder={selectedIds.length === 0 ? "Select tables first" : "Ask AI to visualize or analyze..."}
                       disabled={selectedIds.length === 0}
-                      rows={2}
-                      className="w-full p-4 pr-14 bg-white border border-slate-200 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-blue-100 transition-all resize-none shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      rows={1}
+                      className="w-full p-4 pr-14 bg-white border border-slate-200 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-blue-100 transition-all resize-none shadow-sm disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px] overflow-y-auto custom-scrollbar"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -457,9 +423,56 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                   <p className="mt-3 text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest">Shift + Enter for new line</p>
                </div>
             </div>
+      </div>
+      {/* 2. Right Column: Data Source + Charts */}
+      <div className="xl:col-span-2 flex flex-col gap-8">
+        {/* 2a. Data Source Context Bar */}
+        <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex flex-wrap items-center gap-4 flex-1">
+            <button 
+              onClick={() => setIsSourceModalOpen(true)}
+              className="flex items-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 group shrink-0"
+            >
+              <Plus size={16} className="group-hover:rotate-90 transition-transform" />
+              Data Source
+            </button>
+            
+            <div className="flex flex-wrap gap-2 items-center">
+              {selectedIds.length === 0 ? (
+                <div className="flex items-center gap-2 text-slate-300 ml-2">
+                  <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">No tables selected. Click 'Data Source'.</span>
+                </div>
+              ) : (
+                selectedIds.map(id => {
+                  const table = allTables.find(t => t.id === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-[11px] font-black border border-blue-100 animate-in fade-in slide-in-from-left-2">
+                      {table?.displayName || table?.name || id}
+                      <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => toggleTable(id)} />
+                    </span>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-3 shrink-0">
+               <button 
+                onClick={() => handleSend("현재 선택한 테이블들의 데이터를 분석해서 시각화 차트를 추천해줘.")}
+                disabled={isTyping}
+                className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-3"
+              >
+                {isTyping ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {isTyping ? 'Analyzing...' : 'Auto-Generate'}
+              </button>
+            </div>
+          )}
+        </div>
 
-            {/* 2b. Visualization Area */}
-            <div className="xl:col-span-2 space-y-8">
+        {/* 2b. Visualization Area */}
+        <div className="space-y-8 h-full">
                {selectedIds.length === 0 ? (
                  <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-white rounded-[40px] border border-dashed border-slate-200 text-center p-12">
                    <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-8">
@@ -504,19 +517,146 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                     ))}
 
                     {isTyping && (
-                      <div className="md:col-span-2 bg-white/50 backdrop-blur-sm p-12 rounded-[40px] border border-dashed border-blue-200 flex flex-col items-center justify-center">
-                         <div className="relative w-12 h-12 mb-4">
+                      <div className="md:col-span-2 bg-white/50 backdrop-blur-sm p-12 rounded-[40px] border border-dashed border-blue-200 flex flex-col items-center justify-center animate-in fade-in duration-300">
+                         <div className="relative w-16 h-16 mb-6">
                             <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
                             <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
                          </div>
-                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest animate-pulse">AI가 데이터를 분석하며 차트를 구성 중입니다...</p>
+                         <p className="text-xs font-black text-blue-600 uppercase tracking-widest animate-pulse mb-8">AI가 데이터를 분석하며 차트를 구성 중입니다...</p>
+                         
+                         <button 
+                          onClick={handleCancelAnalysis}
+                          className="px-6 py-2.5 bg-white text-red-500 border border-red-100 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm flex items-center gap-2"
+                         >
+                           <X size={14} />
+                           Cancel Analysis
+                         </button>
                       </div>
                     )}
                  </div>
                )}
             </div>
          </div>
-      </div>
+      
+      {/* 3. AI Trace Modal */}
+      {activeTraces && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">AI Thought Trace</h3>
+                  <p className="text-[10px] font-medium text-slate-400">Step-by-step analysis and tool execution logs</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveTraces(null)}
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-900"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              {activeTraces.map((trace: any, tIdx: number) => (
+                <div key={tIdx} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 bg-blue-600 text-white text-[10px] font-black rounded-lg">
+                      STEP #{tIdx + 1}
+                    </div>
+                    <div className="flex-1 h-px bg-slate-100" />
+                    <span className="text-[10px] font-black text-slate-300">{trace.duration}ms</span>
+                  </div>
+                  
+                  <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                        <Bot size={14} />
+                        {trace.toolName}
+                      </h4>
+                    </div>
+
+                    {trace.context && (
+                      <div className="p-3 bg-blue-100/50 border border-blue-200 rounded-2xl text-blue-700 text-xs font-bold flex items-start gap-2">
+                         <div className="mt-0.5 shrink-0">ℹ️</div>
+                         {trace.context}
+                      </div>
+                    )}
+
+                    {trace.sql && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Executed SQL Query</div>
+                        <pre className="bg-slate-900 text-blue-300 p-4 rounded-2xl overflow-x-auto text-xs font-mono shadow-inner border border-slate-800 leading-relaxed">
+                          {trace.sql}
+                        </pre>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-6">
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parameters</div>
+                        <pre className="bg-white p-4 rounded-2xl border border-slate-200 overflow-x-auto text-[10px] font-mono max-h-[300px]">
+                          {JSON.stringify(trace.args, null, 2)}
+                        </pre>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between ml-1">
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Result Summary</div>
+                          <button 
+                            onClick={(e) => {
+                              const text = typeof trace.result === 'object' ? JSON.stringify(trace.result, null, 2) : String(trace.result);
+                              navigator.clipboard.writeText(text);
+                              const btn = e.currentTarget;
+                              const originalInner = btn.innerHTML;
+                              btn.innerHTML = 'COPIED!';
+                              btn.classList.add('text-green-600');
+                              setTimeout(() => {
+                                btn.innerHTML = originalInner;
+                                btn.classList.remove('text-green-600');
+                              }, 2000);
+                            }}
+                            className="flex items-center gap-1.5 px-2 py-1 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 transition-all"
+                          >
+                            <Copy size={10} />
+                            <span className="text-[9px] font-black uppercase">Copy Data</span>
+                          </button>
+                        </div>
+                        <pre className="bg-white p-4 rounded-2xl border border-slate-200 overflow-x-auto text-[10px] font-mono max-h-[500px]">
+                          {typeof trace.result === 'object' 
+                            ? JSON.stringify(trace.result, null, 2).substring(0, 5000) + (JSON.stringify(trace.result).length > 5000 ? '...' : '')
+                            : String(trace.result)}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+              <button 
+                onClick={() => setActiveTraces(null)}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
+              >
+                Close Trace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 4. Source Selection Modal */}
+      <SourceSelectionModal 
+        isOpen={isSourceModalOpen}
+        onClose={() => setIsSourceModalOpen(false)}
+        allTables={allTables}
+        selectedIds={selectedIds}
+        toggleTable={toggleTable}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
     </div>
   );
 }

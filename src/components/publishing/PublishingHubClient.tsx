@@ -197,7 +197,7 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[8px] font-black uppercase tracking-widest">Draft</span>
                     <button 
-                      onClick={(e) => handleDeleteProject(e, project.id, project.name)}
+                      onClick={(e) => handleDeleteProject(e, project.projectId, project.name)}
                       className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                     >
                       <Trash2 size={14} />
@@ -207,7 +207,7 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
 
                 <div className="pt-3 border-t border-slate-50 flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest mt-auto">
                   <span className="flex items-center gap-1.5"><Calendar size={10} /> {new Date(project.updatedAt).toLocaleDateString()}</span>
-                  <Link href={`/publishing/edit/${project.id}`} className="text-amber-600 hover:underline flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <Link href={`/publishing/edit/${project.projectId}`} className="text-amber-600 hover:underline flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                     STUDIO 입장 <ArrowRight size={10} />
                   </Link>
                 </div>
@@ -254,7 +254,7 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="px-2 py-0.5 bg-emerald-500 text-white rounded-md text-[8px] font-black uppercase tracking-widest">Live</span>
                     <button 
-                      onClick={(e) => handleDeleteApp(e, app.id, app.name)}
+                      onClick={(e) => handleDeleteApp(e, app.projectId, app.name)}
                       className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                       title="앱 삭제"
                     >

@@ -240,7 +240,16 @@ export default function NavigationSidebar({ user, isCollapsed = false, onToggle,
                   {!isCollapsed && (
                     <div className="flex-1 animate-in fade-in slide-in-from-left-2">
                       <p className="text-xs font-black uppercase tracking-tight truncate">{app.name}</p>
-                      <p className="text-[9px] font-medium opacity-60">마이크로 앱 실행</p>
+                      <p className="text-[9px] font-medium opacity-60">
+                        {new Date(app.updatedAt || app.createdAt).toLocaleString('ko-KR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false
+                        }).replace(/\. /g, '.').replace(/\.$/, '')} 업데이트
+                      </p>
                     </div>
                   )}
                 </Link>

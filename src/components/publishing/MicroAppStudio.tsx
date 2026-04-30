@@ -497,11 +497,14 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              await updateMicroAppProjectAction(project.id, { templateId: t.id });
                               handlePublish();
                             }}
-                            disabled={isPublishing}
-                            className={`flex-[2] py-2.5 px-2 w-full rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${project.templateId === t.id ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-900 text-white hover:bg-blue-600'}`}
+                            disabled={isPublishing || project.templateId !== t.id}
+                            className={`flex-[2] py-2.5 px-2 w-full rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                              project.templateId === t.id 
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            }`}
                           >
                             <Rocket size={14} className="shrink-0" />
                             <span className="truncate">{isPublishing ? 'Publishing...' : 'Publish'}</span>

@@ -23,11 +23,16 @@ import {
 /**
  * 시각화 추천을 가져옵니다.
  */
-export async function getVisualizationRecommendationAction(tableIds: string[], messages: any[]) {
+export async function getVisualizationRecommendationAction(selectedIds: string[], chatHistory: any[]) {
     const user = await getSessionAction();
-    if (!user) throw new Error('인증이 필요합니다.');
+    if (!user) return { 
+        content: "세션이 만료되었거나 인증 정보가 없습니다. 다시 로그인 후 시도해 주세요.", 
+        chartConfigs: [] 
+    };
+
     try {
-        return await getVisualizationRecommendation(tableIds, messages);
+        // 원래 정의된 순서: (tableIds: string[], messages: any[])
+        return await getVisualizationRecommendation(selectedIds, chatHistory);
     } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         const combinedMessage = errorMessage + " " + (error.stack || '');
@@ -225,15 +230,13 @@ export async function reorderPinnedChartsAction(reorderedCharts: any[]) {
 
 let isAIStudioSessionTableInitialized = false;
 
-/**
- * AI Studio 세션을 저장합니다.
- */
 export async function saveAIStudioSessionAction(data: any) {
     const user = await getSessionAction();
-    if (!user) throw new Error('인증이 필요합니다.');
-    const tableName = 'ai_studio_session';
+    if (!user) return { success: false, error: '인증이 필요합니다.' };
+    const tableName = 'ai_studio_sessions';
+    const userIdStr = String(user.id);
     try {
-        const sessionData = { userId: user.id, data: JSON.stringify(data), updatedAt: new Date().toISOString() };
+        const sessionData = { userId: userIdStr, data: JSON.stringify(data), updatedAt: new Date().toISOString() };
         if (!isAIStudioSessionTableInitialized) {
             try {
                 await queryTable(tableName, { limit: 1 });
@@ -243,13 +246,13 @@ export async function saveAIStudioSessionAction(data: any) {
                     { name: 'userId', type: 'TEXT', notNull: true },
                     { name: 'data', type: 'TEXT', notNull: true },
                     { name: 'updatedAt', type: 'TEXT', notNull: true }
-                ], { tableName, uniqueKeyColumns: ['userId'] });
+                ], { tableName, uniqueKeyColumns: ['userId'], duplicateAction: 'update' });
                 isAIStudioSessionTableInitialized = true;
             }
         }
-        const existing = await queryTable(tableName, { filters: { userId: user.id } });
+        const existing = await queryTable(tableName, { filters: { userId: userIdStr } });
         if (existing && existing.length > 0) {
-            await updateRows(tableName, { data: sessionData.data, updatedAt: sessionData.updatedAt }, { filters: { userId: user.id } });
+            await updateRows(tableName, { data: sessionData.data, updatedAt: sessionData.updatedAt }, { filters: { userId: userIdStr } });
         } else {
             await insertRows(tableName, [sessionData]);
         }
@@ -267,9 +270,9 @@ export async function saveAIStudioSessionAction(data: any) {
 export async function getAIStudioSessionAction() {
     const user = await getSessionAction();
     if (!user) return null;
-    const tableName = 'ai_studio_session';
+    const tableName = 'ai_studio_sessions';
     try {
-        const results = await queryTable(tableName, { filters: { userId: user.id } });
+        const results = await queryTable(tableName, { filters: { userId: String(user.id) } });
         if (results && results.length > 0) return JSON.parse(results[0].data);
     } catch (e) {}
     return null;
@@ -281,9 +284,9 @@ export async function getAIStudioSessionAction() {
 export async function clearAIStudioSessionAction() {
     const user = await getSessionAction();
     if (!user) return { success: false };
-    const tableName = 'ai_studio_session';
+    const tableName = 'ai_studio_sessions';
     try {
-        await deleteRows(tableName, { filters: { userId: user.id } });
+        await deleteRows(tableName, { filters: { userId: String(user.id) } });
         return { success: true };
     } catch (e) {
         return { success: false };

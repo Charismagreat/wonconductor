@@ -81,6 +81,9 @@ interface SmartChartProps {
   onLayoutChange?: (layout: { span: 'half' | 'full' }) => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  isBuildMode?: boolean;
+  isBuildSelected?: boolean;
+  onBuildSelect?: (selected: boolean) => void;
 }
 
 const COLORS = ['#2563eb', '#6366f1', '#4f46e5', '#4338ca', '#3730a3', '#312e81'];
@@ -109,7 +112,10 @@ export function SmartChart({
   layout = { span: 'half' },
   onLayoutChange,
   onMoveUp,
-  onMoveDown
+  onMoveDown,
+  isBuildMode = false,
+  isBuildSelected = false,
+  onBuildSelect
 }: SmartChartProps) {
   const { type, data, xAxis, series = [], title, showLabels = true, sourceDescription } = config;
   const [showInfo, setShowInfo] = React.useState(false);
@@ -486,105 +492,123 @@ export function SmartChart({
         </div>
         
         <div className="flex items-center gap-2 shrink-0" data-html2canvas-ignore>
-           <button 
-             onClick={handleShare}
-             className="p-1.5 bg-slate-50 text-slate-400 hover:bg-violet-50 hover:text-violet-600 rounded-xl transition-all"
-             title="Share Chart Link"
-           >
-             <Share2 size={14} />
-           </button>
-           <button 
-             onClick={handleDownloadImage}
-             className="p-1.5 bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-all"
-             title="Download as Image (PNG)"
-           >
-             <Download size={14} />
-           </button>
-           {onRefresh && (
+           {isBuildMode ? (
              <button 
                onClick={(e) => {
                  e.stopPropagation();
-                 onRefresh();
+                 onBuildSelect?.(!isBuildSelected);
                }}
-               disabled={isRefreshing}
-               className="p-1.5 bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all disabled:opacity-50"
-               title="Update Data"
-             >
-               <RotateCcw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-             </button>
-           )}
-           {onPin && (
-             <button 
-               onClick={(e) => {
-                 e.stopPropagation();
-                 onPin();
-               }}
-               className={`p-1.5 rounded-xl transition-all ${
-                 isPinned 
-                 ? 'bg-yellow-50 text-yellow-500 hover:bg-yellow-100 shadow-sm' 
-                 : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-500'
-               }`}
-               title={isPinned ? "Unpin from Gallery" : "Pin to Gallery"}
-             >
-               <Star size={14} fill={isPinned ? 'currentColor' : 'none'} />
-             </button>
-           )}
-            {onMoveUp && (
-               <button 
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   onMoveUp();
-                 }}
-                 className="p-1.5 bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"
-                 title="위로 이동"
-               >
-                 <ChevronUp size={14} />
-               </button>
-            )}
-            {onMoveDown && (
-               <button 
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   onMoveDown();
-                 }}
-                 className="p-1.5 bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"
-                 title="아래로 이동"
-               >
-                 <ChevronDown size={14} />
-               </button>
-            )}
-            {onLayoutChange && (
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLayoutChange({ span: layout.span === 'full' ? 'half' : 'full' });
-                }}
-                className="p-1.5 bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
-                title={layout.span === 'full' ? "Reduce Width" : "Full Width"}
-              >
-                {layout.span === 'full' ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
-            )}
-           {onSelect && (
-             <button 
-               onClick={onSelect}
-               className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${
-                 isSelected 
-                 ? 'bg-red-50 text-red-500 hover:bg-red-100' 
-                 : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+               className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all ${
+                 isBuildSelected 
+                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40 scale-110' 
+                 : 'bg-slate-100 text-slate-300 hover:bg-slate-200'
                }`}
              >
-               {isSelected ? '선택 취소' : '수정 선택'}
+               <Check size={24} strokeWidth={4} />
              </button>
-           )}
-           {onDelete && (
-             <button 
-               onClick={onDelete}
-               className="p-1.5 bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all"
-               title="Delete Chart"
-             >
-               <Trash2 size={14} />
-             </button>
+           ) : (
+             <>
+               <button 
+                 onClick={handleShare}
+                 className="p-1.5 bg-slate-50 text-slate-400 hover:bg-violet-50 hover:text-violet-600 rounded-xl transition-all"
+                 title="Share Chart Link"
+               >
+                 <Share2 size={14} />
+               </button>
+               <button 
+                 onClick={handleDownloadImage}
+                 className="p-1.5 bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-all"
+                 title="Download as Image (PNG)"
+               >
+                 <Download size={14} />
+               </button>
+               {onRefresh && (
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     onRefresh();
+                   }}
+                   disabled={isRefreshing}
+                   className="p-1.5 bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all disabled:opacity-50"
+                   title="Update Data"
+                 >
+                   <RotateCcw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                 </button>
+               )}
+               {onPin && (
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     onPin();
+                   }}
+                   className={`p-1.5 rounded-xl transition-all ${
+                     isPinned 
+                     ? 'bg-yellow-50 text-yellow-500 hover:bg-yellow-100 shadow-sm' 
+                     : 'bg-slate-50 text-slate-400 hover:bg-yellow-50 hover:text-yellow-500'
+                   }`}
+                   title={isPinned ? "Unpin from Gallery" : "Pin to Gallery"}
+                 >
+                   <Star size={14} fill={isPinned ? 'currentColor' : 'none'} />
+                 </button>
+               )}
+                {onMoveUp && (
+                   <button 
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       onMoveUp();
+                     }}
+                     className="p-1.5 bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"
+                     title="위로 이동"
+                   >
+                     <ChevronUp size={14} />
+                   </button>
+                )}
+                {onMoveDown && (
+                   <button 
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       onMoveDown();
+                     }}
+                     className="p-1.5 bg-slate-50 text-slate-400 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"
+                     title="아래로 이동"
+                   >
+                     <ChevronDown size={14} />
+                   </button>
+                )}
+                {onLayoutChange && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLayoutChange({ span: layout.span === 'full' ? 'half' : 'full' });
+                    }}
+                    className="p-1.5 bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
+                    title={layout.span === 'full' ? "Reduce Width" : "Full Width"}
+                  >
+                    {layout.span === 'full' ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                  </button>
+                )}
+               {onSelect && (
+                 <button 
+                   onClick={onSelect}
+                   className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-tight transition-all ${
+                     isSelected 
+                     ? 'bg-red-50 text-red-500 hover:bg-red-100' 
+                     : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                   }`}
+                 >
+                   {isSelected ? '선택 취소' : '수정 선택'}
+                 </button>
+               )}
+               {onDelete && (
+                 <button 
+                   onClick={onDelete}
+                   className="p-1.5 bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all"
+                   title="Delete Chart"
+                 >
+                   <Trash2 size={14} />
+                 </button>
+               )}
+             </>
            )}
         </div>
       </div>

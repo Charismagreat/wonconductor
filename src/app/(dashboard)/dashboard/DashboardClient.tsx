@@ -26,7 +26,8 @@ import {
 } from '@/app/actions/ai';
 import { SmartChart } from '@/components/SmartChart';
 import { SourceSelectionModal } from '@/components/dashboard/SourceSelectionModal';
-import { Plus } from 'lucide-react';
+import { Plus, Rocket } from 'lucide-react';
+import { QuickAppBuilderModal } from '@/components/dashboard/QuickAppBuilderModal';
 
 // 저장소 키 (하위 호환성 및 로그 확인용)
 const STORAGE_KEY = 'egdesk_ai_studio_state';
@@ -64,6 +65,9 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTraces, setActiveTraces] = useState<any[] | null>(null);
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const [isAppBuildMode, setIsAppBuildMode] = useState(false);
+  const [selectedChartIdsForApp, setSelectedChartIdsForApp] = useState<string[]>([]);
+  const [isAppBuilderModalOpen, setIsAppBuilderModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 입력 내용에 따라 높이 자동 조절
@@ -457,18 +461,37 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
             </div>
           </div>
           
-          {selectedIds.length > 0 && (
-            <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
+             {/* 퀵 빌더 모드 토글 (항상 노출하거나 차트가 있을 때 노출) */}
+             {(selectedIds.length > 0 || charts.length > 0) && (
+               <button 
+                 id="build-mode-toggle"
+                 onClick={() => {
+                   setIsAppBuildMode(!isAppBuildMode);
+                   setSelectedChartIdsForApp([]);
+                 }}
+                 className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center gap-3 ${
+                   isAppBuildMode 
+                   ? 'bg-amber-100 text-amber-600 border border-amber-200 shadow-amber-500/10' 
+                   : 'bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-indigo-500/10 hover:bg-indigo-100'
+                 }`}
+               >
+                 {isAppBuildMode ? <X size={14} /> : <Rocket size={14} />}
+                 {isAppBuildMode ? 'Exit Build Mode' : 'Create Micro-App'}
+               </button>
+             )}
+
+             {selectedIds.length > 0 && (
                <button 
                 onClick={() => handleSend("현재 선택한 테이블들의 데이터를 분석해서 시각화 차트를 추천해줘.")}
-                disabled={isTyping}
+                disabled={isTyping || isAppBuildMode}
                 className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-3"
               >
                 {isTyping ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 {isTyping ? 'Analyzing...' : 'Auto-Generate'}
               </button>
-            </div>
-          )}
+             )}
+          </div>
         </div>
 
         {/* 2b. Visualization Area */}
@@ -512,6 +535,13 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                           onDelete={() => handleDeleteChart(chart.id)}
                           layout={chart.layout}
                           onLayoutChange={(newLayout) => handleLayoutChange(chart.id, newLayout)}
+                          isBuildMode={isAppBuildMode}
+                          isBuildSelected={selectedChartIdsForApp.includes(chart.id)}
+                          onBuildSelect={(selected) => {
+                            setSelectedChartIdsForApp(prev => 
+                              selected ? [...prev, chart.id] : prev.filter(id => id !== chart.id)
+                            );
+                          }}
                         />
                       </div>
                     ))}
@@ -657,6 +687,31 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
+
+      {/* 5. Micro-App Quick Builder Modal */}
+      {isAppBuilderModalOpen && (
+        <QuickAppBuilderModal 
+          projectId={user?.projectId || 'default'}
+          selectedCharts={charts
+            .filter(c => selectedChartIdsForApp.includes(c.id))
+            .map(c => c.versions[c.currentVersion])
+          }
+          onClose={() => setIsAppBuilderModalOpen(false)}
+        />
+      )}
+
+      {/* Floating Action Button for Build Mode */}
+      {isAppBuildMode && selectedChartIdsForApp.length > 0 && (
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 duration-500">
+           <button 
+             onClick={() => setIsAppBuilderModalOpen(true)}
+             className="px-10 py-5 bg-blue-600 text-white rounded-full font-black text-lg shadow-2xl shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 border-4 border-white"
+           >
+             <Rocket className="animate-bounce" />
+             <span>{selectedChartIdsForApp.length}개의 차트로 앱 발행하기</span>
+           </button>
+        </div>
+      )}
     </div>
   );
 }

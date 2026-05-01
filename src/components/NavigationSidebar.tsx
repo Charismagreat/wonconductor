@@ -22,7 +22,8 @@ import {
   Calendar,
   Rocket,
   Wallet,
-  Layout
+  Layout,
+  Settings
 } from 'lucide-react';
 // 🚀 DEFAULT IMPORTS: New consistency standard
 import LogoutButton from './LogoutButton';
@@ -123,6 +124,13 @@ export default function NavigationSidebar({ user, isCollapsed = false, onToggle,
       icon: Archive,
       active: pathname === '/archive',
       desc: '삭제된 테이블 관리'
+    },
+    {
+      name: 'SYSTEM SETTINGS',
+      href: '/admin/settings',
+      icon: Settings,
+      active: pathname.startsWith('/admin/settings'),
+      desc: '회사 정보 및 브랜드 설정'
     },
   ];
 

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         }
 
         // 2. Prompt Gemini to generate schema
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
         
         const prompt = `
             Analyze the following Excel sheet structure and suggest a database table schema.

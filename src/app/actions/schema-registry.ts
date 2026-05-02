@@ -1,6 +1,33 @@
-'use server';
-
 import { queryTable, getTableSchema } from '@/egdesk-helpers';
+import { findSchemaStandard } from '@/lib/constants/schema-standards';
+
+/**
+ * 컬럼 객체에 시맨틱 메타데이터(마스터 연동 정보 등)를 주입합니다.
+ */
+function enrichColumnMetadata(column: any) {
+  // 1. 이미 마스터 연동 정보가 포함되어 있다면 (지식 베이스 등에서 이미 분석됨) 해당 지식을 최우선으로 존중
+  if (column.isMasterLinked || column.masterTable) {
+    return {
+      ...column,
+      isMasterLinked: true
+    };
+  }
+
+  // 2. 하드코딩된 표준 규칙(Fall-back)에서 매칭 시도
+  const standard = findSchemaStandard(column.name);
+  if (standard) {
+    return {
+      ...column,
+      canonicalName: standard.canonicalName,
+      masterTable: standard.masterTable,
+      lookupField: standard.lookupField,
+      nameFields: standard.nameFields,
+      businessNumberFields: standard.businessNumberFields,
+      isMasterLinked: true
+    };
+  }
+  return column;
+}
 
 /**
  * 컬럼명을 기반으로 적절한 필드 타입을 추론합니다.
@@ -45,8 +72,8 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
         const schema = JSON.parse(kRows[0].schema_info);
         if (Array.isArray(schema) && schema.length > 0) {
           console.log(`>>> [SchemaRegistry] Found schema from table_knowledge for: ${id}`);
-          return schema.map((s: any) => ({
-            name: s.name,
+          return schema.map((s: any) => enrichColumnMetadata({
+            ...s,
             displayName: s.displayName || s.name,
             type: s.type || inferColumnType(s.name)
           }));
@@ -76,7 +103,7 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
     // 3. 물리 스키마 조회
     const physicalSchema = await getTableSchema(physicalTableName).catch(() => []);
     if (physicalSchema && physicalSchema.length > 0) {
-      return physicalSchema.map((ps: any) => ({
+      return physicalSchema.map((ps: any) => enrichColumnMetadata({
         name: ps.name,
         displayName: ps.displayName || ps.name,
         type: ps.type || inferColumnType(ps.name)
@@ -93,7 +120,7 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
       // [수정] 모든 테이블(report 포함)에서 정수형 고유 ID(id)를 포함하도록 변경
       return Object.keys(firstRow)
         .filter(k => k !== '_physicalId')
-        .map(k => ({
+        .map(k => enrichColumnMetadata({
           name: k,
           displayName: k === 'id' ? 'ID' : k,
           type: k === 'id' ? 'number' : inferColumnType(k)
@@ -156,12 +183,12 @@ export async function getUnifiedTableName(id: string): Promise<string> {
     const friendlyNames: Record<string, string> = {
       'bank_transactions': '은행 계좌 거래 내역',
       'card_approvals': '신용카드 거래 내역',
-      'promissory_notes': '전자어음 보유 현황',
+      'promissory_notes': '전자어음 내역',
       'hometax_sales_tax_invoices': '홈택스 매출 세금계산서',
-      'hometax_sales_bills': '홈택스 매출 계산서',
+      'hometax_sales_invoices': '홈택스 매출 계산서',
       'hometax_purchase_tax_invoices': '홈택스 매입 세금계산서',
-      'hometax_purchase_bills': '홈택스 매입 계산서',
-      'hometax_cash_receipts': '홈택스 현금영수증(매출)'
+      'hometax_purchase_invoices': '홈택스 매입 계산서',
+      'hometax_cash_receipts': '홈택스 현금영수증 내역'
     };
 
     return friendlyNames[id] || id;

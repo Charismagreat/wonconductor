@@ -13,13 +13,16 @@ import {
     Search,
     Save,
     X,
-    Users as UsersIcon
+    Users as UsersIcon,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
 import { 
     getGuardrailRulesAction, 
     saveGuardrailRuleAction, 
     deleteGuardrailRuleAction 
 } from '@/app/actions/guardrail';
+import { updateReportUiConfigAction } from '@/app/actions/report';
 import { ReportAccessManager } from './ReportAccessManager';
 
 interface GuardrailSettingsClientProps {
@@ -30,13 +33,14 @@ interface GuardrailSettingsClientProps {
 export default function GuardrailSettingsClient({ reports, initialRules }: GuardrailSettingsClientProps) {
     const [selectedReportId, setSelectedReportId] = useState<string | null>(reports[0]?.id || null);
     const [rules, setRules] = useState(initialRules);
+    const [localReports, setLocalReports] = useState(reports);
     const [isSaving, setIsSaving] = useState(false);
     const [editingRule, setEditingRule] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'rules' | 'permissions'>('rules');
+    const [activeTab, setActiveTab] = useState<'rules' | 'permissions' | 'ai'>('rules');
 
     // Selected Report context
-    const selectedReport = reports.find(r => r.id === selectedReportId);
+    const selectedReport = localReports.find(r => r.id === selectedReportId);
     const reportRules = rules.filter(r => r.reportId === selectedReportId);
 
     // Parse columns from report schema (assuming it's JSON)
@@ -103,7 +107,7 @@ export default function GuardrailSettingsClient({ reports, initialRules }: Guard
                         </div>
                     </div>
                     <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
-                        {reports.map((report) => (
+                        {localReports.map((report) => (
                             <button
                                 key={report.id}
                                 onClick={() => setSelectedReportId(report.id)}
@@ -160,6 +164,14 @@ export default function GuardrailSettingsClient({ reports, initialRules }: Guard
                                     }`}
                                 >
                                     Input Permissions
+                                </button>
+                                <button 
+                                    onClick={() => setActiveTab('ai' as any)}
+                                    className={`text-[11px] font-black uppercase tracking-widest pb-2 border-b-2 transition-all ${
+                                        activeTab === 'ai' as any ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'
+                                    }`}
+                                >
+                                    AI Analysis Rules
                                 </button>
                             </div>
                         </div>
@@ -236,12 +248,106 @@ export default function GuardrailSettingsClient({ reports, initialRules }: Guard
                                     </div>
                                 )}
                             </>
-                        ) : (
+                        ) : activeTab === 'permissions' ? (
                             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
                                 <ReportAccessManager 
                                     reportId={selectedReportId!} 
                                     ownerId={selectedReport?.ownerId} 
                                 />
+                            </div>
+                        ) : (
+                            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                                <div className="space-y-8">
+                                    <div className="flex items-center gap-3 p-6 bg-blue-50/50 rounded-3xl border border-blue-100/50">
+                                        <Sparkles className="text-blue-600" size={24} />
+                                        <div>
+                                            <p className="text-xs font-black text-blue-900 uppercase tracking-tight">AI ANALYSIS RULES</p>
+                                            <p className="text-[10px] text-blue-700/70 font-bold uppercase mt-0.5">이 테이블에 적용되는 지능형 데이터 추출 규칙을 설정합니다.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {[
+                                            { 
+                                                id: 'excludeSelf', 
+                                                title: '본인 제외 규칙 (Exclude Self)', 
+                                                desc: "'애월삼춘', '원컨덕터' 등 본인 회사를 거래처로 인식하지 않고 무시합니다.",
+                                                icon: <UsersIcon size={18} />
+                                            },
+                                            { 
+                                                id: 'providerPriority', 
+                                                title: '공급자 우선 규칙 (Provider Priority)', 
+                                                desc: "문서 내 공급자 정보 박스(도장 찍힌 영역)를 최우선 분석 대상으로 삼습니다.",
+                                                icon: <Plus size={18} />
+                                            },
+                                            { 
+                                                id: 'dualFactorMatching', 
+                                                title: '이중 검증 매칭 (Dual-Factor Matching)', 
+                                                desc: "사업자등록번호와 상호를 동시에 대조하여 거래처ID의 정확도를 극대화합니다.",
+                                                icon: <ShieldCheck size={18} />
+                                            },
+                                            { 
+                                                id: 'autoCreateMaster', 
+                                                title: '마스터 자동 생성 (Auto-Create Master)', 
+                                                desc: "매칭되는 거래처나 제품이 마스터 테이블에 없을 경우 AI가 자동으로 신규 등록합니다.",
+                                                icon: <Plus size={18} />
+                                            }
+                                        ].map(rule => {
+                                            const uiConfig = (() => {
+                                                try { return JSON.parse(selectedReport?.uiConfig || '{}'); } catch(e) { return {}; }
+                                            })();
+                                            const aiRules = uiConfig.aiRules || {};
+                                            const isActive = !!aiRules[rule.id];
+
+                                            return (
+                                                <button 
+                                                    key={rule.id}
+                                                    onClick={async () => {
+                                                        const newAiRules = { ...aiRules, [rule.id]: !isActive };
+                                                        const newConfig = { ...uiConfig, aiRules: newAiRules };
+                                                        
+                                                        // 로컬 상태 즉시 업데이트 (Optimistic UI)
+                                                        setLocalReports(prev => prev.map(r => 
+                                                            r.id === selectedReportId 
+                                                                ? { ...r, uiConfig: JSON.stringify(newConfig) } 
+                                                                : r
+                                                        ));
+
+                                                        // 서버 저장 (배경에서 실행)
+                                                        try {
+                                                            await updateReportUiConfigAction(selectedReportId!, { aiRules: newAiRules });
+                                                        } catch (error) {
+                                                            console.error('Failed to save AI rules:', error);
+                                                            // 실패 시 롤백 (선택 사항)
+                                                        }
+                                                    }}
+                                                    className={`group w-full flex items-center justify-between p-6 rounded-3xl border transition-all text-left ${
+                                                        isActive ? 'bg-white border-blue-500 shadow-xl shadow-blue-500/5' : 'bg-slate-50 border-slate-100 hover:border-slate-200'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-5">
+                                                        <div className={`p-4 rounded-2xl transition-all ${
+                                                            isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-white text-slate-400'
+                                                        }`}>
+                                                            {rule.icon}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className={`text-sm font-black tracking-tight ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
+                                                                {rule.title}
+                                                            </h4>
+                                                            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase leading-relaxed">
+                                                                {rule.desc}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-14 h-8 rounded-full p-1 transition-all ${isActive ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                                                        <div className={`w-6 h-6 bg-white rounded-full shadow-sm transition-transform ${isActive ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

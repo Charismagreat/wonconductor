@@ -57,6 +57,24 @@ export function ReportDetailClient({
         setModalStatus({ isOpen: true, title, message, type });
     };
 
+    const uiConfig = React.useMemo(() => {
+        try {
+            return typeof report.uiConfig === 'string' ? JSON.parse(report.uiConfig) : (report.uiConfig || {});
+        } catch (e) {
+            return {};
+        }
+    }, [report.uiConfig]);
+
+    // uiConfig에서 태그 정보 추출
+    const initialTags = React.useMemo(() => {
+        const tags = uiConfig.tags || [];
+        // 만약 report.category가 시스템 예약어가 아니라면 태그로 추가 (호환성)
+        if (report.category && !['System', 'Finance', '일반 테이블'].includes(report.category) && !tags.includes(report.category)) {
+            return [...tags, report.category];
+        }
+        return tags;
+    }, [uiConfig, report.category]);
+
     return (
         <main className="max-w-[1600px] mx-auto space-y-10 pb-32">
             <ReportHeader 
@@ -69,6 +87,8 @@ export function ReportDetailClient({
                 canEdit={canEdit}
                 isReadOnly={isReadOnly || report.isReadOnly}
                 initialColumns={columns}
+                initialTags={initialTags}
+                initialUiConfig={uiConfig}
                 rowCount={rows.length}
                 onToggleAccessManager={() => setShowAccessManager(true)}
             />
@@ -97,6 +117,7 @@ export function ReportDetailClient({
                         isOwner={isOwner} 
                         canEdit={canEdit} 
                         isReadOnly={isReadOnly || report.isReadOnly}
+                        isIntegrityProtected={uiConfig.isIntegrityProtected}
                         userRole={user?.role}
                         currentUserId={user?.id}
                         initialSortConfig={multiSortConfig}

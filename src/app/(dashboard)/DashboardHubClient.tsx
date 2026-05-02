@@ -295,9 +295,28 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                                   <h3 className="text-base font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                                     {report.name}
                                   </h3>
-                                  {report.isReadOnly && (
-                                    <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[8px] font-black rounded-md uppercase tracking-widest border border-rose-100 shrink-0">
-                                      Locked
+                                  {(() => {
+                                    try {
+                                      const config = typeof report.uiConfig === 'string' ? JSON.parse(report.uiConfig) : (report.uiConfig || {});
+                                      if (config.isIntegrityProtected) {
+                                        return (
+                                          <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-[8px] font-black rounded-md uppercase tracking-widest shadow-lg shadow-blue-500/20 shrink-0">
+                                            <ShieldCheck size={10} strokeWidth={3} />
+                                            Protected
+                                          </div>
+                                        );
+                                      }
+                                    } catch (e) {}
+                                    return null;
+                                  })()}
+                                  {(() => {
+                                    const isOwner = report.ownerId === user?.id || report.ownerId === 'system';
+                                    const isAdmin = user?.role === 'ADMIN';
+                                    const canEdit = (isOwner || isAdmin || user?.role === 'EDITOR') && !report.isReadOnly;
+                                    return !canEdit;
+                                  })() && (
+                                    <span className="px-2 py-0.5 bg-amber-50 text-amber-600 text-[8px] font-black rounded-md uppercase tracking-widest border border-amber-100 shrink-0">
+                                      Read Only
                                     </span>
                                   )}
                                 </div>

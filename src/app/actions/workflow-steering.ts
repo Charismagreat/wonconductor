@@ -7,6 +7,7 @@ import {
     updateRows 
 } from '@/egdesk-helpers';
 import { getSessionAction } from './auth';
+import { getMasterRecords } from './report';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
@@ -19,7 +20,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { ap
 export async function recommendWorkflowAction(reportId: string, rowId: string, rowData: any) {
     try {
         // 1. 맥락 데이터 준비
-        const reports = await queryTable('dashboard_master', { filters: { id: reportId } });
+        const reports: any = await getMasterRecords(String(reportId));
         const report = reports[0];
         if (!report) return;
 
@@ -106,7 +107,8 @@ export async function getPendingSteeringActionsAction() {
 
     // 상세 정보 보정 (Join 대용)
     return await Promise.all(pendings.map(async (p: any) => {
-        const [report] = await queryTable('dashboard_master', { filters: { id: p.reportId } });
+        const reports: any = await getMasterRecords(p.reportId);
+        const report = reports[0];
         const [row] = await queryTable('dashboard_data', { filters: { id: p.rowId } });
         return {
             ...p,

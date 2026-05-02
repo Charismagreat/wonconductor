@@ -11,7 +11,7 @@ export class DbSyncService {
     }
 
     /**
-     * 데이터를 물리 테이블에 동기화합니다.
+     * 데이터를 물리 테이블에 동기화합니다. (시스템 컬럼 포함)
      */
     static async syncToPhysicalTable(
         tableName: string,
@@ -21,9 +21,18 @@ export class DbSyncService {
     ): Promise<{ success: boolean; error?: string }> {
         try {
             const physicalData: any = {};
+            
+            // 일반 비즈니스 컬럼 처리
             columns.forEach((col: any) => {
                 if (data[col.name] !== undefined) {
                     physicalData[col.name] = castToPhysicalValue(data[col.name], col.type);
+                }
+            });
+
+            // [Soft Delete] 시스템 컬럼 처리 (__ 시작하는 필드들)
+            Object.keys(data).forEach(key => {
+                if (key.startsWith('__')) {
+                    physicalData[key] = data[key];
                 }
             });
 
@@ -38,7 +47,7 @@ export class DbSyncService {
     }
 
     /**
-     * 물리 테이블에 행을 삽입합니다.
+     * 물리 테이블에 행을 삽입합니다. (시스템 컬럼 포함)
      */
     static async insertToPhysicalTable(
         tableName: string,
@@ -48,9 +57,19 @@ export class DbSyncService {
         try {
             const physicalRows = rows.map(rowData => {
                 const physicalData: any = {};
+                
+                // 일반 비즈니스 컬럼 처리
                 columns.forEach((col: any) => {
                     physicalData[col.name] = castToPhysicalValue(rowData[col.name], col.type);
                 });
+
+                // [Soft Delete] 시스템 컬럼 처리
+                Object.keys(rowData).forEach(key => {
+                    if (key.startsWith('__')) {
+                        physicalData[key] = rowData[key];
+                    }
+                });
+
                 return physicalData;
             });
 
@@ -63,17 +82,24 @@ export class DbSyncService {
     }
 
     /**
-     * 물리 테이블에서 행을 삭제합니다.
+     * 물리 테이블에서 행을 논리적으로 삭제합니다. (Soft Delete)
      */
     static async deleteFromPhysicalTable(
         tableName: string,
-        filters: Record<string, string>
+        filters: Record<string, string>,
+        userId: string = 'system'
     ): Promise<{ success: boolean; error?: string }> {
         try {
-            await deleteRows(tableName, { filters });
+            // [Soft Delete 적용] 물리적 삭제 대신 플래그 업데이트
+            await updateRows(tableName, { 
+                __is_deleted: 1, 
+                __deleted_at: new Date().toISOString(),
+                __modifier_id: userId
+            }, { filters });
+            
             return { success: true };
         } catch (err: any) {
-            console.error(`[DbSyncService] Physical delete failed for ${tableName}:`, err);
+            console.error(`[DbSyncService] Physical soft delete failed for ${tableName}:`, err);
             return { success: false, error: err.message };
         }
     }
@@ -96,11 +122,28 @@ export class DbSyncService {
         const newTableName = `tb_${reportId}_${suffix}`;
         await this.log('INFO', `Step 1: Generated new table name: ${newTableName}`);
 
-        // 2) 신규 테이블 생성
+        // 2) 신규 테이블 생성 (시스템 컬럼 포함 보장)
         const tableSchema = newColumns.map((c: any) => ({
             name: c.name,
             type: ((c.type === 'number' || c.type === 'currency') ? 'INTEGER' : 'TEXT') as 'TEXT' | 'INTEGER'
         }));
+        
+        // 시스템 컬럼 명시적 추가 (기존 createTable 로직 보완)
+        const systemCols = [
+            { name: '__created_at', type: 'TEXT' },
+            { name: '__updated_at', type: 'TEXT' },
+            { name: '__creator_id', type: 'TEXT' },
+            { name: '__modifier_id', type: 'TEXT' },
+            { name: '__is_deleted', type: 'INTEGER' },
+            { name: '__deleted_at', type: 'TEXT' }
+        ];
+        
+        systemCols.forEach(sc => {
+            if (!tableSchema.find(tc => tc.name === sc.name)) {
+                tableSchema.push(sc as any);
+            }
+        });
+
         const finalDisplayName = (newName || reportName) + ' (Sync)';
         await createTable(finalDisplayName, tableSchema, { tableName: newTableName });
         await this.log('INFO', `Step 2: Created new table ${newTableName}.`);
@@ -110,6 +153,8 @@ export class DbSyncService {
         if (existingData && existingData.length > 0) {
             const migratedData = existingData.map((row: any) => {
                 const newRow: any = {};
+                
+                // 비즈니스 컬럼 이관
                 newColumns.forEach((newCol: any) => {
                     const oldCol = oldColumns.find((oc: any) => 
                         (newCol.id && oc.id === newCol.id) || 
@@ -117,6 +162,12 @@ export class DbSyncService {
                     );
                     newRow[newCol.name] = oldCol ? row[oldCol.name] : null;
                 });
+
+                // 시스템 컬럼 이관
+                systemCols.forEach(sc => {
+                    newRow[sc.name] = row[sc.name] !== undefined ? row[sc.name] : (sc.name === '__is_deleted' ? 0 : null);
+                });
+
                 return newRow;
             });
             

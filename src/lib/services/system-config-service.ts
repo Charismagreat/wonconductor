@@ -37,7 +37,7 @@ export class SystemConfigService {
             }
 
             const queryResult: any = await queryTable('system_settings', { 
-                filters: { id: this.SETTINGS_ID } 
+                filters: { legacyId: this.SETTINGS_ID } 
             });
             
             const rows = Array.isArray(queryResult) ? queryResult : (queryResult?.rows || []);
@@ -51,7 +51,7 @@ export class SystemConfigService {
         } catch (error) {
             // Only log if it's not a missing table issue (already handled above)
             // But we keep this catch for other potential connection issues
-            console.warn('[SystemConfigService] Could not fetch settings. This is normal during initial setup.');
+            console.error('[SystemConfigService] Could not fetch settings. Error details:', error);
             return null;
         }
     }
@@ -76,7 +76,7 @@ export class SystemConfigService {
         if (!tableNames.has('system_settings')) {
             console.log('[SystemConfigService] system_settings table missing, creating...');
             await createTable('System Settings', [
-                { name: 'id', type: 'TEXT', notNull: true },
+                { name: 'legacyId', type: 'TEXT' },
                 { name: 'companyName', type: 'TEXT' },
                 { name: 'logoUrl', type: 'TEXT' },
                 { name: 'themeColor', type: 'TEXT' },
@@ -155,7 +155,7 @@ export class SystemConfigService {
             let queryResult;
             try {
                 queryResult = await queryTable('system_settings', { 
-                    filters: { id: this.SETTINGS_ID } 
+                    filters: { legacyId: this.SETTINGS_ID } 
                 });
             } catch (e: any) {
                 throw new Error(`queryTable(system_settings) failed: ${e.message}`);
@@ -168,7 +168,7 @@ export class SystemConfigService {
                 // Update existing record
                 try {
                     await updateRows('system_settings', dataToUpdate, { 
-                        filters: { id: this.SETTINGS_ID } 
+                        filters: { legacyId: this.SETTINGS_ID } 
                     });
                 } catch (e: any) {
                     throw new Error(`updateRows(system_settings) failed: ${e.message}`);
@@ -176,7 +176,7 @@ export class SystemConfigService {
             } else {
                 console.log('[SystemConfigService] Record missing, inserting...');
                 // Insert new record
-                dataToUpdate.id = this.SETTINGS_ID;
+                dataToUpdate.legacyId = this.SETTINGS_ID;
                 // Add default theme if missing for the first insertion
                 if (dataToUpdate.themeColor === undefined) {
                     dataToUpdate.themeColor = '#2563eb';

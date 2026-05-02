@@ -23,7 +23,8 @@ import {
   Rocket,
   Wallet,
   Layout,
-  Settings
+  Settings,
+  LayoutTemplate
 } from 'lucide-react';
 // 🚀 DEFAULT IMPORTS: New consistency standard
 import LogoutButton from './LogoutButton';
@@ -89,6 +90,13 @@ export default function NavigationSidebar({ user, isCollapsed = false, onToggle,
       icon: Compass,
       active: pathname === '/dashboard/studio',
       desc: 'AI 기반 데이터 시각화'
+    },
+    {
+      name: 'FORM STUDIO',
+      href: '/dashboard/form-studio',
+      icon: LayoutTemplate,
+      active: pathname.startsWith('/dashboard/form-studio'),
+      desc: '문서 자동화 양식 빌더'
     },
     {
       name: 'SYSTEM CALENDAR',

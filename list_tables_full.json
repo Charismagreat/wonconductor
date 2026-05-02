@@ -1,0 +1,1362 @@
+[
+  {
+    "id": "927c7dc8-6ad2-49c3-b061-7ae3ed975efe",
+    "tableName": "department",
+    "displayName": "department",
+    "description": null,
+    "rowCount": 9,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T13:01:07.573Z",
+    "updatedAt": "2026-05-01 13:11:29"
+  },
+  {
+    "id": "f9cc0dc6-dbd6-4dc5-95c7-43c623275bc6",
+    "tableName": "bank_transactions",
+    "displayName": "bank_transactions",
+    "description": null,
+    "rowCount": 1000,
+    "columnCount": 18,
+    "createdAt": "2026-05-01T13:01:07.316Z",
+    "updatedAt": "2026-05-01 13:01:07"
+  },
+  {
+    "id": "43a39f96-fbd7-4b38-ac03-aff12686de47",
+    "tableName": "micro_app_projects",
+    "displayName": "micro_app_projects",
+    "description": null,
+    "rowCount": 4,
+    "columnCount": 17,
+    "createdAt": "2026-05-01T13:00:14.471Z",
+    "updatedAt": "2026-05-01 13:11:29"
+  },
+  {
+    "id": "c0c99fb5-4270-4473-8007-328f446fb7db",
+    "tableName": "master_client",
+    "displayName": "master_client",
+    "description": null,
+    "rowCount": 4,
+    "columnCount": 10,
+    "createdAt": "2026-05-01T12:59:32.305Z",
+    "updatedAt": "2026-05-01 12:59:32"
+  },
+  {
+    "id": "e4fc3b2c-8c10-4e05-a298-488a044d0b29",
+    "tableName": "master_product",
+    "displayName": "master_product",
+    "description": null,
+    "rowCount": 4,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:59:32.154Z",
+    "updatedAt": "2026-05-01 12:59:32"
+  },
+  {
+    "id": "3cf65d07-2d7a-4532-8ffe-114c1c9ee5ec",
+    "tableName": "master_client_employee",
+    "displayName": "master_client_employee",
+    "description": null,
+    "rowCount": 3,
+    "columnCount": 11,
+    "createdAt": "2026-05-01T12:59:31.971Z",
+    "updatedAt": "2026-05-01 12:59:32"
+  },
+  {
+    "id": "9e95067c-de84-471b-bf34-783351f6cc7e",
+    "tableName": "table_knowledge",
+    "displayName": "table_knowledge",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 12,
+    "createdAt": "2026-05-01T12:59:31.831Z",
+    "updatedAt": "2026-05-01T12:59:31.831Z"
+  },
+  {
+    "id": "e64373b6-ed15-4783-baeb-afbd51121748",
+    "tableName": "workspace_item",
+    "displayName": "workspace_item",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 19,
+    "createdAt": "2026-05-01T12:59:31.590Z",
+    "updatedAt": "2026-05-01 13:11:29"
+  },
+  {
+    "id": "5711d3f8-3de6-49c6-acfa-8d15cb2d079b",
+    "tableName": "dashboard_chart",
+    "displayName": "dashboard_chart",
+    "description": null,
+    "rowCount": 11,
+    "columnCount": 10,
+    "createdAt": "2026-05-01T12:59:31.328Z",
+    "updatedAt": "2026-05-01 13:11:29"
+  },
+  {
+    "id": "feed2233-db73-4c39-8dab-82f4cbf52f3e",
+    "tableName": "action_task",
+    "displayName": "action_task",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 15,
+    "createdAt": "2026-05-01T12:59:31.187Z",
+    "updatedAt": "2026-05-01T12:59:31.187Z"
+  },
+  {
+    "id": "2bb519be-3ae1-4691-bd5e-61dc9bd30eed",
+    "tableName": "action_task_history",
+    "displayName": "action_task_history",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:59:31.031Z",
+    "updatedAt": "2026-05-01T12:59:31.031Z"
+  },
+  {
+    "id": "4ad4f06d-3fff-4c34-a649-8c4adb295d6e",
+    "tableName": "workflow_template",
+    "displayName": "workflow_template",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:59:30.894Z",
+    "updatedAt": "2026-05-01T12:59:30.894Z"
+  },
+  {
+    "id": "1e29a9c2-efcf-48dc-817d-116756f460d5",
+    "tableName": "workflow_instance",
+    "displayName": "workflow_instance",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:59:30.759Z",
+    "updatedAt": "2026-05-01T12:59:30.759Z"
+  },
+  {
+    "id": "b5f3c1fc-2e9e-433d-8431-470fefb6d1dd",
+    "tableName": "workflow_steering",
+    "displayName": "workflow_steering",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 13,
+    "createdAt": "2026-05-01T12:59:30.615Z",
+    "updatedAt": "2026-05-01T12:59:30.615Z"
+  },
+  {
+    "id": "2a1a6188-a72b-408a-b3e1-b59966e3ca04",
+    "tableName": "tb_tb_69f498a1_pvh_x1dnq",
+    "displayName": "견적서_통합_관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 20,
+    "createdAt": "2026-05-01T12:55:33.743Z",
+    "updatedAt": "2026-05-01T12:55:33.743Z"
+  },
+  {
+    "id": "f6c77d00-6886-42a4-aa61-5d0b20dc9f25",
+    "tableName": "tb_tpl_it_it_policy_x1c7c",
+    "displayName": "IT 보안 정책 및 가이드 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:31.857Z",
+    "updatedAt": "2026-05-01T12:55:31.857Z"
+  },
+  {
+    "id": "5a246419-8c42-43de-a451-fa34bf181359",
+    "tableName": "tb_tpl_it_domain_ssl_x1c2b",
+    "displayName": "도메인 및 SSL 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:31.679Z",
+    "updatedAt": "2026-05-01T12:55:31.679Z"
+  },
+  {
+    "id": "d4d7b592-b6ca-44d6-b7bb-ba106889e8a0",
+    "tableName": "tb_tpl_it_access_control_x1bvw",
+    "displayName": "전산실 출입 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:31.447Z",
+    "updatedAt": "2026-05-01T12:55:31.447Z"
+  },
+  {
+    "id": "b2bf874b-4c15-4645-afbe-d0492618228c",
+    "tableName": "tb_tpl_it_repair_logs_x1bqs",
+    "displayName": "IT 기기 수리 및 교체 이력 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:31.263Z",
+    "updatedAt": "2026-05-01T12:55:31.263Z"
+  },
+  {
+    "id": "950b131b-f8bb-4139-86d4-86d08e5425cf",
+    "tableName": "tb_tpl_it_server_resources_x1blo",
+    "displayName": "서버/클라우드 자원 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:31.079Z",
+    "updatedAt": "2026-05-01T12:55:31.079Z"
+  },
+  {
+    "id": "4266cbad-ab26-4a26-a7ad-a40a9a93f14e",
+    "tableName": "tb_tpl_it_backup_history_x1bgl",
+    "displayName": "백업 및 복구 테스트 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:55:30.894Z",
+    "updatedAt": "2026-05-01T12:55:30.894Z"
+  },
+  {
+    "id": "2bfed501-080d-44db-a4a0-ba4a48080990",
+    "tableName": "tb_tpl_it_security_logs_x1bbi",
+    "displayName": "보안 사고 및 탐지 일지 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:30.712Z",
+    "updatedAt": "2026-05-01T12:55:30.712Z"
+  },
+  {
+    "id": "57e90371-1d96-473a-957b-831eb88f7480",
+    "tableName": "tb_tpl_it_accounts_x1b5y",
+    "displayName": "시스템 계정 및 권한 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:55:30.511Z",
+    "updatedAt": "2026-05-01T12:55:30.511Z"
+  },
+  {
+    "id": "bab55f52-9096-4a3a-9ae8-2e49dce587d9",
+    "tableName": "tb_hometax_purchase_invoices_wj5dv",
+    "displayName": "매입계산서 (홈택스) (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 43,
+    "createdAt": "2026-05-01T12:41:23.213Z",
+    "updatedAt": "2026-05-01T12:41:23.213Z"
+  },
+  {
+    "id": "3e1c5ac8-347e-46bd-8f35-acb82ed02904",
+    "tableName": "tb_hometax_sales_invoices_wj548",
+    "displayName": "매출계산서 (홈택스) (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 43,
+    "createdAt": "2026-05-01T12:41:22.865Z",
+    "updatedAt": "2026-05-01T12:41:22.865Z"
+  },
+  {
+    "id": "79eb3072-71e6-44eb-b400-db17498c145d",
+    "tableName": "tb_rep-tpl_it_sw_license_wed7f",
+    "displayName": "SW 라이선스 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:40.070Z",
+    "updatedAt": "2026-05-01T12:37:40.070Z"
+  },
+  {
+    "id": "4d0cb5ec-b9bd-40dd-90dd-868fa19a8e1a",
+    "tableName": "tb_rep-tpl_it_hw_inventory_wed33",
+    "displayName": "PC 및 하드웨어 자산 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:39.914Z",
+    "updatedAt": "2026-05-01 12:37:39"
+  },
+  {
+    "id": "e9a0d046-3336-4179-9c4e-bbfd0ee024d8",
+    "tableName": "tb_rep-tpl_leg_standard_forms_weczj",
+    "displayName": "사외 표준 문서 양식집 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:39.787Z",
+    "updatedAt": "2026-05-01T12:37:39.787Z"
+  },
+  {
+    "id": "a30e592a-e763-4227-835d-fdce91ba8d04",
+    "tableName": "tb_rep-tpl_leg_risk_mgmt_wecvs",
+    "displayName": "리스크 관리 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:39.657Z",
+    "updatedAt": "2026-05-01T12:37:39.657Z"
+  },
+  {
+    "id": "17b6d15f-f5dd-4a18-80c2-c9ec5716bdb4",
+    "tableName": "tb_rep-tpl_leg_shareholders_mtg_wecry",
+    "displayName": "이사회/주총 의사록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:39.515Z",
+    "updatedAt": "2026-05-01T12:37:39.515Z"
+  },
+  {
+    "id": "b73d6828-d421-4678-882c-e68bb37f0ed3",
+    "tableName": "tb_rep-tpl_leg_insurance_wecnc",
+    "displayName": "기업 보험 가입 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:39.352Z",
+    "updatedAt": "2026-05-01T12:37:39.352Z"
+  },
+  {
+    "id": "7be645ba-5827-4ae9-9008-a5668096183b",
+    "tableName": "tb_rep-tpl_leg_esg_data_wecik",
+    "displayName": "ESG 경영 공시 데이터 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:39.175Z",
+    "updatedAt": "2026-05-01T12:37:39.175Z"
+  },
+  {
+    "id": "bd61a67d-03fa-4347-9ce1-201799d21245",
+    "tableName": "tb_rep-tpl_leg_privacy_check_wece9",
+    "displayName": "개인정보 보호 자가점검 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:39.025Z",
+    "updatedAt": "2026-05-01T12:37:39.025Z"
+  },
+  {
+    "id": "427d829f-673a-45fb-a6fa-0763e4c8d467",
+    "tableName": "tb_rep-tpl_leg_safety_audit_wecam",
+    "displayName": "정기 소방/안전 진단 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:38.888Z",
+    "updatedAt": "2026-05-01T12:37:38.888Z"
+  },
+  {
+    "id": "52107173-3682-4556-a23d-5363b7ccbe23",
+    "tableName": "tb_rep-tpl_leg_licenses_wec6v",
+    "displayName": "사업 면허/인허가 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:38.755Z",
+    "updatedAt": "2026-05-01T12:37:38.755Z"
+  },
+  {
+    "id": "2aa7440d-40ec-4df2-9701-6d01c4cddbcd",
+    "tableName": "tb_rep-tpl_leg_patents_wec31",
+    "displayName": "특허 및 지식재산권 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:38.617Z",
+    "updatedAt": "2026-05-01T12:37:38.617Z"
+  },
+  {
+    "id": "85f2ea51-9c99-4051-a8b8-1a75b63a9df1",
+    "tableName": "tb_rep-tpl_leg_contracts_webya",
+    "displayName": "중요 계약서 대장 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:38.446Z",
+    "updatedAt": "2026-05-01 12:37:38"
+  },
+  {
+    "id": "46add248-3d0b-4e0d-b741-26c479a3fd6d",
+    "tableName": "tb_rep-tpl_ops_mail_log_webub",
+    "displayName": "우편/택배 수발신 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:38.304Z",
+    "updatedAt": "2026-05-01T12:37:38.304Z"
+  },
+  {
+    "id": "3661365e-7651-4bea-873f-fb179f32ba4e",
+    "tableName": "tb_rep-tpl_ops_task_mgmt_webqo",
+    "displayName": "부서별 업무 관리(To-Do) (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:38.172Z",
+    "updatedAt": "2026-05-01T12:37:38.172Z"
+  },
+  {
+    "id": "766863a7-84dc-4e03-b3db-d1eb7049acde",
+    "tableName": "tb_rep-tpl_ops_visitor_log_webmv",
+    "displayName": "외부인 방문 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:38.034Z",
+    "updatedAt": "2026-05-01T12:37:38.034Z"
+  },
+  {
+    "id": "eae6941f-693f-4f18-bd92-67a449ffe79d",
+    "tableName": "tb_rep-tpl_ops_supplies_request_webhc",
+    "displayName": "비품 구매 신청서 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:37.860Z",
+    "updatedAt": "2026-05-01T12:37:37.860Z"
+  },
+  {
+    "id": "722b639b-a0da-4ccb-8cab-477fffb729d9",
+    "tableName": "tb_rep-tpl_ops_facility_check_webam",
+    "displayName": "시설물 안전 점검표 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:37.606Z",
+    "updatedAt": "2026-05-01T12:37:37.606Z"
+  },
+  {
+    "id": "5d74319f-2bd3-47d5-9f80-75312c19157e",
+    "tableName": "tb_rep-tpl_ops_notices_web60",
+    "displayName": "사내 공지 사항 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:37.428Z",
+    "updatedAt": "2026-05-01T12:37:37.428Z"
+  },
+  {
+    "id": "8c8537b4-6281-46e6-8a63-815aa1f77178",
+    "tableName": "tb_rep-tpl_ops_seal_usage_web2a",
+    "displayName": "법인 인감 날인 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:37.295Z",
+    "updatedAt": "2026-05-01T12:37:37.295Z"
+  },
+  {
+    "id": "3849cc7c-441e-4c13-94c9-7dd16ca922ad",
+    "tableName": "tb_rep-tpl_ops_vehicle_log_weaym",
+    "displayName": "업무용 차량 운행 일지 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:37.161Z",
+    "updatedAt": "2026-05-01T12:37:37.161Z"
+  },
+  {
+    "id": "33a9dfc3-ffac-4c86-94a9-4faed72eaba9",
+    "tableName": "tb_rep-tpl_ops_office_supplies_weauw",
+    "displayName": "비품/소모품 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:37.026Z",
+    "updatedAt": "2026-05-01T12:37:37.026Z"
+  },
+  {
+    "id": "f02bd66b-b84f-42e3-8dd8-142d339cd1ad",
+    "tableName": "tb_rep-tpl_ops_meeting_minutes_weaqe",
+    "displayName": "회의록 및 결정사항 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:36.865Z",
+    "updatedAt": "2026-05-01 12:37:36"
+  },
+  {
+    "id": "d6afeb59-7b31-467b-9894-99efb165f20b",
+    "tableName": "tb_rep-tpl_cs_defect_reports_weamh",
+    "displayName": "고객 발굴 제품 결함 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:36.728Z",
+    "updatedAt": "2026-05-01T12:37:36.728Z"
+  },
+  {
+    "id": "27da72dc-ed85-4173-b467-d5b9c3ec375c",
+    "tableName": "tb_rep-tpl_cs_callback_list_weaiv",
+    "displayName": "콜백/해피콜 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:36.594Z",
+    "updatedAt": "2026-05-01T12:37:36.594Z"
+  },
+  {
+    "id": "e7d83c78-a137-403a-a8a1-6c0df3df5d84",
+    "tableName": "tb_rep-tpl_cs_loyalty_program_weafd",
+    "displayName": "우수 고객 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:36.468Z",
+    "updatedAt": "2026-05-01T12:37:36.468Z"
+  },
+  {
+    "id": "823147d9-3abd-4a90-a39e-1f8b8d9b1d65",
+    "tableName": "tb_rep-tpl_cs_product_manuals_weab1",
+    "displayName": "매뉴얼 버전 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:36.316Z",
+    "updatedAt": "2026-05-01T12:37:36.316Z"
+  },
+  {
+    "id": "7032f10b-1981-4aec-add9-607c5a0561fb",
+    "tableName": "tb_rep-tpl_cs_field_support_wea62",
+    "displayName": "현장 파견 지원 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:36.137Z",
+    "updatedAt": "2026-05-01T12:37:36.137Z"
+  },
+  {
+    "id": "c4c5ec8b-8298-4802-abc8-842fe93a0299",
+    "tableName": "tb_rep-tpl_cs_warranty_data_wea1g",
+    "displayName": "제품 보증 및 워런티 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:35.967Z",
+    "updatedAt": "2026-05-01T12:37:35.967Z"
+  },
+  {
+    "id": "7e6d6b9e-73c1-412d-bf0f-2cf3226c7a6c",
+    "tableName": "tb_rep-tpl_cs_faq_library_we9xo",
+    "displayName": "자주 묻는 질문(FAQ) DB (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:35.834Z",
+    "updatedAt": "2026-05-01T12:37:35.834Z"
+  },
+  {
+    "id": "a9de18af-d29b-4e69-b0dc-f855c62fc9a4",
+    "tableName": "tb_rep-tpl_cs_satisfaction_we9tm",
+    "displayName": "고객 만족도 조사 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:35.687Z",
+    "updatedAt": "2026-05-01T12:37:35.687Z"
+  },
+  {
+    "id": "5aa00e32-2fbd-4dbd-afc6-974529c91adf",
+    "tableName": "tb_rep-tpl_cs_repair_logs_we9pw",
+    "displayName": "AS 수리 일지 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:35.552Z",
+    "updatedAt": "2026-05-01T12:37:35.552Z"
+  },
+  {
+    "id": "877dcdf9-9958-4851-80eb-866c2141a369",
+    "tableName": "tb_rep-tpl_cs_tickets_we9lj",
+    "displayName": "고객 문의(Ticket) 관리 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:35.393Z",
+    "updatedAt": "2026-05-01 12:37:35"
+  },
+  {
+    "id": "92b5d3f5-5d69-4858-a77c-8627d2756e22",
+    "tableName": "tb_rep-tpl_pur_cost_reduction_we9hq",
+    "displayName": "원가 절감 활동 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:35.258Z",
+    "updatedAt": "2026-05-01T12:37:35.258Z"
+  },
+  {
+    "id": "ee4c3be5-c019-4c08-bd0e-7dc32d035e8a",
+    "tableName": "tb_rep-tpl_pur_sample_request_we9e0",
+    "displayName": "샘플 구매 및 검토 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:35.124Z",
+    "updatedAt": "2026-05-01T12:37:35.124Z"
+  },
+  {
+    "id": "d830eeeb-e418-4ae2-b816-8bfea2453892",
+    "tableName": "tb_rep-tpl_pur_defect_claims_we9ad",
+    "displayName": "자재 불량 클레임 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:34.993Z",
+    "updatedAt": "2026-05-01T12:37:34.993Z"
+  },
+  {
+    "id": "3dd12640-51cd-4641-9d48-46938f78310e",
+    "tableName": "tb_rep-tpl_pur_contract_mgmt_we95k",
+    "displayName": "구매 계약 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:34.830Z",
+    "updatedAt": "2026-05-01T12:37:34.830Z"
+  },
+  {
+    "id": "7b185ad7-7915-43bd-a945-f5ad9106e2e2",
+    "tableName": "tb_rep-tpl_pur_outsourcing_we91m",
+    "displayName": "외주 가공 요청서 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:34.678Z",
+    "updatedAt": "2026-05-01T12:37:34.678Z"
+  },
+  {
+    "id": "78dd59c5-153e-421f-941a-9f473d94fee2",
+    "tableName": "tb_rep-tpl_pur_rfq_history_we8xx",
+    "displayName": "RFQ(견적요청) 이력 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:34.542Z",
+    "updatedAt": "2026-05-01T12:37:34.542Z"
+  },
+  {
+    "id": "080eb1e2-98d2-47de-a29a-066d70fd4c76",
+    "tableName": "tb_rep-tpl_pur_import_clearance_we8u1",
+    "displayName": "수입 통관 진행 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:34.409Z",
+    "updatedAt": "2026-05-01T12:37:34.409Z"
+  },
+  {
+    "id": "de9916a0-cf0f-4f91-a587-297ae66d00bf",
+    "tableName": "tb_rep-tpl_pur_raw_material_prices_we8px",
+    "displayName": "원자재 시세 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:34.258Z",
+    "updatedAt": "2026-05-01T12:37:34.258Z"
+  },
+  {
+    "id": "91aafa2b-87b7-4c8a-8c59-83a77cddbc19",
+    "tableName": "tb_rep-tpl_pur_purchase_orders_we8m3",
+    "displayName": "구매 발주 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:34.117Z",
+    "updatedAt": "2026-05-01T12:37:34.117Z"
+  },
+  {
+    "id": "f9789ce6-3130-40bf-8f42-f1e088fe8830",
+    "tableName": "tb_rep-tpl_pur_vendor_eval_we8hr",
+    "displayName": "협력업체 평가 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:33.962Z",
+    "updatedAt": "2026-05-01T12:37:33.962Z"
+  },
+  {
+    "id": "cb144e50-3506-4f42-9f87-db7820ff01ac",
+    "tableName": "tb_rep-tpl_fin_stock_management_we8dl",
+    "displayName": "주주 및 자본금 변동 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:33.817Z",
+    "updatedAt": "2026-05-01T12:37:33.817Z"
+  },
+  {
+    "id": "1eb609c8-a6b7-44a2-82dc-5517d68f2434",
+    "tableName": "tb_rep-tpl_fin_tax_invoices_we89l",
+    "displayName": "세금계산서 발행 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:33.672Z",
+    "updatedAt": "2026-05-01T12:37:33.672Z"
+  },
+  {
+    "id": "f460666b-4810-472f-b48d-7284994cb613",
+    "tableName": "tb_rep-tpl_fin_external_audit_we85j",
+    "displayName": "외부 감사 대응 이력 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:33.524Z",
+    "updatedAt": "2026-05-01T12:37:33.524Z"
+  },
+  {
+    "id": "b21f5d75-7657-4581-bc72-88bd52be2bda",
+    "tableName": "tb_rep-tpl_fin_budget_vs_actual_we81t",
+    "displayName": "예산 대비 집행 실적 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:33.390Z",
+    "updatedAt": "2026-05-01T12:37:33.390Z"
+  },
+  {
+    "id": "24db9639-c412-4e3c-8983-0cd696aa2ac3",
+    "tableName": "tb_rep-tpl_fin_cashflow_we7y0",
+    "displayName": "일일 자금 수지 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:33.249Z",
+    "updatedAt": "2026-05-01T12:37:33.249Z"
+  },
+  {
+    "id": "09dc8dd2-27c0-40cd-80aa-f73c6206f9ac",
+    "tableName": "tb_rep-tpl_fin_loans_we7u6",
+    "displayName": "대출 및 금융 부채 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:33.113Z",
+    "updatedAt": "2026-05-01T12:37:33.113Z"
+  },
+  {
+    "id": "c856f60a-3d42-43c5-a374-3090986ebbe8",
+    "tableName": "tb_rep-tpl_fin_accounts_payable_we7pw",
+    "displayName": "외상매입금(AP) 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:32.962Z",
+    "updatedAt": "2026-05-01T12:37:32.962Z"
+  },
+  {
+    "id": "8e72d5d2-ea67-45cb-afc1-6e469fa6426c",
+    "tableName": "tb_rep-tpl_fin_assets_we7l9",
+    "displayName": "고정 자산 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:32.798Z",
+    "updatedAt": "2026-05-01T12:37:32.798Z"
+  },
+  {
+    "id": "18f215d9-ad22-4325-b0e4-58f21bcdf2f4",
+    "tableName": "tb_rep-tpl_fin_vat_report_we7gn",
+    "displayName": "부가세 신고 기초 자료 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:32.637Z",
+    "updatedAt": "2026-05-01T12:37:32.637Z"
+  },
+  {
+    "id": "77b0b3a9-d0b4-4b45-ac42-ce1f4d2de505",
+    "tableName": "tb_rep-tpl_fin_card_expenses_we7bh",
+    "displayName": "법인카드 경비 내역 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:32.440Z",
+    "updatedAt": "2026-05-01 12:37:32"
+  },
+  {
+    "id": "a05c54ed-ea60-4c02-b61f-ede5f93a827b",
+    "tableName": "tb_rep-tpl_sales_partnership_we77t",
+    "displayName": "전략적 제휴 이력 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:32.312Z",
+    "updatedAt": "2026-05-01T12:37:32.312Z"
+  },
+  {
+    "id": "c73cad1e-e7ae-4a4f-9c72-9fb5200502fa",
+    "tableName": "tb_rep-tpl_sales_marketing_eff_we73s",
+    "displayName": "마케팅 캠페인 효율 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:32.162Z",
+    "updatedAt": "2026-05-01T12:37:32.162Z"
+  },
+  {
+    "id": "b677ea7b-e2ac-4770-8bbd-3e1070567489",
+    "tableName": "tb_rep-tpl_sales_collections_we6zt",
+    "displayName": "수금/채권 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:32.023Z",
+    "updatedAt": "2026-05-01T12:37:32.023Z"
+  },
+  {
+    "id": "cb8ba831-6fa5-46a7-9e9f-1fb01ccf5d55",
+    "tableName": "tb_rep-tpl_sales_revenue_target_we6vi",
+    "displayName": "매출 목표 대비 실적 (Sync)",
+    "description": null,
+    "rowCount": 2,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:31.868Z",
+    "updatedAt": "2026-05-01 12:37:31"
+  },
+  {
+    "id": "497c9277-b303-4187-ada2-a57525046ba9",
+    "tableName": "tb_rep-tpl_sales_competitors_we6rt",
+    "displayName": "경쟁사 동향 분석 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:31.733Z",
+    "updatedAt": "2026-05-01T12:37:31.733Z"
+  },
+  {
+    "id": "dace3477-cd83-4c40-ba38-16b8f732f515",
+    "tableName": "tb_rep-tpl_sales_customer_contacts_we6o0",
+    "displayName": "거래처 담당자 명부 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:31.594Z",
+    "updatedAt": "2026-05-01T12:37:31.594Z"
+  },
+  {
+    "id": "4b2dfe63-a30e-4cfd-986d-902418ebbad8",
+    "tableName": "tb_rep-tpl_sales_orders_we6ka",
+    "displayName": "수주/주문 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:31.461Z",
+    "updatedAt": "2026-05-01T12:37:31.461Z"
+  },
+  {
+    "id": "13545124-e828-41c2-88ef-9dad5199692d",
+    "tableName": "tb_rep-tpl_sales_quotations_we6go",
+    "displayName": "견적서 발행 이력 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:31.333Z",
+    "updatedAt": "2026-05-01T12:37:31.333Z"
+  },
+  {
+    "id": "643449e2-ee36-4e68-b04c-ba3a5b82d0ff",
+    "tableName": "tb_rep-tpl_sales_meetings_we6cr",
+    "displayName": "영업 상담 일지 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:31.192Z",
+    "updatedAt": "2026-05-01T12:37:31.192Z"
+  },
+  {
+    "id": "6d7bc4f8-6aec-491d-a034-a655dd0b8006",
+    "tableName": "tb_rep-tpl_sales_leads_we67x",
+    "displayName": "영업 기회(Leads) (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:31.018Z",
+    "updatedAt": "2026-05-01 12:37:31"
+  },
+  {
+    "id": "d4aec9d1-0118-4218-aabf-1f9d32e6102d",
+    "tableName": "tb_rep-tpl_hr_resignation_we649",
+    "displayName": "퇴직자 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:30.884Z",
+    "updatedAt": "2026-05-01T12:37:30.884Z"
+  },
+  {
+    "id": "806c6e2f-32c3-4463-b198-b8e43fbe2886",
+    "tableName": "tb_rep-tpl_hr_praise_punish_we60f",
+    "displayName": "포상 및 징계 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:30.745Z",
+    "updatedAt": "2026-05-01T12:37:30.745Z"
+  },
+  {
+    "id": "f0b89aaf-12c8-42a4-9ced-f822c136f934",
+    "tableName": "tb_rep-tpl_hr_benefits_we5ww",
+    "displayName": "복리후생 지원금 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:30.621Z",
+    "updatedAt": "2026-05-01T12:37:30.621Z"
+  },
+  {
+    "id": "88a81d8c-d8c5-454b-8418-d6063e337cb9",
+    "tableName": "tb_rep-tpl_hr_performance_we5t2",
+    "displayName": "인사 고과 평정 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:30.479Z",
+    "updatedAt": "2026-05-01T12:37:30.479Z"
+  },
+  {
+    "id": "d727953f-63c6-4de3-a3b0-ce78cae1b3e6",
+    "tableName": "tb_rep-tpl_hr_recruiting_we5p6",
+    "displayName": "채용 후보자 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:30.348Z",
+    "updatedAt": "2026-05-01T12:37:30.348Z"
+  },
+  {
+    "id": "94280df5-d509-4d0b-9ca8-3c74dc36cf93",
+    "tableName": "tb_rep-tpl_hr_training_we5lq",
+    "displayName": "교육 이수 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:30.217Z",
+    "updatedAt": "2026-05-01T12:37:30.217Z"
+  },
+  {
+    "id": "b04fc4ff-f46e-4023-8876-99e688c46cd8",
+    "tableName": "tb_rep-tpl_hr_payroll_we5i7",
+    "displayName": "급여 지급 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:30.092Z",
+    "updatedAt": "2026-05-01T12:37:30.092Z"
+  },
+  {
+    "id": "025799fc-c1d7-4731-b8ea-af2e92ce56e9",
+    "tableName": "tb_rep-tpl_hr_vacation_we5ei",
+    "displayName": "연차/휴가 신청 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:29.958Z",
+    "updatedAt": "2026-05-01T12:37:29.958Z"
+  },
+  {
+    "id": "b10c2b76-31e8-4c72-9c60-5d9f6e76cf11",
+    "tableName": "tb_rep-tpl_hr_attendance_we5a1",
+    "displayName": "일일 근태 기록 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:29.797Z",
+    "updatedAt": "2026-05-01 12:37:29"
+  },
+  {
+    "id": "11f30a91-145a-4e5a-9954-a04af9beaaf9",
+    "tableName": "tb_rep-tpl_hr_employee_master_we55m",
+    "displayName": "사원 명부 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:29.636Z",
+    "updatedAt": "2026-05-01 12:37:29"
+  },
+  {
+    "id": "64e8ac50-7fbc-4665-892f-ae0f6a7a5b51",
+    "tableName": "tb_rep-tpl_dist_inventory_survey_we51z",
+    "displayName": "재고 실사 기록 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:29.508Z",
+    "updatedAt": "2026-05-01T12:37:29.508Z"
+  },
+  {
+    "id": "efe3a459-c795-459b-9abc-5f518a805d0c",
+    "tableName": "tb_rep-tpl_dist_return_log_we4y5",
+    "displayName": "반품/교환 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:29.369Z",
+    "updatedAt": "2026-05-01T12:37:29.369Z"
+  },
+  {
+    "id": "3c1b9d83-785d-48b0-a12d-7e518237dda4",
+    "tableName": "tb_rep-tpl_dist_shipping_cost_we4um",
+    "displayName": "운송비 정산 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:29.242Z",
+    "updatedAt": "2026-05-01T12:37:29.242Z"
+  },
+  {
+    "id": "93e0e189-5e41-4dac-b27d-74ce6d7269ad",
+    "tableName": "tb_rep-tpl_dist_fleet_mgmt_we4r1",
+    "displayName": "운송 차량 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:29.112Z",
+    "updatedAt": "2026-05-01T12:37:29.112Z"
+  },
+  {
+    "id": "f8451216-45ea-4759-bed8-6b66405e174c",
+    "tableName": "tb_rep-tpl_dist_expired_goods_we4nf",
+    "displayName": "유통기한/폐기 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:28.982Z",
+    "updatedAt": "2026-05-01T12:37:28.982Z"
+  },
+  {
+    "id": "10e828c7-da7c-46cf-a4a6-a1c798d66073",
+    "tableName": "tb_rep-tpl_dist_warehouse_move_we4jq",
+    "displayName": "창고간 이동 내역 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:28.851Z",
+    "updatedAt": "2026-05-01T12:37:28.851Z"
+  },
+  {
+    "id": "00e62393-f0c7-425e-a9c1-322cf5659a3c",
+    "tableName": "tb_rep-tpl_dist_delivery_tracker_we4fw",
+    "displayName": "배송 추적 현황 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T12:37:28.711Z",
+    "updatedAt": "2026-05-01T12:37:28.711Z"
+  },
+  {
+    "id": "b2692507-0908-49fe-88cd-01843104f57c",
+    "tableName": "tb_rep-tpl_dist_outgoing_log_we4b9",
+    "displayName": "물품 출고 일지 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:28.547Z",
+    "updatedAt": "2026-05-01 12:37:28"
+  },
+  {
+    "id": "5d3fcfb3-27cc-4781-8b83-d6fffa70b6ac",
+    "tableName": "tb_rep-tpl_dist_incoming_log_we459",
+    "displayName": "물품 입고 일지 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:28.336Z",
+    "updatedAt": "2026-05-01 12:37:28"
+  },
+  {
+    "id": "7c2b1eef-ae74-4c70-9cd7-71db129541aa",
+    "tableName": "tb_rep-tpl_dist_inventory_stock_we3zu",
+    "displayName": "전사 재고 현황 (Sync)",
+    "description": null,
+    "rowCount": 2,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:28.133Z",
+    "updatedAt": "2026-05-01 12:37:28"
+  },
+  {
+    "id": "fdfdc26c-40b9-490b-85ee-eef13a4b39d8",
+    "tableName": "tb_rep-tpl_mfg_energy_usage_we3wc",
+    "displayName": "공장 에너지 사용량 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:28.008Z",
+    "updatedAt": "2026-05-01T12:37:28.008Z"
+  },
+  {
+    "id": "a5b87870-1475-470c-9969-d4f16ddac5c0",
+    "tableName": "tb_rep-tpl_mfg_process_leadtime_we3sr",
+    "displayName": "공정 리드타임 측정 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:27.880Z",
+    "updatedAt": "2026-05-01T12:37:27.880Z"
+  },
+  {
+    "id": "eebbc9ae-c2da-4341-8388-695e52123432",
+    "tableName": "tb_rep-tpl_mfg_mold_inventory_we3p4",
+    "displayName": "금형 자산 관리 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:27.747Z",
+    "updatedAt": "2026-05-01T12:37:27.747Z"
+  },
+  {
+    "id": "829deaf0-047d-4339-a6d8-0ff0be87ff58",
+    "tableName": "tb_rep-tpl_mfg_defect_analysis_we3lf",
+    "displayName": "불량 원인 분석 대장 (Sync)",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:27.613Z",
+    "updatedAt": "2026-05-01T12:37:27.613Z"
+  },
+  {
+    "id": "91a28e07-a037-42fe-a8da-5e369ebd8b04",
+    "tableName": "tb_rep-tpl_mfg_safety_training_we3gc",
+    "displayName": "안전 교육 기록 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T12:37:27.429Z",
+    "updatedAt": "2026-05-01 12:37:27"
+  },
+  {
+    "id": "b77a6a46-ce8f-4770-abc2-79803b201d39",
+    "tableName": "tb_rep-tpl_mfg_machine_maintenance_we3ai",
+    "displayName": "설비 점검 및 수리 대장 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:27.223Z",
+    "updatedAt": "2026-05-01 12:37:27"
+  },
+  {
+    "id": "78779b31-2a01-4044-8019-ad3ed4a9e471",
+    "tableName": "tb_rep-tpl_mfg_quality_inspection_we34k",
+    "displayName": "품질 검사 보고서 (Sync)",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:27.007Z",
+    "updatedAt": "2026-05-01 12:37:27"
+  },
+  {
+    "id": "09f59db0-eb5f-46ca-9849-ff7ec064423f",
+    "tableName": "tb_rep-tpl_mfg_work_log_we2yk",
+    "displayName": "작업 실적 일지 (Sync)",
+    "description": null,
+    "rowCount": 2,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:26.798Z",
+    "updatedAt": "2026-05-01 12:37:26"
+  },
+  {
+    "id": "61c458f2-a7d0-4a19-99cd-f18d70ebe826",
+    "tableName": "tb_rep-tpl_mfg_production_order_we2sm",
+    "displayName": "생산 작업지시서 (Sync)",
+    "description": null,
+    "rowCount": 2,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:26.576Z",
+    "updatedAt": "2026-05-01 12:37:26"
+  },
+  {
+    "id": "97c49196-599e-4fad-9d29-3595bdf2153e",
+    "tableName": "tb_rep-tpl_mfg_bom_we2mn",
+    "displayName": "제품 부품 구성표 (BOM) (Sync)",
+    "description": null,
+    "rowCount": 3,
+    "columnCount": 9,
+    "createdAt": "2026-05-01T12:37:26.361Z",
+    "updatedAt": "2026-05-01 12:37:26"
+  },
+  {
+    "id": "5d875d20-782f-4e73-bf80-c804957ff161",
+    "tableName": "user",
+    "displayName": "사용자 관리 (System)",
+    "description": null,
+    "rowCount": 10,
+    "columnCount": 15,
+    "createdAt": "2026-05-01T12:37:26.107Z",
+    "updatedAt": "2026-05-01 12:48:38"
+  },
+  {
+    "id": "185121dd-fedf-47ad-bc01-201f903fd013",
+    "tableName": "user_data_files",
+    "displayName": "user_data_files",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 16,
+    "createdAt": "2026-05-01T07:06:13.048Z",
+    "updatedAt": "2026-05-01 07:06:13"
+  },
+  {
+    "id": "fb03dc5f-2dbe-45e3-bd7b-c212a8d463ec",
+    "tableName": "sync_configurations",
+    "displayName": "sync_configurations",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 25,
+    "createdAt": "2026-05-01T07:06:12.910Z",
+    "updatedAt": "2026-05-01 07:06:12"
+  },
+  {
+    "id": "8dc35d28-cf2c-434d-bfeb-4be6ed177c35",
+    "tableName": "sync_activity_log",
+    "displayName": "sync_activity_log",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 13,
+    "createdAt": "2026-05-01T07:06:12.791Z",
+    "updatedAt": "2026-05-01 07:06:12"
+  },
+  {
+    "id": "c2c1cc2e-6b91-47a5-9636-ad34b1f89ab6",
+    "tableName": "system_settings",
+    "displayName": "system_settings",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 8,
+    "createdAt": "2026-05-01T07:06:12.191Z",
+    "updatedAt": "2026-05-01 07:06:12"
+  },
+  {
+    "id": "15620d2c-33b6-4feb-b9b7-d2e1388f9d77",
+    "tableName": "form_submissions",
+    "displayName": "Form Submissions",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 6,
+    "createdAt": "2026-05-01T05:38:33.196Z",
+    "updatedAt": "2026-05-01T05:38:33.196Z"
+  },
+  {
+    "id": "1726562d-ca59-4b74-b971-35241bbbd617",
+    "tableName": "form_templates",
+    "displayName": "Form Templates",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-05-01T05:38:32.990Z",
+    "updatedAt": "2026-05-01T05:38:32.990Z"
+  },
+  {
+    "id": "174ea3a7-ecba-4ef3-be9f-f367c6402502",
+    "tableName": "ai_studio_sessions",
+    "displayName": "AI Studio Session",
+    "description": null,
+    "rowCount": 2,
+    "columnCount": 4,
+    "createdAt": "2026-04-29T00:44:48.914Z",
+    "updatedAt": "2026-04-30 04:12:16"
+  },
+  {
+    "id": "46c626f6-0fd5-431a-bbc1-e25197e9ac4a",
+    "tableName": "table_master",
+    "displayName": "table_master",
+    "description": null,
+    "rowCount": 149,
+    "columnCount": 8,
+    "createdAt": "2026-04-27T14:42:54.313Z",
+    "updatedAt": "2026-05-01 12:44:45"
+  },
+  {
+    "id": "f6891844-47fa-4c10-80dd-16fdc3b4c222",
+    "tableName": "dashboard_master",
+    "displayName": "dashboard_master",
+    "description": null,
+    "rowCount": 109,
+    "columnCount": 15,
+    "createdAt": "2026-04-27T14:14:15.331Z",
+    "updatedAt": "2026-05-01 12:12:17"
+  },
+  {
+    "id": "149a7664-874a-42df-ae40-75b2d6824b99",
+    "tableName": "dashboard_data",
+    "displayName": "dashboard_data",
+    "description": null,
+    "rowCount": 3,
+    "columnCount": 7,
+    "createdAt": "2026-04-27T07:55:07.377Z",
+    "updatedAt": "2026-05-01 12:07:53"
+  },
+  {
+    "id": "f6b73c9e-1866-463a-ae63-d33a49318570",
+    "tableName": "source_view_settings",
+    "displayName": "Source View Settings",
+    "description": null,
+    "rowCount": 5,
+    "columnCount": 4,
+    "createdAt": "2026-04-27T07:45:20.572Z",
+    "updatedAt": "2026-04-29 00:52:27"
+  },
+  {
+    "id": "97a35018-177f-4743-87f0-99e428498917",
+    "tableName": "input_guardrail",
+    "displayName": "Input Guardrails",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 9,
+    "createdAt": "2026-04-27T07:43:35.680Z",
+    "updatedAt": "2026-04-27T07:43:35.680Z"
+  },
+  {
+    "id": "6ff3d505-10f8-459b-a79b-027cac5b6a17",
+    "tableName": "dashboard_data_history",
+    "displayName": "dashboard_data_history",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-04-27T07:43:35.617Z",
+    "updatedAt": "2026-04-27 15:07:03"
+  },
+  {
+    "id": "93d9fc34-1fc0-4a6b-91f7-78b10d177077",
+    "tableName": "notification",
+    "displayName": "User Notifications",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 9,
+    "createdAt": "2026-04-27T07:00:00.062Z",
+    "updatedAt": "2026-04-27 08:16:25"
+  },
+  {
+    "id": "46632cc9-8f62-49fb-a5d7-18d27adebe5c",
+    "tableName": "dashboard_access",
+    "displayName": "dashboard_access",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 7,
+    "createdAt": "2026-04-22T00:31:19.405Z",
+    "updatedAt": "2026-04-27 15:07:03"
+  },
+  {
+    "id": "87a39fa6-21fa-4eef-9ea5-32ddf5eb9c76",
+    "tableName": "ai_studio_session_persistence",
+    "displayName": "AI Studio Session",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 5,
+    "createdAt": "2026-04-08T06:58:10.654Z",
+    "updatedAt": "2026-04-08 07:49:42"
+  },
+  {
+    "id": "9638ab4f-e404-4250-89be-6f4d62e4d31c",
+    "tableName": "ai_persistence_test",
+    "displayName": "AI Persistence Test",
+    "description": null,
+    "rowCount": 0,
+    "columnCount": 5,
+    "createdAt": "2026-04-08T06:55:36.584Z",
+    "updatedAt": "2026-04-14 05:45:18"
+  },
+  {
+    "id": "e19db91b-0cf9-49f8-95a3-cfe98ca44033",
+    "tableName": "ai_studio_session",
+    "displayName": "AI Studio Session",
+    "description": null,
+    "rowCount": 1,
+    "columnCount": 4,
+    "createdAt": "2026-04-08T06:48:12.354Z",
+    "updatedAt": "2026-04-27 08:16:44"
+  }
+]

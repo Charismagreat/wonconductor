@@ -30,7 +30,7 @@ export function NewTableSection({
         </div>
         
         <div className="bg-gray-50/80 p-8 lg:p-12 rounded-[32px] border border-gray-100/50 shadow-inner">
-           <div className="max-w-3xl mx-auto">
+           <div className="w-full">
               <UploadWorkflow userId={userId} />
            </div>
         </div>

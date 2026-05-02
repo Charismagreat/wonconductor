@@ -19,14 +19,19 @@ export async function getOrganizationDataAction() {
     const session = await getSessionAction();
     if (!session || session.role !== 'ADMIN') return { departments: [], members: [] };
 
-    const departments = await queryTable('department', { orderBy: 'name' });
+    // [Soft Delete] 삭제되지 않은 부서만 조회
+    const departments = await queryTable('department', { 
+        filters: { __is_deleted: '0' },
+        orderBy: 'name' 
+    });
     
     // 조인된 데이터 조회 (sqlite 문법)
+    // [Soft Delete] 유저와 부서 모두 삭제되지 않은 데이터만 조회
     const membersSql = `
         SELECT u.*, d.name as departmentName 
         FROM user u 
         LEFT JOIN department d ON u.departmentId = d.id 
-        WHERE u.isActive = 1
+        WHERE u.isActive = 1 AND u.__is_deleted = 0
         ORDER BY d.name, u.fullName
     `;
     const membersResult = await executeSQL(membersSql);
@@ -42,20 +47,23 @@ export async function upsertDepartmentAction(data: { id?: string, name: string, 
     const session = await getSessionAction();
     if (!session || session.role !== 'ADMIN') throw new Error('권한 부족');
 
+    const now = new Date().toISOString();
+
     if (data.id) {
         await updateRows('department', { 
             name: data.name, 
-            description: data.description 
+            description: data.description,
+            __updated_at: now
         }, { filters: { id: data.id } });
     } else {
-        const insertRes = await insertRows('department', [{
-            
+        await insertRows('department', [{
             name: data.name,
             description: data.description,
-            createdAt: new Date().toISOString()
+            createdAt: now,
+            __created_at: now,
+            __updated_at: now,
+            __is_deleted: 0
         }]);
-        const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-        const deptId = insertedRow.id;
     }
 
     revalidatePath('/admin/organization');
@@ -69,90 +77,87 @@ export async function createMemberAction(data: any) {
     const session = await getSessionAction();
     if (!session || session.role !== 'ADMIN') throw new Error('권한 부족');
 
-    // 사원번호 중복 체크
+    // 사원번호 중복 체크 (삭제되지 않은 유저 중)
     if (data.employeeId) {
-        const existing = await queryTable('user', { filters: { employeeId: data.employeeId } });
+        const existing = await queryTable('user', { 
+            filters: { employeeId: data.employeeId, __is_deleted: '0' } 
+        });
         if (existing && existing.length > 0) {
             throw new Error(`이미 등록된 사원번호입니다: ${data.employeeId}`);
         }
     }
 
     let departmentId = data.departmentId;
+    const now = new Date().toISOString();
 
     // 부서 직접 입력 처리: 이름으로 ID 찾기 또는 생성
     if (!departmentId && data.departmentName) {
-        const [existing] = await queryTable('department', { filters: { name: data.departmentName } });
+        const [existing] = await queryTable('department', { filters: { name: data.departmentName, __is_deleted: '0' } });
         if (existing) {
             departmentId = existing.id;
         } else {
             const insertRes = await insertRows('department', [{
-                
                 name: data.departmentName,
-                createdAt: new Date().toISOString()
+                createdAt: now,
+                __created_at: now,
+                __updated_at: now,
+                __is_deleted: 0
             }]);
             const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
             departmentId = insertedRow.id;
         }
     }
 
-    const { departmentName, ...cleanData } = data; // user 테이블에 없는 필드 제거
-    const insertRes = await insertRows('user', [{
+    const { departmentName, ...cleanData } = data; 
+    await insertRows('user', [{
         ...cleanData,
-        
         departmentId,
         username: data.username || `user_${data.employeeId || Date.now()}`,
-        password: hashPassword('1234'), // 기본 패스워드 설정
+        password: hashPassword('1234'), 
         isActive: 1,
-        createdAt: new Date().toISOString()
+        createdAt: now,
+        __created_at: now,
+        __updated_at: now,
+        __is_deleted: 0
     }]);
-    const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-    const userId = insertedRow.id;
 
     revalidatePath('/admin/organization');
     return { success: true };
 }
 
 /**
- * 👥 유저(멤버) 정보 단건 수정
+ * 👥 유저(멤버) 삭제 (논리 삭제)
  */
-export async function updateMemberAction(memberId: string, data: any) {
+export async function deleteMemberAction(memberId: string) {
     const session = await getSessionAction();
     if (!session || session.role !== 'ADMIN') throw new Error('권한 부족');
 
-    let departmentId = data.departmentId;
-
-    // 부서 직접 입력 처리: 이름으로 ID 찾기 또는 생성
-    if (!departmentId && data.departmentName) {
-        const [existing] = await queryTable('department', { filters: { name: data.departmentName } });
-        if (existing) {
-            departmentId = existing.id;
-        } else {
-            const insertRes = await insertRows('department', [{
-                
-                name: data.departmentName,
-                createdAt: new Date().toISOString()
-            }]);
-            const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-            departmentId = insertedRow.id;
-        }
-    }
-
-    const { departmentName, ...cleanData } = data; // user 테이블에 없는 필드 제거
-    await updateRows('user', { ...cleanData, departmentId }, { filters: { id: memberId } });
+    const now = new Date().toISOString();
+    // isActive 비활성화와 __is_deleted 논리 삭제 동시 적용
+    await updateRows('user', { 
+        isActive: 0, 
+        __is_deleted: 1,
+        __deleted_at: now,
+        __updated_at: now
+    }, { filters: { id: memberId } });
     
     revalidatePath('/admin/organization');
     return { success: true };
 }
 
 /**
- * 👥 유저(멤버) 삭제 (비활성화)
+ * 👥 유저 정보 수정
  */
-export async function deleteMemberAction(memberId: string) {
+export async function updateMemberAction(memberId: string, data: any) {
     const session = await getSessionAction();
     if (!session || session.role !== 'ADMIN') throw new Error('권한 부족');
 
-    // 실제 삭제 대신 비활성화 처리 추천
-    await updateRows('user', { isActive: 0 }, { filters: { id: memberId } });
+    const now = new Date().toISOString();
+    const { departmentName, ...cleanData } = data;
+    await updateRows('user', { 
+        ...cleanData, 
+        __updated_at: now 
+    }, { filters: { id: memberId } });
     
     revalidatePath('/admin/organization');
     return { success: true };
@@ -160,20 +165,19 @@ export async function deleteMemberAction(memberId: string) {
 
 /**
  * 📊 엑셀 조직도 데이터 일괄 동기화 (Master Sync)
- * 엑셀 행: [부서, 직위, 이름, 사원번호, 이메일]
  */
 export async function syncOrganizationExcelAction(excelRows: any[]) {
     const session = await getSessionAction();
     if (!session || session.role !== 'ADMIN') throw new Error('권한 부족');
 
-    console.log(`[Org Sync] Starting sync for ${excelRows.length} rows...`);
+    const now = new Date().toISOString();
 
-    // 1. 현재 부서 목록 로드 (캐싱용)
-    const existingDepts = await queryTable('department');
+    // 1. 현재 부서 목록 로드 (삭제되지 않은 것만)
+    const existingDepts = await queryTable('department', { filters: { __is_deleted: '0' } });
     const deptMap = new Map(existingDepts.map((d: any) => [d.name, d.id]));
 
-    // 2. 현재 유저 목록 로드 (사원번호 기준 매핑용)
-    const existingUsers = await queryTable('user');
+    // 2. 현재 유저 목록 로드 (삭제되지 않은 것만)
+    const existingUsers = await queryTable('user', { filters: { __is_deleted: '0' } });
     const userMap = new Map(existingUsers.filter((u: any) => u.employeeId).map((u: any) => [u.employeeId, u.id]));
 
     const usersToInsert: any[] = [];
@@ -188,13 +192,14 @@ export async function syncOrganizationExcelAction(excelRows: any[]) {
 
         if (!fullName || !employeeId) continue;
 
-        // 부서가 없으면 자동 생성
         let deptId = deptMap.get(deptName);
         if (deptName && !deptId) {
             const insertRes = await insertRows('department', [{
-                
                 name: deptName,
-                createdAt: new Date().toISOString()
+                createdAt: now,
+                __created_at: now,
+                __updated_at: now,
+                __is_deleted: 0
             }]);
             const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
             deptId = insertedRow.id;
@@ -204,19 +209,17 @@ export async function syncOrganizationExcelAction(excelRows: any[]) {
 
         const userId = userMap.get(employeeId);
         if (userId) {
-            // 정보 업데이트 (Upsert)
             await updateRows('user', {
                 fullName,
                 email,
                 departmentId: deptId || null,
-                position: position || null
+                position: position || null,
+                __updated_at: now
             }, { filters: { id: userId } });
             stats.updated++;
         } else {
-            // 신규 유저 생성
             usersToInsert.push({
-                
-                username: `user_${employeeId}`, // 기본 유저네임
+                username: `user_${employeeId}`,
                 fullName,
                 email,
                 employeeId,
@@ -224,7 +227,10 @@ export async function syncOrganizationExcelAction(excelRows: any[]) {
                 position: position || null,
                 role: 'VIEWER',
                 isActive: 1,
-                createdAt: new Date().toISOString()
+                createdAt: now,
+                __created_at: now,
+                __updated_at: now,
+                __is_deleted: 0
             });
             stats.inserted++;
         }

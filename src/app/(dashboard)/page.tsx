@@ -229,8 +229,8 @@ export default async function DashboardPage() {
   // 1. 물리적 시스템 테이블 목록 가져오기 및 2. 가상 리포트 필터링 로직이 위쪽에 있습니다.
   // ... 생략 ...
 
-  // 가상 리포트 중에서 사용 중인 물리적 테이블(tableName) 리스트 추출
-  const mappedTableNames = new Set(virtualReports.map(r => r.tableName?.toLowerCase()).filter(Boolean));
+  // 삭제된 리포트를 포함하여 모든 가상 리포트와 연결된 물리 테이블 이름 수집
+  const mappedTableNames = new Set(reportsArray.map((r: any) => r.tableName?.toLowerCase()).filter(Boolean));
 
   // 시스템 물리 테이블 통합 (어드민/에디터만)
   if (isAdminOrEditor) {

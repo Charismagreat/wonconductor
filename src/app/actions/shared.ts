@@ -28,7 +28,10 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 export async function checkReportAuthorization(reportId: string, userId: string, role: string) {
     if (role === 'ADMIN' || role === 'EDITOR') return true;
     
-    const reports = await queryTable('dashboard_master', { filters: { id: String(reportId) } });
+    // getMasterRecords는 report.ts에서 정의한 것을 가져오거나 여기 내부 로직으로 대체
+    const isNumeric = /^\d+$/.test(String(reportId));
+    const filters = isNumeric ? { id: String(reportId) } : { reportId: String(reportId) };
+    const reports = await queryTable('dashboard_master', { filters });
     const report = reports[0];
     
     if (!report) return false;

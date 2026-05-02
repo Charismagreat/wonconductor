@@ -17,6 +17,8 @@ interface ReportHeaderProps {
   canEdit?: boolean;
   isReadOnly?: boolean;
   initialColumns: ColumnDefinition[];
+  initialTags?: string[];
+  initialUiConfig?: any;
   rowCount?: number;
   onToggleAccessManager?: () => void;
 }
@@ -31,6 +33,8 @@ export function ReportHeader({
   canEdit,
   isReadOnly = false,
   initialColumns, 
+  initialTags = [],
+  initialUiConfig = {},
   rowCount,
   onToggleAccessManager
 }: ReportHeaderProps) {
@@ -140,17 +144,23 @@ export function ReportHeader({
                   </h1>
                   {isReadOnly && (
                     <div className="px-4 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-[0.25em] rounded-full border border-amber-200 shadow-sm animate-pulse shrink-0">
-                      Read-Only
+                      Read Only
                     </div>
                   )}
                 </div>
                 
-                <div className="flex items-center gap-4 mt-4">
-                  <div className="text-slate-500 font-bold leading-relaxed max-w-2xl flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-xl shadow-lg shadow-blue-500/20">
+                <div className="flex flex-wrap items-center gap-4 mt-4">
+                  <div className="text-slate-500 font-bold leading-relaxed max-w-2xl flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-xl shadow-lg shadow-blue-500/20 shrink-0">
                         <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Repository</span>
                         <span className="font-black text-[11px]">{sheetName}</span>
                     </div>
+                    {initialTags.length > 0 && initialTags.map((tag, idx) => (
+                      <div key={idx} className="bg-white text-blue-600 px-3 py-1 rounded-full text-[10px] font-black border border-blue-100 flex items-center gap-1.5 shadow-sm shrink-0">
+                        <span className="w-1 h-1 bg-blue-400 rounded-full" />
+                        {tag.startsWith('#') ? tag : `#${tag}`}
+                      </div>
+                    ))}
                     <span className="text-slate-300">|</span>
                     <div className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest">
                         <span>Synchronized at {new Date(createdAt).toLocaleString()}</span>
@@ -224,6 +234,8 @@ export function ReportHeader({
           reportId={reportId}
           initialName={name}
           initialColumns={initialColumns}
+          initialTags={initialTags}
+          initialUiConfig={initialUiConfig}
           onClose={() => setShowConfig(false)}
         />
       )}

@@ -634,13 +634,24 @@ export async function profileAllTablesAction() {
         2. Categorize it: Financial | Transactional | Operational | HR | Sales | Administrative | Contact | Other.
            *Strict Rule*: Only categorize as 'Financial' or 'Transactional' if it contains actual monetary flow or account transactions.
            *Priority*: If the table is marked as a 'REPOSITORY' or has columns like 'BALANCE', 'WITHDRAWAL', 'DEPOSIT', prioritize it as the primary 'Financial' source.
-        3. Provide business insights in Korean.
+        3. **[Crucial] Identify Master Links**: Check if any columns represent IDs that should link to master tables (master_client, user, master_product, master_project).
+        4. Provide business insights in Korean.
         
         Respond ONLY with a JSON object:
         {
           "description": "한글로 작성된 테이블의 상세 비즈니스 용도",
           "category": "The category from the list above",
-          "insight": "이 데이터로 어떤 마이크로 앱을 만들면 좋을지에 대한 제안 (한글)"
+          "insight": "이 데이터로 어떤 마이크로 앱을 만들면 좋을지에 대한 제안 (한글)",
+          "enriched_schema": [
+            { 
+              "name": "column_name", 
+              "displayName": "표시 이름", 
+              "type": "string|number|date|currency...",
+              "masterTable": "master_client|user|master_product|master_project",
+              "lookupField": "name",
+              "isMasterLinked": true
+            }
+          ]
         }
       `;
 
@@ -669,14 +680,19 @@ export async function profileAllTablesAction() {
         }
       }
 
-      // 3. Store Knowledge
+      // 3. Store Knowledge (AI가 분석한 고도화된 스키마 정보 포함)
+      const finalSchema = schema.map((s: any) => {
+        const enriched = (analysis.enriched_schema || []).find((es: any) => es.name === s.name);
+        return enriched ? { ...s, ...enriched } : s;
+      });
+
       await insertRows('table_knowledge', [{
         table_name: table.name,
         description: analysis.description,
         category: analysis.category,
         insight: analysis.insight,
-        schema_info: JSON.stringify(schema), // Schema Registry 주입
-        sample_rows: JSON.stringify(rows),   // Sample Data Injection
+        schema_info: JSON.stringify(finalSchema), 
+        sample_rows: JSON.stringify(rows),   
         sample_analysis: text,
         updated_at: new Date().toISOString()
       }]);

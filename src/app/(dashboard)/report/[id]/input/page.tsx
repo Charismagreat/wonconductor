@@ -5,6 +5,7 @@ import { DataInputClient } from '@/components/DataInputClient';
 import { ShieldAlert, Home } from 'lucide-react';
 import Link from 'next/link';
 import { queryTable } from '@/egdesk-helpers';
+import { getMasterRecords } from '@/app/actions/report';
 
 export default async function DataInputPage({
   params,
@@ -18,10 +19,9 @@ export default async function DataInputPage({
     redirect('/login');
   }
 
-  // 1단계: 보고서 기본 정보 로드
-  const filter = /^\d+$/.test(id) ? { id: Number(id) } : { reportId: id };
-  const reports = await queryTable('dashboard_master', { filters: filter });
-  const report = reports[0];
+  // 1단계: 보고서 정보 로드 (가상 및 물리 테이블 통합 대응)
+  const masterRecords = await getMasterRecords(id);
+  const report = masterRecords[0];
 
   if (!report) {
     redirect('/');
@@ -58,27 +58,64 @@ export default async function DataInputPage({
     );
   }
 
-  // 2단계: 행 필터링 - 실무자(VIEWER)이고 소유자가 아닌 경우 본인이 작정한 행만 조회
-  const rowsData = await queryTable('dashboard_data', {
-    filters: {
-      reportId: id,
-      ...(isManagement ? {} : { creatorId: String(session.id) }),
-      isDeleted: '0'
-    },
-    orderBy: 'updatedAt',
-    orderDirection: 'DESC'
-  });
+  // 2단계: 데이터 로드 (가상 테이블 또는 물리 테이블 직접 조회)
+  const isVirtual = !report.isPhysicalOnly;
+  let rowsData = [];
+
+  if (isVirtual) {
+    rowsData = await queryTable('dashboard_data', {
+      filters: {
+        reportId: String(id),
+        ...(isManagement ? {} : { creatorId: String(session.id) }),
+        isDeleted: '0'
+      },
+      orderBy: 'updatedAt',
+      orderDirection: 'DESC'
+    });
+  } else {
+    // 물리 테이블 직접 조회 (시스템 컬럼이 있는 경우 필터링 적용 시도)
+    const tableFilters: any = {};
+    if (!isManagement) {
+      // 시스템 컬럼(__creator_id)이 있는지 확인 후 필터링
+      tableFilters.__creator_id = String(session.id);
+    }
+    
+    try {
+      rowsData = await queryTable(report.tableName, {
+        filters: tableFilters,
+        limit: 100,
+        orderBy: 'id', // 물리 테이블은 보통 id 기준
+        orderDirection: 'DESC'
+      });
+    } catch (e) {
+      // 필터 오류(컬럼 없음 등) 시 필터 없이 재시도
+      rowsData = await queryTable(report.tableName, { limit: 100 });
+    }
+  }
 
   const columns = JSON.parse(report.columns);
 
   // 데이터 목록 파싱 (DataInputClient에서 조회/수정/삭제를 위해 필요)
-  const rows = rowsData.map((r: any) => ({
-    ...JSON.parse(r.data),
-    id: r.id,
-    creatorId: r.creatorId,
-    updatedAt: r.updatedAt,
-    isDeleted: r.isDeleted
-  }));
+  const rows = rowsData.map((r: any) => {
+    if (isVirtual && r.data) {
+      return {
+        ...JSON.parse(r.data),
+        id: r.id,
+        creatorId: r.creatorId,
+        updatedAt: r.updatedAt,
+        isDeleted: r.isDeleted
+      };
+    } else {
+      // 물리 테이블 데이터
+      return {
+        ...r,
+        id: r.id || r.DID || r.projectId || r.appId, // 다양한 식별자 대응
+        creatorId: r.__creator_id || 'system',
+        updatedAt: r.__updated_at || r.createdAt || new Date().toISOString(),
+        isDeleted: r.isDeleted || 0
+      };
+    }
+  });
 
   return (
     <DataInputClient

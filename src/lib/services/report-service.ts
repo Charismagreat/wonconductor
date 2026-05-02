@@ -1,6 +1,7 @@
 import { queryTable, updateRows, insertRows, deleteRows, deleteTable } from '@/egdesk-helpers';
 import { DbSyncService } from './db-sync-service';
 import { ValidationService } from './validation-service';
+import { HistoryService } from './history-service';
 import { revalidatePath } from 'next/cache';
 
 export class ReportService {
@@ -20,7 +21,8 @@ export class ReportService {
             renameMap[col.originalName] = col.name;
         });
 
-        const allRows = await queryTable('dashboard_data', { filters: { reportId: String(reportId) } });
+        // [Soft Delete] 삭제되지 않은 데이터만 마이그레이션 대상
+        const allRows = await queryTable('dashboard_data', { filters: { reportId: String(reportId), __is_deleted: '0' } });
         const validNewKeys = new Set(newColumns.map(c => c.name));
 
         for (const row of allRows) {
@@ -53,7 +55,6 @@ export class ReportService {
                         const cleanVal = String(val).replace(/[^0-9.-]/g, '').trim();
                         if (!isNaN(Number(cleanVal)) && cleanVal !== '') newVal = Number(cleanVal);
                     } else if (col.type === 'date') {
-                        // 날짜 변환 로직 (엑셀 시리얼 대응 포함)
                         newVal = this.castDateValue(val);
                     } else if (col.type === 'boolean') {
                         newVal = (val === 'true' || val === '1' || val === 1 || val === true);
@@ -97,7 +98,46 @@ export class ReportService {
     }
 
     /**
-     * 보고서를 영구 삭제하고 연관된 물리 테이블 및 데이터를 정리합니다.
+     * [Soft Delete] 보고서를 논리적으로 삭제하고 데이터를 보존합니다.
+     */
+    static async softDeleteReport(reportId: string, tableName?: string, userId: string = 'system') {
+        const timestamp = new Date().toISOString();
+        
+        // 1. 마스터 정보 논리 삭제
+        await updateRows('dashboard_master', { 
+            __is_deleted: 1, 
+            __deleted_at: timestamp,
+            __modifier_id: userId
+        }, { filters: { id: String(reportId) } });
+
+        // 2. 가상 데이터 논리 삭제
+        await updateRows('dashboard_data', { 
+            __is_deleted: 1, 
+            __deleted_at: timestamp 
+        }, { filters: { reportId: String(reportId) } });
+
+        // 3. 물리 테이블 데이터 논리 삭제 (테이블 자체는 보존)
+        if (tableName) {
+            try {
+                await updateRows(tableName, { 
+                    __is_deleted: 1, 
+                    __deleted_at: timestamp,
+                    __modifier_id: userId
+                }, {}); // 모든 행 대상
+            } catch (err) {
+                console.error(`[ReportService] Failed to soft delete physical table ${tableName}:`, err);
+            }
+        }
+
+        // 4. 감사 로그 기록
+        await HistoryService.recordHistory(String(reportId), 'active', 'soft-deleted', 'DELETE', userId);
+        
+        revalidatePath('/dashboard');
+        revalidatePath('/admin');
+    }
+
+    /**
+     * 보고서를 영구 삭제합니다. (주의: 이 기능은 관리자 도구 등에서만 제한적으로 사용 권장)
      */
     static async permanentDeleteReport(reportId: string, tableName?: string) {
         await deleteRows('dashboard_data', { filters: { reportId: String(reportId) } });

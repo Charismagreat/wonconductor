@@ -11,6 +11,7 @@ interface ManualTableModalProps {
 
 export function ManualTableModal({ onClose }: ManualTableModalProps) {
   const [name, setName] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
   const [sheetName, setSheetName] = useState('Table');
   const [columns, setColumns] = useState<ColumnDefinition[]>([
     { name: '제목', type: 'string', isRequired: true }
@@ -45,8 +46,9 @@ export function ManualTableModal({ onClose }: ManualTableModalProps) {
     }
 
     setIsSaving(true);
+    const tags = tagsInput.split(',').map(t => t.trim()).filter(t => !!t);
     try {
-      await createManualReportAction(name, sheetName, columns);
+      await createManualReportAction(name, sheetName, columns, tags);
     } catch (error) {
       alert('테이블 생성 중 오류가 발생했습니다.');
       setIsSaving(false);
@@ -89,6 +91,16 @@ export function ManualTableModal({ onClose }: ManualTableModalProps) {
                   className="w-full bg-gray-50 border border-transparent focus:border-blue-400 focus:bg-white rounded-2xl px-5 py-3 text-sm font-bold outline-none transition-all"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-500 ml-1">태그 (Tags, 쉼표 구분)</label>
+                <input 
+                  type="text" 
+                  placeholder="예: 영업, 중요, 2026"
+                  className="w-full bg-gray-50 border border-transparent focus:border-blue-400 focus:bg-white rounded-2xl px-5 py-3 text-sm font-bold outline-none transition-all text-blue-600"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
                 />
               </div>
             </div>

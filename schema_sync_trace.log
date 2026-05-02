@@ -1,117 +1,16 @@
-[2026-04-06T17:13:08.598Z] [INFO] Starting schema update for report: 179242338 (table: tb_69d3bfc1_rdc)
-[2026-04-06T17:13:08.601Z] [INFO] Old columns count: 10
-[2026-04-06T17:13:08.603Z] [INFO] New columns count: 10
-[2026-04-06T17:13:08.627Z] [INFO] Detected 0 new columns to add to physical table.
-[2026-04-06T17:13:41.502Z] [INFO] Starting schema update for report: 179242338 (table: tb_69d3bfc1_rdc)
-[2026-04-06T17:13:41.507Z] [INFO] Old columns count: 10
-[2026-04-06T17:13:41.509Z] [INFO] New columns count: 11
-[2026-04-06T17:13:41.539Z] [INFO] Detected 1 new columns to add to physical table.
-[2026-04-06T17:13:41.541Z] [INFO] Attempting to add column: "새 필드 11" (string)
-[2026-04-06T17:13:41.543Z] [INFO] Executing SQL: ALTER TABLE tb_69d3bfc1_rdc ADD COLUMN "새 필드 11" TEXT
-[2026-04-06T17:13:41.558Z] [ERROR] Failed to add column 새 필드 11: HTTP 500: Internal Server Error
-[2026-04-06T17:17:40.901Z] [INFO] Starting schema update for report: 179242338 (table: tb_69d3bfc1_rdc)
-[2026-04-06T17:17:40.904Z] [INFO] Old columns count: 11
-[2026-04-06T17:17:40.906Z] [INFO] New columns count: 10
-[2026-04-06T17:17:40.938Z] [INFO] Detected 1 new columns to add to physical table.
-[2026-04-06T17:17:40.940Z] [INFO] Attempting to add column: "새 필드 12" (string)
-[2026-04-06T17:17:40.942Z] [INFO] Executing SQL: ALTER TABLE tb_69d3bfc1_rdc ADD COLUMN "새 필드 12" TEXT
-[2026-04-06T17:17:40.959Z] [ERROR] Failed to add column 새 필드 12: HTTP 500: Internal Server Error
-[2026-04-07T00:40:54.990Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 179242338.
-[2026-04-07T00:40:54.993Z] [INFO] Step 1: Generating new table name: tb_179242338_w86a9
-[2026-04-07T00:40:54.996Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T00:40:55.029Z] [INFO] Step 2: Successfully created new table tb_179242338_w86a9.
-[2026-04-07T00:40:55.032Z] [INFO] Step 3: Migrating existing data from tb_69d3bfc1_rdc...
-[2026-04-07T00:40:55.096Z] [INFO] Step 3: Successfully migrated 1 rows.
-[2026-04-07T00:40:55.099Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T00:40:55.130Z] [INFO] Step 4: Metadata pointed to tb_179242338_w86a9.
-[2026-04-07T00:40:55.132Z] [INFO] Step 5: Cleaning up old table tb_69d3bfc1_rdc...
-[2026-04-07T00:40:55.166Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T00:40:55.168Z] [INFO] Blue-Green Migration COMPLETED successfully for report 179242338.
-[2026-04-07T00:52:42.941Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 732517084.
-[2026-04-07T00:52:42.944Z] [INFO] Step 1: Generating new table name: tb_732517084_wncjk
-[2026-04-07T00:52:42.946Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T00:52:42.980Z] [INFO] Step 2: Successfully created new table tb_732517084_wncjk.
-[2026-04-07T00:52:42.982Z] [INFO] Step 3: Migrating existing data from tb_1_69d45533_wth...
-[2026-04-07T00:52:42.998Z] [INFO] Step 3: No existing data found to migrate.
-[2026-04-07T00:52:43.000Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T00:52:43.031Z] [INFO] Step 4: Metadata pointed to tb_732517084_wncjk.
-[2026-04-07T00:52:43.034Z] [INFO] Step 5: Cleaning up old table tb_1_69d45533_wth...
-[2026-04-07T00:52:43.065Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T00:52:43.067Z] [INFO] Blue-Green Migration COMPLETED successfully for report 732517084.
-[2026-04-07T01:02:29.404Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 732517084.
-[2026-04-07T01:02:29.407Z] [INFO] Step 1: Generating new table name: tb_732517084_wzx27
-[2026-04-07T01:02:29.409Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T01:02:29.434Z] [INFO] Step 2: Successfully created new table tb_732517084_wzx27.
-[2026-04-07T01:02:29.437Z] [INFO] Step 3: Migrating existing data from tb_732517084_wncjk...
-[2026-04-07T01:02:29.487Z] [INFO] Step 3: Successfully migrated 1 rows.
-[2026-04-07T01:02:29.491Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T01:02:29.517Z] [INFO] Step 4: Metadata pointed to tb_732517084_wzx27.
-[2026-04-07T01:02:29.519Z] [INFO] Step 5: Cleaning up old table tb_732517084_wncjk...
-[2026-04-07T01:02:29.541Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T01:02:29.543Z] [INFO] Blue-Green Migration COMPLETED successfully for report 732517084.
-[2026-04-07T01:20:58.442Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 2045759253.
-[2026-04-07T01:20:58.444Z] [INFO] Step 1: Generating new table name: tb_2045759253_xnoss
-[2026-04-07T01:20:58.446Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T01:20:58.472Z] [INFO] Step 2: Successfully created new table tb_2045759253_xnoss.
-[2026-04-07T01:20:58.474Z] [INFO] Step 3: Migrating existing data from tb_1_69d45bc3_wol...
-[2026-04-07T01:20:58.488Z] [INFO] Step 3: No existing data found to migrate.
-[2026-04-07T01:20:58.490Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T01:20:58.518Z] [INFO] Step 4: Metadata pointed to tb_2045759253_xnoss.
-[2026-04-07T01:20:58.521Z] [INFO] Step 5: Cleaning up old table tb_1_69d45bc3_wol...
-[2026-04-07T01:20:58.548Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T01:20:58.550Z] [INFO] Blue-Green Migration COMPLETED successfully for report 2045759253.
-[2026-04-07T01:29:40.247Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 1849754183.
-[2026-04-07T01:29:40.249Z] [INFO] Step 1: Generating new table name: tb_1849754183_xyvfd
-[2026-04-07T01:29:40.252Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T01:29:40.284Z] [INFO] Step 2: Successfully created new table tb_1849754183_xyvfd.
-[2026-04-07T01:29:40.287Z] [INFO] Step 3: Migrating existing data from tb_1_69d45dcf_7pr...
-[2026-04-07T01:29:40.305Z] [INFO] Step 3: No existing data found to migrate.
-[2026-04-07T01:29:40.308Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T01:29:40.343Z] [INFO] Step 4: Metadata pointed to tb_1849754183_xyvfd.
-[2026-04-07T01:29:40.345Z] [INFO] Step 5: Cleaning up old table tb_1_69d45dcf_7pr...
-[2026-04-07T01:29:40.377Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T01:29:40.379Z] [INFO] Blue-Green Migration COMPLETED successfully for report 1849754183.
-[2026-04-07T01:30:17.573Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 1849754183.
-[2026-04-07T01:30:17.576Z] [INFO] Step 1: Generating new table name: tb_1849754183_xzo88
-[2026-04-07T01:30:17.578Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T01:30:17.602Z] [INFO] Step 2: Successfully created new table tb_1849754183_xzo88.
-[2026-04-07T01:30:17.604Z] [INFO] Step 3: Migrating existing data from tb_1849754183_xyvfd...
-[2026-04-07T01:30:17.618Z] [INFO] Step 3: No existing data found to migrate.
-[2026-04-07T01:30:17.620Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T01:30:17.642Z] [INFO] Step 4: Metadata pointed to tb_1849754183_xzo88.
-[2026-04-07T01:30:17.644Z] [INFO] Step 5: Cleaning up old table tb_1849754183_xyvfd...
-[2026-04-07T01:30:17.667Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T01:30:17.669Z] [INFO] Blue-Green Migration COMPLETED successfully for report 1849754183.
-[2026-04-07T02:27:35.656Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 1849754183.
-[2026-04-07T02:27:35.659Z] [INFO] Step 1: Generating new table name: tb_1849754183_01d2j
-[2026-04-07T02:27:35.662Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T02:27:35.687Z] [INFO] Step 2: Successfully created new table tb_1849754183_01d2j.
-[2026-04-07T02:27:35.690Z] [INFO] Step 3: Migrating existing data from tb_1849754183_xzo88...
-[2026-04-07T02:27:35.704Z] [INFO] Step 3: No existing data found to migrate.
-[2026-04-07T02:27:35.706Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T02:27:35.732Z] [INFO] Step 4: Metadata pointed to tb_1849754183_01d2j.
-[2026-04-07T02:27:35.734Z] [INFO] Step 5: Cleaning up old table tb_1849754183_xzo88...
-[2026-04-07T02:27:35.762Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T02:27:35.764Z] [INFO] Blue-Green Migration COMPLETED successfully for report 1849754183.
-[2026-04-07T02:28:04.535Z] [INFO] No schema structure change detected. Metadata only update.
-[2026-04-07T02:29:37.526Z] [INFO] No schema structure change detected. Metadata only update.
-[2026-04-07T03:07:47.549Z] [INFO] Schema change detected. Starting Blue-Green Migration for report 944447372.
-[2026-04-07T03:07:47.552Z] [INFO] Step 1: Generating new table name: tb_944447372_1h23k
-[2026-04-07T03:07:47.554Z] [INFO] Step 2: Creating new table with updated schema...
-[2026-04-07T03:07:47.578Z] [INFO] Step 2: Successfully created new table tb_944447372_1h23k.
-[2026-04-07T03:07:47.581Z] [INFO] Step 3: Migrating existing data from tb_1_69d474d7_kph...
-[2026-04-07T03:07:47.596Z] [INFO] Step 3: No existing data found to migrate.
-[2026-04-07T03:07:47.599Z] [INFO] Step 4: Swapping table reference in metadata...
-[2026-04-07T03:07:47.622Z] [INFO] Step 4: Metadata pointed to tb_944447372_1h23k.
-[2026-04-07T03:07:47.625Z] [INFO] Step 5: Cleaning up old table tb_1_69d474d7_kph...
-[2026-04-07T03:07:47.657Z] [INFO] Step 5: Successfully deleted old table.
-[2026-04-07T03:07:47.659Z] [INFO] Blue-Green Migration COMPLETED successfully for report 944447372.
-[2026-04-07T07:46:26.948Z] [INFO] No schema structure change detected. Metadata only update.
-[2026-04-07T07:47:25.462Z] [INFO] No schema structure change detected. Metadata only update.
-[2026-04-07T08:08:13.686Z] [INFO] No schema structure change detected. Metadata configuration update.
-[2026-04-13T00:44:22.162Z] [INFO] Starting Blue-Green Migration for report 2.
-[2026-04-13T00:44:22.166Z] [INFO] Step 1: Generated new table name: tb_2_gzq52
-[2026-04-13T00:44:22.189Z] [INFO] Step 2: Created new table tb_2_gzq52.
-[2026-04-13T00:44:22.238Z] [INFO] Step 3: Migrated 92 rows.
-[2026-04-13T00:44:22.264Z] [INFO] Step 4: Deleted old table tb_sheet1_69d5af80_e94.
-[2026-04-13T00:44:22.279Z] [INFO] Blue-Green Migration COMPLETED for report 2.
+[2026-05-01T15:21:11.832Z] [INFO] Starting Blue-Green Migration for report rep-1777637537845-avwz2.
+[2026-05-01T15:21:11.836Z] [INFO] Step 1: Generated new table name: tb_rep-1777637537845-avwz2_28o0s
+[2026-05-01T15:21:11.877Z] [INFO] Step 2: Created new table tb_rep-1777637537845-avwz2_28o0s.
+[2026-05-01T15:21:11.937Z] [INFO] Step 4: Deleted old table tb_69f498a1_pvh.
+[2026-05-01T15:21:11.972Z] [INFO] Blue-Green Migration COMPLETED for report rep-1777637537845-avwz2.
+[2026-05-01T15:24:00.020Z] [INFO] Starting Blue-Green Migration for report rep-1777637537845-avwz2.
+[2026-05-01T15:24:00.022Z] [INFO] Step 1: Generated new table name: tb_rep-1777637537845-avwz2_2c9sm
+[2026-05-01T15:24:00.058Z] [INFO] Step 2: Created new table tb_rep-1777637537845-avwz2_2c9sm.
+[2026-05-01T15:24:00.108Z] [INFO] Step 4: Deleted old table tb_rep-1777637537845-avwz2_28o0s.
+[2026-05-01T15:24:00.142Z] [INFO] Blue-Green Migration COMPLETED for report rep-1777637537845-avwz2.
+[2026-05-02T08:04:43.666Z] [INFO] Starting Blue-Green Migration for report master_client.
+[2026-05-02T08:04:43.669Z] [INFO] Step 1: Generated new table name: tb_master_client_237rp
+[2026-05-02T08:04:43.715Z] [INFO] Step 2: Created new table tb_master_client_237rp.
+[2026-05-02T08:04:43.770Z] [INFO] Step 3: Migrated 3 rows.
+[2026-05-02T08:04:43.802Z] [INFO] Step 4: Deleted old table master_client.
+[2026-05-02T08:04:43.838Z] [INFO] Blue-Green Migration COMPLETED for report master_client.

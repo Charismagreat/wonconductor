@@ -11,7 +11,7 @@ import { isSubtotalRow } from '@/lib/data-utils';
 import { 
     Upload, Check, AlertCircle, FileText, ChevronRight, Save, Camera, 
     Sparkles, Image as ImageIcon, Loader2, RotateCcw, Info, GripVertical, 
-    Trash2, Edit3, Database as DatabaseIcon, FileDigit
+    Trash2, Edit3, Database as DatabaseIcon, FileDigit, Tag
 } from 'lucide-react';
 
 interface SelectedField {
@@ -39,6 +39,7 @@ export function UploadWorkflow({ userId }: { userId: string }) {
   const [excelHtml, setExcelHtml] = useState<string>('');
   const [aiExtractedRows, setAiExtractedRows] = useState<any[]>([]); // AI가 추출한 실제 데이터들
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [tagsInput, setTagsInput] = useState('');
   
   // Drag and Drop state
   const [dragInfo, setDragInfo] = useState<{ tableName: string; index: number } | null>(null);
@@ -368,6 +369,29 @@ export function UploadWorkflow({ userId }: { userId: string }) {
     });
   };
 
+  const addField = (tableName: string) => {
+    setSelectedFields(prev => {
+        const currentFields = [...(prev[tableName] || [])];
+        const newFieldId = `custom_field_${Date.now()}`;
+        const newField: SelectedField = {
+            id: newFieldId,
+            name: '새 필드',
+            isActive: true,
+            isRequired: false,
+            type: 'string'
+        };
+        return { ...prev, [tableName]: [...currentFields, newField] };
+    });
+  };
+
+  const removeField = (tableName: string, fieldId: string) => {
+    setSelectedFields(prev => {
+        const currentFields = [...(prev[tableName] || [])];
+        const updated = currentFields.filter(f => f.id !== fieldId);
+        return { ...prev, [tableName]: updated };
+    });
+  };
+
   const updateTableName = (idx: number, newName: string) => {
     setPreviewTables(prev => {
         const oldName = prev[idx].name;
@@ -430,7 +454,8 @@ export function UploadWorkflow({ userId }: { userId: string }) {
                 type: f.type
             })),
             isAiGenerated: aiExtractedRows.length > 0,
-            initialRows: aiExtractedRows // 이미지/PDF 분석 시 추출된 데이터
+            initialRows: aiExtractedRows, // 이미지/PDF 분석 시 추출된 데이터
+            tags: tagsInput.split(',').map(t => t.trim()).filter(t => !!t)
         };
     });
     
@@ -497,7 +522,7 @@ export function UploadWorkflow({ userId }: { userId: string }) {
 
       {step === 'select' && (
         <div className="bg-white p-10 border border-slate-100 rounded-[48px] shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12 pb-10 border-b border-slate-100">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 mb-12 pb-10 border-b border-slate-100">
             <div className="flex items-start gap-5">
               <div className="p-4 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-[24px] shadow-xl ring-8 ring-blue-50">
                 <Sparkles size={28} />
@@ -510,28 +535,43 @@ export function UploadWorkflow({ userId }: { userId: string }) {
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => applyRecommendation(previewTables, recommendations)}
-                className="flex items-center gap-2 px-6 py-4 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-colors border-2 border-slate-100 uppercase tracking-widest text-xs"
-              >
-                <RotateCcw size={18} />
-                RESET TO AI RECOMMENDATION
-              </button>
-              <button 
-                onClick={handleConfirm}
-                className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-200 transition-all active:scale-95 group uppercase tracking-widest text-xs"
-              >
-                <Save size={18} />
-                Build DB & Import Data
-                <ChevronRight size={18} />
-              </button>
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col gap-1 w-full max-w-[180px]">
+                <div className="flex items-center gap-1.5 text-slate-400 mb-0.5">
+                    <Tag size={12} />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Tags (쉼표 구분)</span>
+                </div>
+                <input 
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    className="text-[11px] font-bold text-blue-600 bg-transparent border-b border-transparent hover:border-blue-200 focus:border-blue-500 focus:outline-none transition-all py-0.5 px-0 w-full"
+                    placeholder="예: 영업, 2026, 중요"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => applyRecommendation(previewTables, recommendations)}
+                  className="flex items-center gap-2 px-6 py-4 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-colors border-2 border-slate-100 uppercase tracking-widest text-xs"
+                >
+                  <RotateCcw size={18} />
+                  RESET
+                </button>
+                <button 
+                  onClick={handleConfirm}
+                  className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-200 transition-all active:scale-95 group uppercase tracking-widest text-xs"
+                >
+                  <Save size={18} />
+                  Build DB
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-12">
             {/* LEFT: Schema Configuration */}
-            <div className="lg:col-span-7 space-y-12">
+            <div className="xl:col-span-7 space-y-12">
                 {previewTables.map((table, tIdx) => {
                 const tableFields = selectedFields[table.name] || [];
                 const activeCount = tableFields.filter(f => f.isActive).length;
@@ -594,7 +634,7 @@ export function UploadWorkflow({ userId }: { userId: string }) {
                                         onDragStart={(e) => e.stopPropagation()}
                                         placeholder="필드명 입력"
                                         className={`
-                                            bg-transparent font-black text-base outline-none border-b-2 border-transparent focus:border-blue-400 focus:bg-slate-50 focus:px-3 py-1.5 transition-all w-full md:w-72 tracking-tight
+                                            bg-transparent font-black text-base outline-none border-b-2 border-transparent focus:border-blue-400 focus:bg-slate-50 focus:px-3 py-1.5 transition-all w-full tracking-tight text-ellipsis
                                             ${field.isActive ? 'text-slate-900' : 'text-slate-400'}
                                         `}
                                     />
@@ -636,17 +676,34 @@ export function UploadWorkflow({ userId }: { userId: string }) {
                                     <AlertCircle size={14} />
                                     {field.isRequired ? 'Required' : 'Optional'}
                                 </button>
+                                {field.id.startsWith('custom_field_') && (
+                                    <button
+                                        onClick={() => removeField(table.name, field.id)}
+                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                        title="필드 삭제"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </div>
                             </div>
                         ))}
                     </div>
+                    
+                    <button 
+                        onClick={() => addField(table.name)}
+                        className="mt-4 flex items-center justify-center gap-2 w-full py-4 border-2 border-dashed border-slate-200 text-slate-400 font-black rounded-3xl hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50/50 transition-all uppercase tracking-widest text-xs group"
+                    >
+                        <Edit3 size={16} className="group-hover:scale-110 transition-transform" />
+                        Add New Field
+                    </button>
                     </div>
                 );
                 })}
             </div>
 
             {/* RIGHT: Data Preview & File Preview */}
-            <div className="lg:col-span-5 space-y-10">
+            <div className="xl:col-span-5 space-y-10">
                 {/* 1. File Preview */}
                 <div className="bg-slate-50 p-8 rounded-[40px] border border-slate-100 shadow-inner group">
                     <div className="flex items-center gap-3 mb-6">

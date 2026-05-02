@@ -1,7 +1,6 @@
 import React from 'react';
 import { getSessionAction } from '@/app/actions/auth';
 import { redirect } from 'next/navigation';
-import NavigationSidebar from '@/components/NavigationSidebar';
 import DashboardLayoutClient from '@/components/DashboardLayoutClient';
 import { BrandingProvider } from '@/components/providers/BrandingProvider';
 import { queryTable } from '@/egdesk-helpers';

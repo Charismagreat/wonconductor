@@ -14,6 +14,8 @@ export interface ChartConfig {
     createdAt?: string;
     updatedAt?: string;
     refreshedAt?: string;
+    __is_deleted?: number;
+    __deleted_at?: string;
 }
 
 /**
@@ -112,12 +114,16 @@ export async function mapRefreshedDataAction(rawData: any, mapping: any): Promis
 
 /**
  * 모든 핀 고정 차트 목록을 로드합니다.
- * 파일 기반에서 DB 기반으로 자동 마이그레이션 로직을 포함합니다.
+ * [Soft Delete] 삭제되지 않은 항목(__is_deleted = 0)만 로드합니다.
  */
 export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
     try {
-        // 1. DB에서 조회 시도
-        const rows = await queryTable('dashboard_chart', { orderBy: 'createdAt', orderDirection: 'DESC' });
+        // 1. DB에서 조회 시도 (__is_deleted = 0 필터 추가)
+        const rows = await queryTable('dashboard_chart', { 
+            filters: { __is_deleted: '0' },
+            orderBy: 'createdAt', 
+            orderDirection: 'DESC' 
+        });
         
         // 2. DB가 비어있다면 마이그레이션 시도
         if (rows.length === 0) {
@@ -135,6 +141,7 @@ export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
                             config: JSON.stringify(c.config),
                             layout: JSON.stringify(c.layout || {}),
                             isSample: c.isSample ? 1 : 0,
+                            __is_deleted: 0,
                             createdAt: c.createdAt || new Date().toISOString(),
                             updatedAt: c.updatedAt || new Date().toISOString()
                         }));
@@ -143,7 +150,11 @@ export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
                         console.log('[ChartService] Migration successful.');
                         
                         // 다시 DB에서 읽어오기
-                        const migratedRows = await queryTable('dashboard_chart', { orderBy: 'createdAt', orderDirection: 'DESC' });
+                        const migratedRows = await queryTable('dashboard_chart', { 
+                            filters: { __is_deleted: '0' },
+                            orderBy: 'createdAt', 
+                            orderDirection: 'DESC' 
+                        });
                         
                         // 파일 삭제 (안전하게 마이그레이션 확인 후)
                         await fs.unlink(PINNED_CHARTS_PATH).catch(() => {});
@@ -174,26 +185,34 @@ function mapRowToChartConfig(row: any): ChartConfig {
         layout: typeof row.layout === 'string' ? JSON.parse(row.layout) : row.layout,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        // refreshedAt은 config 내부에 있을 수도 있음
-        refreshedAt: row.updatedAt 
+        refreshedAt: row.updatedAt,
+        __is_deleted: row.__is_deleted,
+        __deleted_at: row.__deleted_at
     };
 }
 
 /**
  * 차트 목록을 DB에 저장합니다.
+ * [Soft Delete] 삭제된 차트는 실제로 지우지 않고 __is_deleted 플래그를 설정합니다.
  */
 export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<{ success: boolean, newId?: number | string }> {
     try {
         let lastNewId: number | string | undefined;
-        const existing = await queryTable('dashboard_chart');
+        // 기존 활성 차트 조회
+        const existing = await queryTable('dashboard_chart', { filters: { __is_deleted: '0' } });
         const existingIds = new Set(existing.map((e: any) => String(e.id)));
         const newIds = new Set(charts.map(c => String(c.id)));
         
+        // 목록에서 빠진 차트들을 논리적으로 삭제
         const toDelete = existing.filter((e: any) => !newIds.has(String(e.id)));
         if (toDelete.length > 0) {
-            await deleteRows('dashboard_chart', { 
-                filters: { id: toDelete.map((e: any) => e.id).join(',') } 
-            });
+            for (const item of toDelete) {
+                console.log(`[Soft Delete] Marking chart ${item.id} as deleted.`);
+                await updateRows('dashboard_chart', { 
+                    __is_deleted: 1, 
+                    __deleted_at: new Date().toISOString() 
+                }, { filters: { id: String(item.id) } });
+            }
         }
         
         for (const c of charts) {
@@ -202,13 +221,14 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
                 config: JSON.stringify(c.config),
                 layout: JSON.stringify(c.layout || {}),
                 isSample: (c as any).isSample ? 1 : 0,
+                __is_deleted: 0, // 저장 시에는 다시 활성화 상태 보장
                 updatedAt: new Date().toISOString()
             };
             
             if (existingIds.has(String(c.id))) {
                 await updateRows('dashboard_chart', chartData, { filters: { id: String(c.id) } });
             } else {
-                // 신규 삽입: ID를 제외하여 서버 자동 생성 유도
+                // 신규 삽입
                 const insertRes = await insertRows('dashboard_chart', [{
                     ...chartData,
                     createdAt: c.createdAt || new Date().toISOString()

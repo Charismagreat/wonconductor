@@ -121,186 +121,71 @@ export interface AIResponse {
 
 
 /**
- * 선택된 테이블들의 기본 컨텍스트를 수집합니다.
+ * 선택된 테이블들의 기본 컨텍스트를 수집합니다. (table_knowledge 통합)
  */
 async function getInitialContext(tableIds: string[]) {
+  const { queryTable } = await import('@/egdesk-helpers');
+  
   const contexts = await Promise.all(tableIds.map(async (id) => {
-    // FinanceHub 특정 테이블들에 대한 정밀 컨텍스트 부여 (다양한 ID 패턴 대응)
-    const isBank = id === 'finance_bank_transactions' || id === 'finance-hub-bank-table' || id === 'rep-finance_bank_transactions';
-    const isCard = id === 'finance_card_transactions' || id === 'finance-hub-card-table' || id === 'rep-finance_card_transactions';
-    const isHometax = String(id).includes('hometax') || String(id).includes('tax_invoices');
-    const isPromissory = String(id).includes('promissory');
-    const isFinanceHub = id === 'finance-hub-table' || isBank || isCard || isHometax || isPromissory;
+    // 1. table_knowledge에서 활성 지식 조회
+    const knowledges = await queryTable('table_knowledge', { 
+      filters: { target_id: id, is_current: 1 } 
+    }).catch(() => []);
+    
+    const knowledge = knowledges[0];
 
-    if (isFinanceHub) {
-      // 가상 금융 테이블을 위한 고정 스키마 정의 (실제 시스템 컬럼 반영)
-      const bankSchema = [
-        { name: 'date', type: 'DATE', displayName: '거래일자' },
-        { name: 'time', type: 'TEXT', displayName: '거래시간' },
-        { name: 'transaction_datetime', type: 'TEXT', displayName: '거래일시(상세)' },
-        { name: 'actualBankName', type: 'TEXT', displayName: '은행명' },
-        { name: 'actualAccountNumber', type: 'TEXT', displayName: '계좌번호' },
-        { name: 'balance', type: 'NUMBER', displayName: '현재잔액' },
-        { name: 'accountName', type: 'TEXT', displayName: '계좌별칭' },
-        { name: 'date', type: 'DATE', displayName: '최종거래일' },
-        { name: 'bankId', type: 'TEXT', displayName: '은행ID' },
-        { name: 'accountNumber', type: 'TEXT', displayName: '계좌번호(내부ID)' },
-        { name: 'description', type: 'TEXT', displayName: '적요' },
-        { name: 'counterparty', type: 'TEXT', displayName: '거래처/상대방' },
-        { name: 'customerName', type: 'TEXT', displayName: '고객명' },
-        { name: 'withdrawal', type: 'NUMBER', displayName: '출금액' },
-        { name: 'deposit', type: 'NUMBER', displayName: '입금액' },
-        { name: 'balance', type: 'NUMBER', displayName: '현재잔액' },
-        { name: 'type', type: 'TEXT', displayName: '거래유형' },
-        { name: 'category', type: 'TEXT', displayName: '카테고리' },
-        { name: 'memo', type: 'TEXT', displayName: '메모' },
-        { name: 'branch', type: 'TEXT', displayName: '지점' }
-      ];
-      const cardSchema = [
-        { name: 'date', type: 'DATE', displayName: '이용일자' },
-        { name: 'cardName', type: 'TEXT', displayName: '카드명' },
-        { name: 'cardNumber', type: 'TEXT', displayName: '카드번호' },
-        { name: 'merchantName', type: 'TEXT', displayName: '가맹점명' },
-        { name: 'amount', type: 'NUMBER', displayName: '결제금액' },
-        { name: 'category', type: 'TEXT', displayName: '카테고리' },
-        { name: 'status', type: 'TEXT', displayName: '상태' },
-        { name: 'approvalDate', type: 'TEXT', displayName: '승인일자' },
-        { name: 'approvalNumber', type: 'TEXT', displayName: '승인번호' },
-        { name: 'installment', type: 'TEXT', displayName: '할부정보' }
-      ];
-      // 홈택스 - 세금계산서 (한글 컬럼)
-      const hometaxTaxSchema = [
-        { name: '작성일자', type: 'DATE', displayName: '작성일자' },
-        { name: '발급일자', type: 'DATE', displayName: '발급일자' },
-        { name: '공급자상호', type: 'TEXT', displayName: '공급자상호' },
-        { name: '공급받는자상호', type: 'TEXT', displayName: '공급받는자상호' },
-        { name: '공급가액', type: 'NUMBER', displayName: '공급가액' },
-        { name: '세액', type: 'NUMBER', displayName: '세액' },
-        { name: '합계금액', type: 'NUMBER', displayName: '합계금액' },
-        { name: '품목명', type: 'TEXT', displayName: '품목명' }
-      ];
+    // 2. 물리/가상 테이블 마스터 정보 조회
+    const [tableMasters, reportMasters] = await Promise.all([
+      queryTable('table_master', { filters: { tableName: id } }).catch(() => []),
+      queryTable('dashboard_master', { filters: { reportId: id } }).catch(() => [])
+    ]);
 
-      // 홈택스 - 계산서/면세 (영문 컬럼)
-      const hometaxInvoiceSchema = [
-        { name: 'writeDate', type: 'DATE', displayName: '작성일자' },
-        { name: 'issueDate', type: 'DATE', displayName: '발급일자' },
-        { name: 'supplierName', type: 'TEXT', displayName: '공급자명' },
-        { name: 'buyerName', type: 'TEXT', displayName: '공급받는자명' },
-        { name: 'supplyAmount', type: 'NUMBER', displayName: '공급가액' },
-        { name: 'totalAmount', type: 'NUMBER', displayName: '합계금액' },
-        { name: 'itemName', type: 'TEXT', displayName: '품목명' }
-      ];
+    const tableMaster = tableMasters[0];
+    const reportMaster = reportMasters[0];
 
-      // 홈택스 - 현금영수증 (영문 컬럼)
-      const hometaxCashSchema = [
-        { name: 'saleDate', type: 'DATE', displayName: '판매일자' },
-        { name: 'issuerName', type: 'TEXT', displayName: '발행자명' },
-        { name: 'supplyAmount', type: 'NUMBER', displayName: '공급가액' },
-        { name: 'taxAmount', type: 'NUMBER', displayName: '세액' },
-        { name: 'totalAmount', type: 'NUMBER', displayName: '합계금액' },
-        { name: 'transactionType', type: 'TEXT', displayName: '거래구분' }
-      ];
-
-      let currentSchema = bankSchema;
-      if (isCard) currentSchema = cardSchema;
-      else if (isHometax) {
-        if (id.includes('tax_invoice')) {
-          currentSchema = hometaxTaxSchema;
-        } else if (id.includes('cash_receipt')) {
-          currentSchema = hometaxCashSchema;
-        } else {
-          currentSchema = hometaxInvoiceSchema;
-        }
+    // 3. 샘플 데이터 및 기본 스키마 (지식이 없을 때를 대비)
+    let baseSchema: any[] = [];
+    try {
+      const rows = await queryTable(id, { limit: 1 }).catch(() => null);
+      if (rows && rows.length > 0) {
+        baseSchema = Object.keys(rows[0]).map(key => ({ 
+          name: key, 
+          type: typeof rows[0][key] === 'number' ? 'NUMBER' : 'TEXT', 
+          displayName: key 
+        }));
+      } else if (reportMaster && reportMaster.columns) {
+        baseSchema = JSON.parse(reportMaster.columns);
       }
-      else if (isPromissory) currentSchema = [{ name: 'issueDate', type: 'DATE', displayName: '발행일' }, { name: 'maturityDate', type: 'DATE', displayName: '만기일' }, { name: 'amount', type: 'NUMBER', displayName: '어음금액' }, { name: 'noteNumber', type: 'TEXT', displayName: '어음번호' }, { name: 'issuer', type: 'TEXT', displayName: '발행인' }, { name: 'receiver', type: 'TEXT', displayName: '수취인' }];
+    } catch (e) {}
 
-      // 홈택스 테이블별 명시적 분석 힌트 생성
-      let usageNote = '';
-      if (isHometax) {
-        if (id.includes('tax_invoice')) {
-          usageNote = "이 테이블은 엑셀 헤더를 직접 사용하므로 반드시 한글 컬럼명('작성일자', '공급가액', '합계금액', '세액')을 사용해야 합니다.";
-        } else if (id.includes('cash_receipt')) {
-          usageNote = "이 테이블은 영문 컬럼명을 사용합니다. 날짜는 'saleDate', 금액은 'totalAmount' 또는 'supplyAmount' 컬럼을 사용하십시오.";
-        } else {
-          usageNote = "이 테이블은 영문 컬럼명을 사용합니다. 날짜는 'writeDate', 금액은 'supplyAmount' 또는 'totalAmount' 컬럼을 사용하십시오. '작성일자'나 '공급가액' 컬럼은 존재하지 않습니다.";
-        }
-      }
-
-      return {
-        id,
-        name: isBank ? '은행 계좌 거래 내역' : (isCard ? '신용카드 거래 내역' : (isHometax ? (id.includes('tax_invoice') ? '홈택스 세금계산서 내역' : '홈택스 계산서(면세) 내역') : (isPromissory ? '전자어음 내역' : '데이터 세트'))),
-        description: isBank 
-          ? '등록된 모든 은행 계좌의 입출금 및 잔액 정보입니다.' 
-          : (isCard ? '등록된 모든 신용카드의 결제 및 사용 내역입니다.' : (isHometax ? '홈택스 세무 증빙 데이터입니다.' : '분석을 위해 선택된 데이터 소스입니다.')),
-        category: isBank || isCard || isHometax || isPromissory ? 'Finance' : 'General',
-        usageNote, 
-        schema: currentSchema,
-        availableTools: isCard 
-          ? ['get_finance_monthly_summary', 'get_finance_statistics', 'get_card_usage_by_approval_date', 'query_card_transactions'] 
-          : (isHometax ? ['get_aggregated_report_data', 'execute_analytical_sql', 'query_workspace_table'] : ['get_finance_monthly_summary', 'get_finance_statistics', 'list_bank_accounts', 'query_bank_transactions', 'get_finance_dashboard_summary'])
-      };
-    } else {
-      // 3. 물리 테이블 정보 조회 (table_master 및 table_knowledge 통합 연동)
+    // 4. 통합 컨텍스트 구성
+    const displayName = knowledge?.displayName || reportMaster?.name || tableMaster?.displayName || id;
+    const description = knowledge?.description || reportMaster?.description || tableMaster?.description || '사용자 데이터 소스';
+    
+    // 지식 베이스에 저장된 스키마 정보(비즈니스 별칭 포함)가 있다면 우선 적용
+    let finalSchema = baseSchema;
+    if (knowledge?.schema_info) {
       try {
-        const [tableMasters, knowledges] = await Promise.all([
-          queryTable('table_master', { filters: { tableName: id } }).catch(() => []),
-          queryTable('table_knowledge', { filters: { tableName: id } }).catch(() => [])
-        ]);
-        
-        const tableMaster = tableMasters[0];
-        const knowledge = knowledges[0];
-        const rows = await queryTable(id, { limit: 1 }).catch(() => null);
-        
-        if (rows && rows.length >= 0) {
-          const schema = rows.length > 0 
-            ? Object.keys(rows[0]).map(key => ({ 
-                name: key, 
-                type: typeof rows[0][key] === 'number' ? 'NUMBER' : 'TEXT', 
-                displayName: key 
-              }))
-            : [];
-            
-          return {
-            id,
-            name: tableMaster?.displayName || knowledge?.displayName || `테이블: ${id}`,
-            tableName: id,
-            description: tableMaster?.description || knowledge?.description || '사용자 업로드 데이터',
-            category: tableMaster?.category || knowledge?.category || 'General',
-            // [범용 분석 힌트]
-            aiInsight: knowledge?.insight, // AI가 과거에 분석했던 내용
-            usageNote: knowledge?.usage_note, // 사용자가 남긴 분석 가이드
-            schema,
-            availableTools: ['get_aggregated_report_data', 'execute_analytical_sql', 'query_workspace_table']
-          };
-        }
-      } catch (e) {
-        // 무시하고 다음 단계
-      }
-
-      // 4. 리포트 마스터에서 확인 (aiConfig 및 description 포함)
-      const reports = await queryTable('dashboard_master', { filters: { id: String(id) } }).catch(() => []);
-      const report = reports[0];
-      
-      if (report) {
-        let aiHints = null;
-        try {
-          aiHints = report.aiConfig ? JSON.parse(report.aiConfig) : null;
-        } catch(e) {}
-
-        return {
-          id: report.reportId || id,
-          name: report.name,
-          description: report.description, 
-          aiHints: aiHints, 
-          tableName: report.tableName || 'dashboard_data',
-          schema: JSON.parse(report.columns),
-          availableTools: ['get_aggregated_report_data', 'execute_analytical_sql', 'query_workspace_table']
-        };
-      }
-      
-      return null;
+        const enrichedSchema = JSON.parse(knowledge.schema_info);
+        finalSchema = baseSchema.map(s => {
+          const enriched = enrichedSchema.find((es: any) => es.name === s.name);
+          return enriched ? { ...s, ...enriched } : s;
+        });
+      } catch(e) {}
     }
+
+    return {
+      id,
+      name: displayName,
+      description,
+      category: knowledge?.category || tableMaster?.category || 'General',
+      insight: knowledge?.insight,
+      aiRules: knowledge?.ai_rules ? JSON.parse(knowledge.ai_rules) : [], // 가드레일 규칙 주입
+      schema: finalSchema,
+      availableTools: ['get_aggregated_report_data', 'execute_analytical_sql', 'query_workspace_table']
+    };
   }));
+
   return contexts.filter(Boolean);
 }
 

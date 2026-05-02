@@ -38,14 +38,14 @@ AI 에이전트들은 이지데스크 서버에서 데이터를 쿼리하거나 
 3. **Connections 유무 무관**: `listHometaxConnections` 결과가 0건이라도, 이미 파일 임포트로 적재된 데이터가 존재하므로 무시하고 쿼리하세요.
 4. **면세 데이터 확인**: 세금계산서 외에도 `queryTaxExemptInvoices`를 통해 매입 리스료 등 면세 데이터를 반드시 함께 수집해야 전체 매입액이 정확해집니다.
 
-## 🏦 가상 테이블(Virtual Tables) 및 금융 통합 데이터 쿼리 규칙 (중요)
-이지데스크 UI(특히 MY DB)에 표시되는 일부 테이블은 물리적 데이터베이스에 실존하지 않는 **'가상 테이블'**입니다.
+## 🏦 테이블 뷰(Table Views) 및 금융 통합 데이터 쿼리 규칙 (중요)
+이지데스크 UI(특히 MY DB)에 표시되는 일부 테이블은 물리적 데이터베이스에 실존하지 않는 **'테이블 뷰(Table View)'**입니다.
 
-1. **대상 가상 테이블**:
+1. **대상 테이블 뷰**:
     *   `finance-hub-bank-table`: 은행 계좌 통합 거래 내역
     *   `finance-hub-card-table`: 신용카드 통합 거래 내역
 2. **현명한 분석 방법 (The Smart Way)**:
-    *   이 테이블들은 SQLite 파일을 직접 쿼리(`executeSQL`)하거나 일반 테이블 쿼리(`queryTable`)를 호출하면 **'Table not found'** 에러가 발생합니다.
+    *   이 테이블 뷰들은 SQLite 파일을 직접 쿼리(`executeSQL`)하거나 일반 테이블 쿼리(`queryTable`)를 호출하면 **'Table not found'** 에러가 발생합니다.
     *   **해결책**: 반드시 `src/lib/ai-tools.ts`에 정의된 **`get_finance_dashboard_summary`** 도구를 사용하십시오. 이 도구는 `publishing.ts`의 서버 로직을 그대로 사용하여 [계좌 마스터 + 실시간 거래 + 은행/카드 마스터]를 실시간으로 조인하여 반환합니다.
 3. **데이터 필드 매핑**:
     *   통합 데이터 출력 시 **'은행명'(`_bankName`)** 필드를 최우선으로 표시하십시오. 계좌 마스터의 `bankId` 대신 한글 은행명을 매핑하는 것이 표준입니다.

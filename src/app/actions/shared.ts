@@ -273,13 +273,19 @@ export const SYSTEM_TABLES = [
     },
     {
         tableName: 'table_knowledge', displayName: 'Table Intelligence Knowledge', schema: [
-            { name: 'table_name', type: 'TEXT', notNull: true },
+            { name: 'id', type: 'INTEGER PRIMARY KEY AUTOINCREMENT' },
+            { name: 'target_id', type: 'TEXT', notNull: true }, // 물리 테이블명 또는 가상 리포트 ID
+            { name: 'target_type', type: 'TEXT', notNull: true, defaultValue: 'PHYSICAL' }, // PHYSICAL | VIRTUAL
             { name: 'description', type: 'TEXT' },
             { name: 'category', type: 'TEXT' },
             { name: 'insight', type: 'TEXT' },
             { name: 'schema_info', type: 'TEXT' }, // JSON
+            { name: 'ai_rules', type: 'TEXT' }, // JSON (Structured Guardrail Rules)
             { name: 'sample_rows', type: 'TEXT' }, // JSON
             { name: 'sample_analysis', type: 'TEXT' },
+            { name: 'version_number', type: 'INTEGER', defaultValue: 1 },
+            { name: 'is_current', type: 'INTEGER', defaultValue: 1 }, // 1: current, 0: archive
+            { name: 'status', type: 'TEXT', defaultValue: 'ACTIVE' }, // ACTIVE | PROPOSED | ARCHIVED
             { name: 'updated_at', type: 'TEXT', notNull: true }
         ] as any[]
     },

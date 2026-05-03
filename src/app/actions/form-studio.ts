@@ -12,18 +12,27 @@ export async function initFormStudioTables() {
     const tableNames = new Set(existingTables.map((t: any) => 
         (typeof t === 'string' ? t : (t.tableName || t.name))?.toLowerCase()
     ));
-    
-    // 1. form_templates 테이블 생성
-    if (!tableNames.has('form_templates')) {
-      await createTable('Form Templates', [
+
+    // 1. form_studio_templates 테이블 생성
+    if (!tableNames.has('form_studio_templates')) {
+      console.log('Creating form_studio_templates with standard system columns...');
+      await createTable('Form Studio Templates', [
         { name: 'name', type: 'TEXT' },
-        { name: 'backgroundImageData', type: 'TEXT' }, // Base64 image
-        { name: 'mappingConfig', type: 'TEXT' }, // JSON string of mapped fields
-        { name: 'sourceTable', type: 'TEXT' }, // e.g. finance-hub-bank-table
-        { name: 'status', type: 'TEXT' }, // DRAFT, PUBLISHED
-        { name: 'createdAt', type: 'TEXT' }
+        { name: 'formType', type: 'TEXT' }, 
+        { name: 'backgroundImageData', type: 'TEXT' }, 
+        { name: 'mappingConfig', type: 'TEXT' }, 
+        { name: 'webLayoutConfig', type: 'TEXT' }, 
+        { name: 'sourceTable', type: 'TEXT' }, 
+        { name: 'status', type: 'TEXT' }, 
+        // 필수 시스템 컬럼
+        { name: '__created_at', type: 'TEXT' },
+        { name: '__updated_at', type: 'TEXT' },
+        { name: '__creator_id', type: 'TEXT' },
+        { name: '__modifier_id', type: 'TEXT' },
+        { name: '__is_deleted', type: 'INTEGER' },
+        { name: '__deleted_at', type: 'TEXT' }
       ], { 
-        tableName: 'form_templates', 
+        tableName: 'form_studio_templates', 
         uniqueKeyColumns: ['id'], 
         duplicateAction: 'update' 
       });
@@ -31,12 +40,19 @@ export async function initFormStudioTables() {
 
     // 2. form_submissions 테이블 생성
     if (!tableNames.has('form_submissions')) {
+      console.log('Creating form_submissions with standard system columns...');
       await createTable('Form Submissions', [
         { name: 'templateId', type: 'INTEGER' },
         { name: 'userId', type: 'TEXT' },
-        { name: 'customerData', type: 'TEXT' }, // JSON string
-        { name: 'manualInputs', type: 'TEXT' }, // JSON string
-        { name: 'createdAt', type: 'TEXT' }
+        { name: 'customerData', type: 'TEXT' }, 
+        { name: 'manualInputs', type: 'TEXT' }, 
+        // 필수 시스템 컬럼
+        { name: '__created_at', type: 'TEXT' },
+        { name: '__updated_at', type: 'TEXT' },
+        { name: '__creator_id', type: 'TEXT' },
+        { name: '__modifier_id', type: 'TEXT' },
+        { name: '__is_deleted', type: 'INTEGER' },
+        { name: '__deleted_at', type: 'TEXT' }
       ], { 
         tableName: 'form_submissions', 
         uniqueKeyColumns: ['id'], 
@@ -57,39 +73,48 @@ export async function initFormStudioTables() {
 export async function saveFormTemplateAction(data: {
   id?: number;
   name: string;
+  formType: 'CLASSIC' | 'MODERN';
   backgroundImageData: string;
   mappingConfig: string;
+  webLayoutConfig?: string;
   sourceTable: string;
   status: 'DRAFT' | 'PUBLISHED';
 }) {
   try {
     await initFormStudioTables();
+    const now = new Date().toISOString();
 
     if (data.id) {
       // Update existing
-      await updateRows('form_templates', {
+      await updateRows('form_studio_templates', {
         name: data.name,
+        formType: data.formType,
         backgroundImageData: data.backgroundImageData,
         mappingConfig: data.mappingConfig,
+        webLayoutConfig: data.webLayoutConfig || '',
         sourceTable: data.sourceTable,
-        status: data.status
+        status: data.status,
+        __updated_at: now
       }, { filters: { id: String(data.id) } });
     } else {
       // Insert new
-      await insertRows('form_templates', [{
+      await insertRows('form_studio_templates', [{
         name: data.name,
+        formType: data.formType,
         backgroundImageData: data.backgroundImageData,
         mappingConfig: data.mappingConfig,
+        webLayoutConfig: data.webLayoutConfig || '',
         sourceTable: data.sourceTable,
         status: data.status,
-        createdAt: new Date().toISOString(),
+        __created_at: now,
+        __updated_at: now,
         __is_deleted: 0
       }]);
     }
 
     // 삽입된 ID를 가져오기 위해 최근 추가된 레코드 조회
     if (!data.id) {
-        const lastRecords = await queryTable('form_templates', {
+        const lastRecords = await queryTable('form_studio_templates', {
             orderBy: 'id',
             orderDirection: 'DESC',
             limit: 1
@@ -111,19 +136,15 @@ export async function saveFormTemplateAction(data: {
 export async function listFormTemplatesAction(status?: 'DRAFT' | 'PUBLISHED') {
   try {
     await initFormStudioTables();
-    // queryTable might not support OR conditions easily in filters, 
-    // but in EGDesk helpers, usually we handle this by fetching and filtering in JS if needed,
-    // or improving the filter. For now, let's try to set it to 0 and fix existing nulls.
-    const filters: any = { status: status || 'PUBLISHED' };
+    const filters: any = { status: status || 'PUBLISHED', __is_deleted: '0' };
     
-    const allTemplates = await queryTable('form_templates', { 
+    const allTemplates = await queryTable('form_studio_templates', { 
         filters,
         orderBy: 'id',
         orderDirection: 'DESC'
     });
     
-    const templates = (Array.isArray(allTemplates) ? allTemplates : (allTemplates?.rows || []))
-        .filter((t: any) => t.__is_deleted === 0 || t.__is_deleted === '0' || t.__is_deleted === null);
+    const templates = (Array.isArray(allTemplates) ? allTemplates : (allTemplates?.rows || []));
     return { success: true, templates };
   } catch (error: any) {
     console.error('Failed to list form templates:', error);
@@ -137,14 +158,31 @@ export async function listFormTemplatesAction(status?: 'DRAFT' | 'PUBLISHED') {
 export async function getFormTemplateAction(id: number) {
   try {
     await initFormStudioTables();
-    const results = await queryTable('form_templates', { filters: { id: String(id) }, limit: 1 });
+    const results = await queryTable('form_studio_templates', { filters: { id: String(id) }, limit: 1 });
     const template = Array.isArray(results) ? results[0] : (results?.rows?.[0]);
-    if (template) {
+    if (template && (template.__is_deleted === 0 || template.__is_deleted === '0')) {
       return { success: true, template };
     }
-    return { success: false, error: '템플릿을 찾을 수 없습니다.' };
+    return { success: false, error: '템플릿을 찾을 수 없거나 삭제되었습니다.' };
   } catch (error: any) {
     console.error('Failed to get form template:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 템플릿 삭제
+ */
+export async function deleteFormTemplateAction(id: number) {
+  try {
+    await updateRows('form_studio_templates', {
+      __is_deleted: 1,
+      __deleted_at: new Date().toISOString()
+    }, { filters: { id: String(id) } });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to delete form template:', error);
     return { success: false, error: error.message };
   }
 }
@@ -160,12 +198,15 @@ export async function saveFormSubmissionAction(data: {
 }) {
   try {
     await initFormStudioTables();
+    const now = new Date().toISOString();
     await insertRows('form_submissions', [{
       templateId: data.templateId,
       userId: data.userId,
       customerData: data.customerData,
       manualInputs: data.manualInputs,
-      createdAt: new Date().toISOString()
+      __created_at: now,
+      __updated_at: now,
+      __is_deleted: 0
     }]);
     return { success: true };
   } catch (error: any) {
@@ -175,27 +216,9 @@ export async function saveFormSubmissionAction(data: {
 }
 
 /**
- * 템플릿 삭제
- */
-export async function deleteFormTemplateAction(id: number) {
-  try {
-    // 1. form_templates 테이블에서 삭제 (__is_deleted = 1)
-    await updateRows('form_templates', {
-      __is_deleted: 1,
-      __deleted_at: new Date().toISOString()
-    }, { filters: { id: String(id) } });
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error('Failed to delete form template:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-/**
  * AI를 사용하여 양식 이미지 내 필드 위치를 분석하고 매핑 제안을 생성합니다.
  */
-export async function analyzeFormMappingAction(imageData: string, columns: string[]) {
+export async function analyzeFormMappingAction(imageData: string, sourceTable: string, columns: string[]) {
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     
@@ -206,23 +229,43 @@ export async function analyzeFormMappingAction(imageData: string, columns: strin
     // Base64 데이터에서 헤더 제거 및 바이너리 변환
     const base64Content = imageData.replace(/^data:image\/(png|jpeg|webp);base64,/, '');
     
+    // columns가 배열인지 확인 (방어적 코드)
+    const columnList = Array.isArray(columns) ? columns : [];
+    
     const prompt = `
-      당신은 전문적인 문서 양식 분석가입니다. 
-      제공된 이미지(문서 양식)를 분석하여 다음 데이터 컬럼들이 위치해야 할 최적의 좌표를 찾으세요.
+      당신은 전문적인 문서 양식 분석가이자 UI/UX 엔지니어입니다. 
+      제공된 이미지(문서 양식)를 분석하여 두 가지 형태의 결과물을 생성하세요.
       
-      대상 컬럼 목록: ${columns.join(', ')}
+      연결된 테이블: ${sourceTable}
+      대상 컬럼 목록: ${columnList.join(', ')}
       
-      [분석 규칙]
-      1. 각 컬럼의 이름(예: 견적번호, 일자)이 이미지 어디에 적혀있는지 찾으세요.
-      2. 텍스트 라벨 바로 옆이나 아래에 있는 빈 칸(데이터가 입력될 공간)의 중심 좌표를 백분율(0-100)로 계산하세요.
-      3. x: 가로 위치 (0=왼쪽, 100=오른쪽), y: 세로 위치 (0=상단, 100=하단)
-      4. 결과는 반드시 다음과 같은 순수 JSON 배열 형식으로만 응답하세요. 다른 설명은 생략하세요.
+      [필수 결과물 1: Mappings]
+      - 각 컬럼의 이미지 내 정밀 좌표 (x, y: 0-100)
+      
+      [필수 결과물 2: WebLayout]
+      - 원본 양식의 논리적 구조를 유지한 반응형 웹 레이아웃 스키마
+      - 섹션(sections)으로 구분하고, 각 섹션 내에 필드(fields)를 배치하세요.
+      - 각 필드는 가로 너비(colSpan: 1~4)를 가집니다.
+      
+      결과는 반드시 다음과 같은 순수 JSON 형식으로만 응답하세요. 다른 설명은 생략하세요.
       
       JSON 형식 예시:
-      [
-        {"columnKey": "컬럼명", "x": 10.5, "y": 20.2, "fontSize": 14},
-        ...
-      ]
+      {
+        "mappings": [
+          {"columnKey": "컬럼명", "x": 10.5, "y": 20.2, "fontSize": 14, "width": 15}
+        ],
+        "webLayout": {
+          "sections": [
+            {
+              "title": "기본 정보",
+              "fields": [
+                {"columnKey": "견적번호", "label": "견적번호", "colSpan": 2},
+                {"columnKey": "일자", "label": "일자", "colSpan": 2}
+              ]
+            }
+          ]
+        }
+      }
     `;
 
     const result = await model.generateContent([
@@ -230,17 +273,29 @@ export async function analyzeFormMappingAction(imageData: string, columns: strin
       {
         inlineData: {
           data: base64Content,
-          mimeType: 'image/png' // 실제 타입에 맞춰 조정 가능하나 png로 통칭
+          mimeType: 'image/png' 
         }
       }
     ]);
 
     const responseText = result.response.text();
-    // JSON 추출 (코드 블록 제거 등)
-    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-    const proposals = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    // JSON 추출
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const aiResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { mappings: [], webLayout: { sections: [] } };
+    
+    // Mappings 고유 ID 부여
+    const mappings = (aiResult.mappings || []).map((p: any) => ({
+      ...p,
+      id: `ai-${Math.random().toString(36).substr(2, 9)}`,
+      width: p.width || 15,
+      fontSize: p.fontSize || 14
+    }));
 
-    return { success: true, proposals };
+    return { 
+      success: true, 
+      mappings, 
+      webLayout: aiResult.webLayout 
+    };
   } catch (error: any) {
     console.error('AI Analysis failed:', error);
     return { success: false, error: error.message };

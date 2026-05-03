@@ -20,9 +20,11 @@ export default function FormFillClient({ template, sourceData }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const viewMode = (template.formType?.toLowerCase() || 'classic') as 'classic' | 'modern';
   
   const printRef = useRef<HTMLDivElement>(null);
   const mappings: any[] = template?.mappingConfig ? JSON.parse(template.mappingConfig) : [];
+  const webLayout: any = template?.webLayoutConfig ? JSON.parse(template.webLayoutConfig) : { sections: [] };
 
   const handleRowSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedRowIndex(e.target.value === '' ? '' : parseInt(e.target.value));
@@ -129,6 +131,9 @@ export default function FormFillClient({ template, sourceData }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="px-4 py-2 bg-slate-100 rounded-xl mr-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-200">
+            Type: {template.formType || 'CLASSIC'}
+          </div>
           <button 
             onClick={handleDownloadPDF}
             disabled={isDownloading}

@@ -49,8 +49,18 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   const [newFormName, setNewFormName] = useState(name);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [builderMode, setBuilderMode] = useState<'classic' | 'modern'>('classic');
+  const [builderMode, setBuilderMode] = useState<'classic' | 'modern'>(() => {
+    if (initialTemplate?.formType === 'MODERN') return 'modern';
+    return 'classic';
+  });
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+  const [webLayout, setWebLayout] = useState<any>(() => {
+    try {
+      return initialTemplate?.webLayoutConfig ? JSON.parse(initialTemplate.webLayoutConfig) : { sections: [] };
+    } catch {
+      return { sections: [] };
+    }
+  });
 
   // 히스토리 (Undo/Redo)
   const [past, setPast] = useState<MappingItem[][]>([]);
@@ -199,6 +209,30 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
     saveHistory(mappings);
     setMappings(prev => [...prev, newMapping]);
     setSelectedMappingIds([newMapping.id]);
+  };
+
+  const handleAIAnalysis = async () => {
+    if (!backgroundImage) return;
+    
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeFormMappingAction(backgroundImage, sourceTable, tableSchemas[sourceTable] || []);
+      if (result.success && result.mappings) {
+        saveHistory(mappings);
+        setMappings(result.mappings);
+        if (result.webLayout) {
+          setWebLayout(result.webLayout);
+        }
+        alert('AI 분석이 완료되었습니다! 생성된 MODERN 웹 양식을 확인해 보세요.');
+      } else {
+        alert('AI 분석 실패: ' + (result.error || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('AI Analysis Error:', error);
+      alert('AI 분석 중 서버 오류가 발생했습니다.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -481,20 +515,16 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
 
     setIsPublishing(true);
     try {
-      const finalId = publishMode === 'new' ? null : initialTemplate?.id;
-
-      const payload = {
-        id: finalId || undefined,
+      const result = await saveFormTemplateAction({
+        id: publishMode === 'overwrite' ? initialTemplate?.id : undefined,
         name: finalName,
-        backgroundImageData: backgroundImage,
+        formType: builderMode.toUpperCase() as 'CLASSIC' | 'MODERN',
+        backgroundImageData: backgroundImage || '',
         mappingConfig: JSON.stringify(mappings),
+        webLayoutConfig: JSON.stringify(webLayout),
         sourceTable: sourceTable,
-        status: 'PUBLISHED' as const
-      };
-
-      console.log('Publishing with payload:', payload);
-
-      const result = await saveFormTemplateAction(payload);
+        status: 'PUBLISHED'
+      });
       
       if (result.success) {
         alert(publishMode === 'new' ? '새 양식이 성공적으로 생성되었습니다.' : '양식이 성공적으로 업데이트되었습니다.');
@@ -888,28 +918,98 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
             </div>
         ) : (
             /* MODERN (AI) MODE CANVAS */
-            <div className="flex-1 bg-white rounded-[40px] border border-slate-100 shadow-xl p-12 flex flex-col items-center justify-center text-center gap-8 min-h-[600px] w-full max-w-5xl mx-auto">
-              <div className="w-32 h-32 bg-blue-50 rounded-[40px] flex items-center justify-center text-blue-500 animate-pulse">
-                <Zap size={64} fill="currentColor" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-black text-slate-800 mb-4">AI 스마트 웹앱 빌더</h2>
-                <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
-                  업로드된 양식을 분석하여 반응형 웹 페이지로 자동 변환합니다.<br/>
-                  현재 AI 엔진이 배경 이미지를 분석할 준비가 되었습니다.
-                </p>
-              </div>
-              <button className="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/30 hover:scale-105 transition-all flex items-center gap-3">
-                <Zap size={20} />
-                AI 분석 및 자동 생성 시작
-              </button>
-              <div className="grid grid-cols-3 gap-6 w-full max-w-2xl mt-8">
-                {['반응형 디자인', '실시간 데이터', '인터랙티브'].map(feature => (
-                  <div key={feature} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs font-bold text-slate-400">
-                    {feature}
+            <div className="flex-1 relative bg-slate-50 rounded-[40px] border border-slate-200 shadow-inner overflow-y-auto min-h-[600px] w-full max-w-5xl mx-auto flex flex-col p-8">
+              
+              {!webLayout || webLayout.sections.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-8 py-12">
+                  {/* ... (Existing Intro UI) ... */}
+                  {backgroundImage && (
+                    <div className="absolute inset-0 z-0 opacity-10">
+                      <img src={backgroundImage} alt="Background Preview" className="w-full h-full object-cover blur-sm" />
+                    </div>
+                  )}
+                  <div className="relative z-10 flex flex-col items-center gap-8">
+                    {backgroundImage ? (
+                      <div className="relative group">
+                        <div className="w-48 h-64 bg-slate-100 rounded-2xl overflow-hidden border-2 border-white shadow-2xl transition-transform group-hover:scale-105 duration-500">
+                          <img src={backgroundImage} alt="Source Form" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center">
+                            <Zap size={48} className="text-white drop-shadow-lg" fill="currentColor" />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-32 h-32 bg-blue-50 rounded-[40px] flex items-center justify-center text-blue-500 animate-pulse">
+                        <Zap size={64} fill="currentColor" />
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-3xl font-black text-slate-800 mb-4">AI 스마트 웹앱 빌더</h2>
+                      <p className="text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
+                        양식 이미지를 업로드하고 분석을 시작하세요.<br/>AI가 코딩된 웹 페이지 양식으로 변환합니다.
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleAIAnalysis}
+                      disabled={!backgroundImage || isAnalyzing}
+                      className={`px-10 py-4 font-black rounded-2xl shadow-xl transition-all flex items-center gap-3 ${
+                        backgroundImage && !isAnalyzing ? 'bg-blue-600 text-white hover:scale-105' : 'bg-slate-200 text-slate-400'
+                      }`}
+                    >
+                      {isAnalyzing ? <Loader2 size={20} className="animate-spin" /> : <Zap size={20} />}
+                      {isAnalyzing ? '분석 중...' : 'AI 분석 및 자동 생성 시작'}
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+                  <div className="bg-slate-900 px-8 py-6 text-white flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black">{name}</h3>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">AI Generated Web App Form</p>
+                    </div>
+                    <div className="px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-400 text-[10px] font-black uppercase tracking-tighter">
+                      Responsive Active
+                    </div>
+                  </div>
+                  
+                  <div className="p-8 flex flex-col gap-10">
+                    {webLayout.sections.map((section: any, sIdx: number) => (
+                      <div key={sIdx} className="flex flex-col gap-6">
+                        <div className="flex items-center gap-4">
+                          <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest min-w-fit">{section.title}</h4>
+                          <div className="h-px bg-slate-100 flex-1" />
+                        </div>
+                        
+                        <div className="grid grid-cols-4 gap-6">
+                          {section.fields.map((field: any, fIdx: number) => (
+                            <div 
+                              key={fIdx} 
+                              className={`flex flex-col gap-2 ${
+                                field.colSpan === 4 ? 'col-span-4' : 
+                                field.colSpan === 3 ? 'col-span-3' :
+                                field.colSpan === 2 ? 'col-span-2' : 'col-span-1'
+                              }`}
+                            >
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                {field.label}
+                              </label>
+                              <div className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus-within:border-blue-500 transition-colors">
+                                <span className="opacity-30">[{field.columnKey}] 데이터 입력 대기</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-slate-50 px-8 py-6 border-t border-slate-100 flex justify-end gap-4">
+                    <button className="px-6 py-3 bg-white border border-slate-200 text-slate-500 font-black rounded-xl text-sm">임시저장</button>
+                    <button className="px-8 py-3 bg-blue-600 text-white font-black rounded-xl shadow-lg shadow-blue-500/20 text-sm">양식 제출하기</button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

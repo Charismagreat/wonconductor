@@ -37,6 +37,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [draggingMappingId, setDraggingMappingId] = useState<string | null>(null);
 
   // 현재 선택된 테이블의 컬럼 목록
   const columns = sourceTable ? tableSchemas[sourceTable] || [] : [];
@@ -52,8 +53,13 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
     reader.readAsDataURL(file);
   };
 
-  const handleDragStart = (e: React.DragEvent, columnKey: string) => {
+  const handleDragStart = (e: React.DragEvent, columnKey: string, mappingId?: string) => {
     e.dataTransfer.setData('text/plain', columnKey);
+    if (mappingId) {
+      setDraggingMappingId(mappingId);
+    } else {
+      setDraggingMappingId(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -69,15 +75,25 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
     const xPercent = (xPixel / rect.width) * 100;
     const yPercent = (yPixel / rect.height) * 100;
 
-    const newMapping: MappingItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      x: xPercent,
-      y: yPercent,
-      columnKey,
-      fontSize: 14,
-    };
-
-    setMappings([...mappings, newMapping]);
+    if (draggingMappingId) {
+      // 기존 매핑 이동
+      setMappings(mappings.map(m => 
+        m.id === draggingMappingId 
+          ? { ...m, x: xPercent, y: yPercent } 
+          : m
+      ));
+      setDraggingMappingId(null);
+    } else {
+      // 새 매핑 추가
+      const newMapping: MappingItem = {
+        id: Math.random().toString(36).substr(2, 9),
+        x: xPercent,
+        y: yPercent,
+        columnKey,
+        fontSize: 14,
+      };
+      setMappings([...mappings, newMapping]);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -270,7 +286,9 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
             {mappings.map(mapping => (
               <div 
                 key={mapping.id}
-                className="absolute bg-blue-100/80 border-2 border-blue-500 text-blue-900 rounded-md px-2 py-1 shadow-sm flex items-center gap-2 group cursor-default"
+                draggable
+                onDragStart={(e) => handleDragStart(e, mapping.columnKey, mapping.id)}
+                className="absolute bg-blue-100/80 border-2 border-blue-500 text-blue-900 rounded-md px-2 py-1 shadow-sm flex items-center gap-2 group cursor-move active:scale-95 transition-transform"
                 style={{ 
                   left: `${mapping.x}%`, 
                   top: `${mapping.y}%`,

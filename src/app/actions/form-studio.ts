@@ -1,6 +1,6 @@
 'use server';
 
-import { createTable, queryTable, executeSQL, listTables } from '@/egdesk-helpers';
+import { createTable, queryTable, executeSQL, listTables, insertRows, updateRows } from '@/egdesk-helpers';
 
 /**
  * 폼 스튜디오에 필요한 테이블들이 없으면 생성합니다.

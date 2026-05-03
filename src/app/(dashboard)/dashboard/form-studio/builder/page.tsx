@@ -7,8 +7,9 @@ import { LayoutTemplate } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function FormStudioBuilderPage({ searchParams }: { searchParams: { id?: string } }) {
-  const templateId = searchParams.id ? parseInt(searchParams.id) : undefined;
+export default async function FormStudioBuilderPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+  const params = await searchParams;
+  const templateId = params.id ? parseInt(params.id) : undefined;
   
   let initialTemplate = null;
   if (templateId) {
@@ -60,7 +61,17 @@ export default async function FormStudioBuilderPage({ searchParams }: { searchPa
       const rows = Array.isArray(result) ? result : (result?.rows || result?.data || []);
       
       if (rows.length > 0) {
-        tableSchemas[table.id] = Object.keys(rows[0]);
+        const baseColumns = Object.keys(rows[0]);
+        const virtualColumns: string[] = [...baseColumns];
+        
+        // 반복 데이터(품목 등)를 위한 가상 컬럼 추가 (_1 ~ _10)
+        for (let i = 1; i <= 10; i++) {
+          baseColumns.forEach(col => {
+            virtualColumns.push(`${col}_${i}`);
+          });
+        }
+        
+        tableSchemas[table.id] = virtualColumns;
       } else {
         tableSchemas[table.id] = []; 
       }

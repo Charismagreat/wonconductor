@@ -2,7 +2,7 @@
 
 import { getSessionAction } from '@/app/actions/auth';
 import { addRowAction } from '@/app/actions/row';
-import { executeSQL } from '@/egdesk-helpers';
+import { executeSQL, queryTable } from '@/egdesk-helpers';
 
 /**
  * 오늘 날짜의 출근 기록을 조회합니다.

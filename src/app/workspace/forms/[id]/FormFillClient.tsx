@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveFormSubmissionAction } from '@/app/actions/form-studio';
-import { ArrowLeft, Save, Download, Loader2, User, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Download, Loader2, User, FileText, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -19,6 +19,7 @@ export default function FormFillClient({ template, sourceData }: Props) {
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const printRef = useRef<HTMLDivElement>(null);
   const mappings: any[] = template?.mappingConfig ? JSON.parse(template.mappingConfig) : [];
@@ -59,27 +60,44 @@ export default function FormFillClient({ template, sourceData }: Props) {
     try {
       const element = printRef.current;
       
-      // html2canvas로 캡처
+      // 캡처를 위해 일시적으로 너비를 800px로 고정 (폰트 스케일링 일치 목적)
+      const originalWidth = element.style.width;
+      const originalMaxWidth = element.style.maxWidth;
+      const originalAspectRatio = element.style.aspectRatio;
+      
+      element.style.width = '800px';
+      element.style.maxWidth = 'none';
+      element.style.aspectRatio = '1 / 1.414';
+      
+      // html2canvas 옵션 최적화
       const canvas = await html2canvas(element, { 
-        scale: 2, 
+        scale: 2, // 3은 너무 무거울 수 있으므로 2로 조정하되 품질 유지
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        windowWidth: 800,
       });
       
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      // 스타일 복구
+      element.style.width = originalWidth;
+      element.style.maxWidth = originalMaxWidth;
+      element.style.aspectRatio = originalAspectRatio;
       
-      // A4 비율 계산
+      const imgData = canvas.toDataURL('image/png');
+      
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
       });
       
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const imgWidth = 210; // A4 가로 (mm)
+      const pageHeight = 297; // A4 세로 (mm)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      // 이미지가 한 페이지보다 길 경우 여러 페이지로 나누지 않고 한 페이지에 맞춤 (또는 비율대로 출력)
+      // 여기서는 단일 페이지 견적서 기준이므로 비율에 맞춰 첫 페이지에 삽입
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       pdf.save(`${template.name}_${new Date().getTime()}.pdf`);
       
     } catch (error) {
@@ -93,11 +111,17 @@ export default function FormFillClient({ template, sourceData }: Props) {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header Panel */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-10 shadow-sm">
+      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
           <Link href="/workspace/forms" className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
             <ArrowLeft size={20} />
           </Link>
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className={`p-2 rounded-lg transition-colors ${isSidebarOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-100 text-slate-500'}`}
+          >
+            <Menu size={20} />
+          </button>
           <div>
             <h1 className="text-xl font-black text-slate-900">{template.name}</h1>
             <p className="text-xs text-slate-500 font-medium">연결된 소스: {template.sourceTable || '없음'}</p>
@@ -105,14 +129,6 @@ export default function FormFillClient({ template, sourceData }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2"
-          >
-            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            진행상태 저장
-          </button>
           <button 
             onClick={handleDownloadPDF}
             disabled={isDownloading}
@@ -124,71 +140,71 @@ export default function FormFillClient({ template, sourceData }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar: Data Selection */}
-        <div className="w-80 bg-white border-r border-slate-200 p-6 overflow-y-auto shrink-0 z-10">
-          <div className="mb-6">
-            <h3 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Left Sidebar: Data Selection Only (Toggleable Overlay) */}
+        <div className={`absolute top-0 left-0 bottom-0 w-80 bg-white border-r border-slate-200 p-6 overflow-y-auto shrink-0 z-30 transition-all duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
               <User size={16} className="text-blue-500" />
               데이터 대상 선택
             </h3>
-            <p className="text-xs text-slate-500 mb-3">아래 목록에서 대상을 선택하면 양식의 빈칸이 자동으로 채워집니다.</p>
-            <select 
-              value={selectedRowIndex}
-              onChange={handleRowSelect}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            >
-              <option value="">직접 입력 (선택 안함)</option>
-              {sourceData.map((row, idx) => (
-                <option key={idx} value={idx}>
-                  {Object.values(row)[0] || `항목 #${idx + 1}`} - {Object.values(row)[1] || ''}
-                </option>
-              ))}
-            </select>
+            <button onClick={() => setIsSidebarOpen(false)} className="p-1 hover:bg-slate-100 rounded-md text-slate-400">
+              <X size={16} />
+            </button>
           </div>
+          <p className="text-xs text-slate-500 mb-3">조회할 데이터를 아래 목록에서 선택하세요. 양식의 빈칸이 자동으로 채워집니다.</p>
+          <select 
+            value={selectedRowIndex}
+            onChange={handleRowSelect}
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
+            <option value="">데이터 선택...</option>
+            {sourceData.map((row, idx) => {
+              // 우선적으로 표시할 필드명 후보
+              const priorityKeys = ['견적번호', '관리번호', '번호', '성명', '이름', '거래처명', '명칭', 'title', 'name'];
+              let label = '';
+              
+              for (const key of priorityKeys) {
+                if (row[key]) {
+                  label = String(row[key]);
+                  break;
+                }
+              }
+              
+              if (!label) {
+                label = Object.values(row)[0] || `항목 #${idx + 1}`;
+              }
 
-          <div className="mt-8 border-t border-slate-100 pt-6">
-            <h3 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-              <FileText size={16} className="text-blue-500" />
-              수기 입력 항목
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">우측 화면의 빈칸을 직접 클릭하여 입력할 수도 있습니다.</p>
-            
-            <div className="space-y-4">
-              {mappings.map(mapping => {
-                const autoValue = selectedRow ? String(selectedRow[mapping.columnKey] || '') : '';
-                return (
-                  <div key={mapping.id}>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">{mapping.columnKey}</label>
-                    <input 
-                      type="text"
-                      value={autoValue || manualInputs[mapping.id] || ''}
-                      onChange={(e) => handleManualInputChange(mapping.id, e.target.value)}
-                      disabled={!!autoValue}
-                      placeholder="입력..."
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm disabled:opacity-60 disabled:bg-slate-100"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+              // 보조 정보 (이름이나 날짜 등 다른 값이 있다면 괄호 안에 표시)
+              const subValue = Object.values(row).find(v => v !== label && typeof v === 'string' && String(v).length > 0);
+
+              return (
+                <option key={idx} value={idx}>
+                  {label} {subValue ? `(${subValue})` : ''}
+                </option>
+              );
+            })}
+          </select>
         </div>
 
         {/* Right Canvas: Print Area */}
         <div className="flex-1 bg-slate-100 overflow-auto p-8 flex items-start justify-center">
           <div 
             ref={printRef}
-            className="relative bg-white shadow-xl"
-            style={{ width: '800px', minHeight: '1131px' }} // A4 proportions roughly
+            className="relative bg-white shadow-xl shrink-0 mx-auto"
+            style={{ 
+              width: '100%', 
+              maxWidth: '800px', 
+              aspectRatio: '1 / 1.414',
+              containerType: 'inline-size' 
+            }}
           >
             {/* Background Image */}
             {template.backgroundImageData && (
               <img 
                 src={template.backgroundImageData} 
                 alt="Form Background" 
-                className="absolute inset-0 w-full h-full object-contain"
-                style={{ objectPosition: 'top center' }}
+                className="absolute inset-0 w-full h-full object-fill"
                 crossOrigin="anonymous"
               />
             )}
@@ -206,17 +222,24 @@ export default function FormFillClient({ template, sourceData }: Props) {
                   style={{ 
                     left: `${mapping.x}%`, 
                     top: `${mapping.y}%`,
-                    transform: 'translate(-50%, -50%)',
+                    transform: 'translate(0, -50%)',
                   }}
                 >
-                  <input
-                    type="text"
-                    value={value}
-                    onChange={(e) => handleManualInputChange(mapping.id, e.target.value)}
-                    style={{ fontSize: `${mapping.fontSize}px` }}
-                    className={`bg-transparent outline-none border-b border-dashed border-transparent hover:border-blue-300 focus:border-blue-500 font-medium text-slate-900 transition-colors px-1 w-auto ${autoValue ? 'pointer-events-none' : ''}`}
-                    placeholder={`[${mapping.columnKey}]`}
-                  />
+                  <div
+                    style={{ 
+                      // 800px 기준 비율 계산: (mapping.fontSize / 800) * 100 = fontSize * 0.125 cqw
+                      fontSize: `${mapping.fontSize * 0.125}cqw`,
+                      whiteSpace: 'nowrap',
+                      color: '#000',
+                      lineHeight: '1',
+                      padding: '0 0.5cqw',
+                      margin: '0',
+                      fontFamily: 'inherit',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {value || `[${mapping.columnKey}]`}
+                  </div>
                 </div>
               );
             })}

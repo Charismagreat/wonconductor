@@ -93,20 +93,21 @@ export async function analyzeImageAndExtractDataAction(formData: FormData, colum
         const base64 = buffer.toString('base64');
         const mimeType = image.type;
 
-        // 본인 회사 키워드 설정
-        const SELF_NAMES = ["애월삼춘", "원컨덕터", "이지데스크", "EGDesk"];
+        // 가드레일 설정 조회 (가드레일 세팅 페이지에서 정의된 정보만 적용)
+        const SELF_NAMES: string[] = [];
         try {
-            // [Soft Delete] 삭제되지 않은 블랙리스트만 조회
             const blacklistRecords = await queryTable('system_registration_blacklist', { 
                 filters: { __is_deleted: '0' },
-                limit: 100 
+                limit: 200 
             });
-            if (blacklistRecords) {
+            if (blacklistRecords && Array.isArray(blacklistRecords)) {
                 blacklistRecords.forEach((r: any) => {
-                    if (r.keyword && !SELF_NAMES.includes(r.keyword)) SELF_NAMES.push(r.keyword);
+                    if (r.keyword) SELF_NAMES.push(String(r.keyword).trim());
                 });
             }
-        } catch (e) {}
+        } catch (e) {
+            console.warn(`[AI Guardrail] Failed to load blacklist:`, e);
+        }
 
         // [고도화] 시스템 지식 기반의 컬럼 매핑 정보 가져오기
         const rawUnifiedColumns = reportId ? await getUnifiedTableSchema(reportId) : [];
@@ -120,108 +121,34 @@ export async function analyzeImageAndExtractDataAction(formData: FormData, colum
                 return SELF_NAMES.some(name => clean.includes(name));
             };
 
-            // [개선] 모든 컬럼에 대해 시맨틱 메타데이터를 확인하여 마스터 연동 수행
-            // reportId가 있으면 해당 리포트의 스키마를 사용하고, 없으면 현재 데이터의 키들로 동적 분석
-            const currentKeys = Object.keys(row);
-            const columnMeta = reportId 
-                ? unifiedColumns 
-                : await Promise.all(currentKeys.map(async k => {
-                    // SchemaRegistry의 내부 로직을 활용하여 개별 컬럼의 시맨틱 분석 (미래에는 별도 함수로 분리 가능)
-                    const { findSchemaStandard } = await import('@/lib/constants/schema-standards');
-                    const standard = findSchemaStandard(k);
-                    return standard ? { 
-                        name: k, 
-                        isMasterLinked: true, 
-                        masterTable: standard.masterTable, 
-                        lookupField: standard.lookupField,
-                        nameFields: standard.nameFields,
-                        businessNumberFields: standard.businessNumberFields,
-                        canonicalName: standard.canonicalName
-                    } : { name: k, isMasterLinked: false };
-                }));
-
-            const linkedCols = columnMeta.filter((c: any) => c.isMasterLinked);
-
-            for (const col of linkedCols) {
-                const idField = col.name;
-                const masterTable = col.masterTable;
-                const lookupField = col.lookupField || 'name';
-                
-                // 마스터 연동에 필요한 부속 필드들(상호명, 사업자번호 등) 찾기
-                const nameField = col.nameFields?.find((f: string) => row[f]);
-                const bizNumField = col.businessNumberFields?.find((f: string) => row[f]) || 
-                                   (col.canonicalName === '거래처ID' ? currentKeys.find(k => k.includes('사업자')) : null);
-                
-                let extractedName = nameField ? row[nameField] : null;
-                let extractedBizNum = bizNumField ? row[bizNumField] : null;
-
-                // [보완] 번호 필드는 비어있고 ID 필드에만 번호가 있는 경우
-                if (!extractedBizNum && row[idField] && !/[가-힣]/.test(String(row[idField]))) {
-                    extractedBizNum = String(row[idField]);
-                }
-
-                // [가드레일] 본인 정보 제외
-                if (isSelf(extractedName)) {
-                    extractedName = null;
-                    if (nameField) row[nameField] = null;
-                }
-                if (isSelf(row[idField])) row[idField] = null;
-
-                // [비즈니스 로직] 마스터 확인 및 자동 등록
-                if (extractedBizNum || extractedName) {
-                    try {
-                        const filter: any = { __is_deleted: '0' };
-                        if (extractedBizNum) filter.businessNumber = extractedBizNum;
-                        else filter[lookupField] = extractedName;
-
-                        const results = await queryTable(masterTable, { filters: filter, limit: 1 });
-
-                        if (results && results.length > 0) {
-                            // 이미 존재함
-                            const idCol = col.canonicalName === '거래처ID' ? 'clientId' : 
-                                         col.canonicalName === '제품ID' ? 'productId' : 'id';
-                            row[idField] = results[0][idCol] || results[0].id;
-                        } else if (extractedBizNum) {
-                            // 존재하지 않음 -> 신규 자동 등록
-                            console.log(`[AI Auto-Register] Creating new master in ${masterTable} for: ${extractedBizNum}`);
-                            
-                            const now = new Date().toISOString();
-                            const sessionUser = await getSessionAction();
-                            const creatorId = sessionUser?.id || 'ai-agent';
-
-                            const idCol = col.canonicalName === '거래처ID' ? 'clientId' : 
-                                         col.canonicalName === '제품ID' ? 'productId' : 'id';
-
-                            const newRecord: any = { 
-                                [lookupField]: extractedName || '미확인 신규 등록',
-                                businessNumber: extractedBizNum,
-                                [idCol]: extractedBizNum,
-                                __created_at: now,
-                                __updated_at: now,
-                                __creator_id: creatorId,
-                                __modifier_id: creatorId,
-                                __is_deleted: 0,
-                                __deleted_at: null
-                            };
-
-                            const insertRes = await insertRows(masterTable, [newRecord]);
-                            if (insertRes && !insertRes.error) {
-                                row[idField] = extractedBizNum;
-                                row._isAutoCreated = true;
-                                await HistoryService.recordHistory(extractedBizNum, null, newRecord, 'INSERT', creatorId);
-                            }
-                        }
-                    } catch (e) {
-                        console.error(`[AI Master Link Error] ${idField}:`, e);
+            // [가드레일] 모든 필드에 대해 본인 정보(SELF_NAMES)가 포함되어 있으면 제거
+            // 특정 필드(상호, 사업자번호 등)에 본인 정보가 잘못 들어가는 것을 방지합니다.
+            Object.keys(row).forEach(key => {
+                if (isSelf(row[key])) {
+                    // 수신처 관련 필드는 본인 정보여도 유지할 수 있지만, 
+                    // 가드레일 원칙에 따라 파트너/공급자 필드 위주로 정제하거나 일괄 적용합니다.
+                    const lowerKey = key.toLowerCase();
+                    if (lowerKey.includes('공급자') || lowerKey.includes('거래처') || lowerKey.includes('상호')) {
+                        row[key] = null;
                     }
                 }
-            }
+            });
 
             return row;
         };
 
-        // [개선] 지능형 통합 스키마가 있으면 우선 사용, 없으면 프론트엔드 전달 스키마 사용
-        const extractionColumns = (unifiedColumns && unifiedColumns.length > 0) ? unifiedColumns : columns;
+        // [개선] UI에서 전달된 현재 컬럼 리스트를 기반으로 하되, 시스템의 시맨틱 지식(마스터 연동 등)을 결합합니다.
+        const uiColumns = JSON.parse(columnsJson);
+        const extractionColumns = uiColumns.map((uiCol: any) => {
+            const unifiedMatch = unifiedColumns.find(uc => uc.name === uiCol.name);
+            return {
+                ...uiCol,
+                // 마스터 연동 정보 등이 있으면 보강
+                isMasterLinked: uiCol.isMasterLinked || unifiedMatch?.isMasterLinked,
+                masterTable: uiCol.masterTable || unifiedMatch?.masterTable,
+                lookupField: uiCol.lookupField || unifiedMatch?.lookupField
+            };
+        });
         const extractedData = await extractDataFromImage(base64, mimeType, extractionColumns);
         const processedData = Array.isArray(extractedData) 
             ? await Promise.all(extractedData.map(d => processRow(d)))

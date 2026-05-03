@@ -67,8 +67,10 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
     const user = await getSessionAction();
     if (!user) throw new Error('인증이 필요합니다.');
 
-    const { getTableSchema, queryTable } = await import('@/egdesk-helpers');
+    const { getTableSchema, queryTable, insertRows } = await import('@/egdesk-helpers');
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    
+    console.log(`[DEBUG] Profiling start for ${targetId} (${targetType})`);
 
     // 1. 샘플 데이터 및 스키마 가져오기
     let rows: any[] = [];
@@ -82,7 +84,8 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
       
       // table_master에서 displayName 가져오기
       const masterRes = await queryTable('table_master', { filters: { tableName: targetId } });
-      if (masterRes[0]) displayName = masterRes[0].displayName || targetId;
+      if (masterRes && masterRes[0]) displayName = masterRes[0].displayName || targetId;
+      console.log(`[DEBUG] Physical schema found: ${schema.length} columns, display: ${displayName}`);
     } else {
       // 가상 테이블 (Report) 정보 가져오기
       const reportRes = await queryTable('dashboard_master', { filters: { reportId: targetId } });
@@ -121,14 +124,17 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
       }
     `;
 
+    console.log('[DEBUG] Gemini analysis starting...');
     const result = await model.generateContent(prompt);
     const analysisText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
     const analysis = JSON.parse(analysisText);
+    console.log('[DEBUG] Gemini analysis success:', analysis.category);
 
     // 3. 제안(PROPOSED) 상태로 저장
     const proposedKnowledge = {
       target_id: targetId,
       target_type: targetType,
+      displayName: displayName,
       description: analysis.description,
       category: analysis.category,
       insight: analysis.insight,
@@ -139,8 +145,10 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
       updated_at: new Date().toISOString()
     };
 
+    console.log('[DEBUG] Saving proposed knowledge...');
     const insertRes = await insertRows('table_knowledge', [proposedKnowledge]);
-    const newId = insertRes?.[0]?.id;
+    const newId = insertRes && insertRes[0] ? insertRes[0].id : null;
+    console.log('[DEBUG] Save success, ID:', newId);
 
     return { success: true, data: { ...proposedKnowledge, id: newId } };
   } catch (error: any) {

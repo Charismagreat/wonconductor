@@ -353,8 +353,22 @@ export default function KnowledgeEditor({ initialTargetId, initialTargetType = '
                                                 <tbody className="divide-y divide-slate-50">
                                                     {(function() {
                                                         try {
-                                                            const schema = JSON.parse(knowledge?.schema_info || '[]');
-                                                            return schema.map((col: any, idx: number) => (
+                                                            const currentSchema = JSON.parse(knowledge?.schema_info || '[]');
+                                                            const proposedSchema = proposal ? JSON.parse(proposal.schema_info || '[]') : [];
+                                                            const displaySchema = currentSchema.length > 0 ? currentSchema : proposedSchema;
+                                                            
+                                                            if (displaySchema.length === 0) return (
+                                                                <tr>
+                                                                    <td colSpan={3} className="px-8 py-20 text-center">
+                                                                        <div className="flex flex-col items-center gap-3">
+                                                                            <Brain className="w-8 h-8 text-slate-200" />
+                                                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No Schema Defined. Run AI Profiling.</p>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+
+                                                            return displaySchema.map((col: any, idx: number) => (
                                                                 <tr key={idx} className="hover:bg-slate-50/30 transition-colors group">
                                                                     <td className="px-8 py-4">
                                                                         <span className="text-[10px] font-black font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{col.name}</span>
@@ -462,7 +476,25 @@ export default function KnowledgeEditor({ initialTargetId, initialTargetType = '
                                                     <div className="text-[11px] font-medium leading-relaxed text-blue-900/70 whitespace-pre-wrap">{proposal?.description}</div>
                                                     <div className="pt-6 border-t border-blue-100/50">
                                                         <p className="text-[9px] font-black text-blue-600 uppercase mb-2">AI Reasoning:</p>
-                                                        <p className="text-[10px] font-bold text-blue-900 italic leading-relaxed">"{proposal?.insight}"</p>
+                                                        <p className="text-[10px] font-bold text-blue-900 italic leading-relaxed mb-6">"{proposal?.insight}"</p>
+                                                        
+                                                        <p className="text-[9px] font-black text-blue-600 uppercase mb-3">Proposed Schema Mapping:</p>
+                                                        <div className="space-y-2">
+                                                            {(function() {
+                                                                try {
+                                                                    const schema = JSON.parse(proposal?.schema_info || '[]');
+                                                                    return schema.map((col: any, i: number) => (
+                                                                        <div key={i} className="flex items-center gap-3 bg-white/50 p-3 rounded-xl border border-blue-100/30">
+                                                                            <span className="text-[9px] font-black font-mono text-blue-600 bg-blue-100/50 px-2 py-1 rounded-md">{col.name}</span>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-[10px] font-black text-blue-900 truncate uppercase">{col.displayName}</p>
+                                                                                <p className="text-[9px] font-medium text-blue-600/60 truncate italic">{col.description}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    ));
+                                                                } catch(e) { return null; }
+                                                            })()}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

@@ -402,8 +402,8 @@ export function DynamicTable({
       const result = await deleteRowsAction(reportId, selectedIds);
       showStatus('삭제 완료', '데이터가 성공적으로 삭제되었습니다.', 'success');
       setSelectedIds([]);
-    } catch (error) {
-      showStatus('삭제 실패', '데이터 삭제 중 오류가 발생했습니다.', 'error');
+    } catch (error: any) {
+      showStatus('삭제 실패', error.message || '데이터 삭제 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -568,28 +568,60 @@ export function DynamicTable({
               </button>
             )}
             
-            {hasBaseEditAuth && selectedIds.length > 0 && (
-               <div className="bg-blue-600 flex items-center gap-2 p-1.5 rounded-[22px] shadow-2xl shadow-blue-500/30 animate-in fade-in slide-in-from-right-4 duration-500">
-                  {!showDeleted && (
-                    <button onClick={() => setIsBulkEditOpen(true)} className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white text-[11px] font-black rounded-xl hover:bg-white/20 active:scale-95 transition-all uppercase tracking-widest">
-                        <SafeIcon icon={Edit3} isMounted={isMounted} size={14} /> Edit All
-                    </button>
-                  )}
-                  {showDeleted ? (
-                    <button onClick={handleRestoreSelected} disabled={isRestoring} className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white text-[11px] font-black rounded-xl hover:bg-green-600 active:scale-95 disabled:opacity-50 transition-all uppercase tracking-widest">
-                        <SafeIcon icon={RotateCcw} isMounted={isMounted} size={14} /> Restore
-                    </button>
-                  ) : (
-                    hasBaseDeleteAuth && (
-                        <button onClick={handleDeleteSelected} disabled={isDeleting} className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white text-[11px] font-black rounded-xl hover:bg-red-600 active:scale-95 disabled:opacity-50 transition-all uppercase tracking-widest">
-                            <SafeIcon icon={Trash2} isMounted={isMounted} size={14} /> Delete
-                        </button>
-                    )
-                  )}
-               </div>
-            )}
         </div>
       </div>
+
+      {/* 🚀 Floating Selection Toolbar (Fixed at Bottom Center) */}
+      {hasBaseEditAuth && selectedIds.length > 0 && (
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl text-white px-8 py-5 rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-in fade-in slide-in-from-bottom-10 duration-500 border border-white/10 min-w-[500px]">
+            <div className="flex items-center gap-3 border-r border-white/10 pr-6 mr-2">
+            <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg shadow-lg shadow-blue-500/20">
+                {selectedIds.length}
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 leading-none mb-1">Selected</span>
+                <span className="text-[12px] font-black uppercase tracking-widest text-white leading-none">Records</span>
+            </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+                {!showDeleted && (
+                <button 
+                    onClick={() => setIsBulkEditOpen(true)} 
+                    className="flex items-center gap-2 px-6 py-3.5 bg-white/10 text-white text-[11px] font-black rounded-xl hover:bg-white/20 active:scale-95 transition-all uppercase tracking-widest border border-white/5"
+                >
+                    <SafeIcon icon={Edit3} isMounted={isMounted} size={16} /> Edit All
+                </button>
+                )}
+
+                {showDeleted ? (
+                <button 
+                    onClick={handleRestoreSelected} 
+                    disabled={isRestoring} 
+                    className="flex items-center gap-2 px-6 py-3.5 bg-green-500 text-white text-[11px] font-black rounded-xl hover:bg-green-600 active:scale-95 disabled:opacity-50 transition-all uppercase tracking-widest shadow-lg shadow-green-500/20"
+                >
+                    <SafeIcon icon={RotateCcw} isMounted={isMounted} size={16} /> Restore
+                </button>
+                ) : (
+                <button 
+                    onClick={handleDeleteSelected} 
+                    disabled={isDeleting} 
+                    className="flex items-center gap-2 px-6 py-3.5 bg-red-500 text-white text-[11px] font-black rounded-xl hover:bg-red-600 active:scale-95 disabled:opacity-50 transition-all uppercase tracking-widest shadow-lg shadow-red-500/20"
+                >
+                    <SafeIcon icon={Trash2} isMounted={isMounted} size={16} /> Delete Selected
+                </button>
+                )}
+            </div>
+
+            <button 
+            onClick={() => setSelectedIds([])}
+            className="ml-6 p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-400 hover:text-white transition-all active:scale-90 border border-white/5"
+            title="Deselect All"
+            >
+            <SafeIcon icon={XIcon} isMounted={isMounted} size={20} />
+            </button>
+        </div>
+      )}
 
       <div className="overflow-x-auto border border-slate-100 rounded-[32px] shadow-2xl shadow-slate-900/5 bg-white min-h-[400px]">
         <table className="min-w-full divide-y divide-slate-100">

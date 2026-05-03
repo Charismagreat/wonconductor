@@ -122,19 +122,34 @@ export async function addRowsAction(reportId: string, rows: any[]) {
     const uiConfig = report.uiConfig ? JSON.parse(report.uiConfig) : {};
     const uniqueKeyColumns = uiConfig.uniqueKeyColumns;
 
-    for (const rowData of rows) {
-        const { isValid, cleanedData } = ValidationService.validateRowData(rowData, columns);
-        if (!isValid) { skippedCount++; continue; }
+    console.log(`>>> [addRowsAction] Starting save for reportId: ${reportId}, rows: ${rows.length}`);
+    const validationErrors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+        const rowData = rows[i];
+        const { isValid, error, cleanedData } = ValidationService.validateRowData(rowData, columns);
+        if (!isValid) { 
+            const msg = `${i + 1}번 행 유효성 검사 실패: ${error}`;
+            console.warn(`>>> [addRowsAction] ${msg}`, rowData);
+            validationErrors.push(msg);
+            skippedCount++; 
+            continue; 
+        }
 
         const hash = await RowService.generateContentHash(cleanedData, columns, uniqueKeyColumns);
-        if (existingHashes.has(hash)) { skippedCount++; continue; }
+        if (existingHashes && existingHashes.size > 0 && existingHashes.has(hash)) { 
+            const msg = `${i + 1}번 행 중복: 이미 등록된 데이터입니다. (해시: ${hash.substring(0, 8)}...)`;
+            console.warn(`>>> [addRowsAction] ${msg}`);
+            validationErrors.push(msg);
+            skippedCount++; 
+            continue; 
+        }
 
         if (idCol) {
             cleanedData[idCol.name] = `${idCol.autoPrefix || 'DID-'}${nextSerial.toString().padStart(6, '0')}`;
             nextSerial++;
         }
 
-        // 시스템 컬럼 데이터 할당
         const now = new Date().toISOString();
         cleanedData.__created_at = now;
         cleanedData.__updated_at = now;
@@ -147,38 +162,53 @@ export async function addRowsAction(reportId: string, rows: any[]) {
             data: cleanedData,
             contentHash: hash
         });
-        existingHashes.add(hash);
+        if (existingHashes) existingHashes.add(hash);
     }
 
     if (cleanedRowsToInsert.length > 0) {
-        // 물리 테이블 일괄 삽입
+        // ... (동일한 저장 로직)
         if (report.tableName) {
-            await DbSyncService.insertToPhysicalTable(report.tableName, cleanedRowsToInsert.map(r => r.data), columns);
+            const physicalResult = await DbSyncService.insertToPhysicalTable(report.tableName, cleanedRowsToInsert.map(r => r.data), columns);
+            if (!physicalResult.success) {
+                throw new Error(`물리 테이블 저장 실패: ${physicalResult.error}`);
+            }
         }
 
-        // 가상 테이블 일괄 삽입
-        const virtualRows = cleanedRowsToInsert.map(r => ({
-            id: Math.floor(Math.random() * 2147483647),
-            reportId: r.reportId,
-            data: JSON.stringify(r.data),
-            contentHash: r.contentHash,
-            creatorId: user.id,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            __is_deleted: 0
-        }));
+        const virtualRows = cleanedRowsToInsert.map(r => {
+            const vRow: any = {
+                reportId: r.reportId,
+                data: JSON.stringify(r.data),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                __created_at: new Date().toISOString(),
+                __updated_at: new Date().toISOString(),
+                __creator_id: user.id,
+                __modifier_id: user.id,
+                __is_deleted: 0
+            };
+            if (existingRows && existingRows.length > 0 && 'contentHash' in existingRows[0]) {
+                vRow.contentHash = r.contentHash;
+            }
+            return vRow;
+        });
+
         await insertRows('dashboard_data', virtualRows);
         
         if (idCol) {
             await updateRows('dashboard_master', { lastSerial: nextSerial - 1 }, { filters: { reportId: String(reportId) } });
         }
+    } else if (skippedCount > 0) {
+        return { 
+            success: false, 
+            error: validationErrors.length > 0 ? validationErrors.join('\n') : '모든 데이터가 중복되어 제외되었습니다.'
+        };
     }
   
     notifyBulkUpload(report.name, user.fullName || user.username, cleanedRowsToInsert.length, cleanedRowsToInsert[0]?.data, columns, report.slackWebhookUrl).catch(console.error);
     logActivity({
         userId: user.id,
-        title: `[${report.name}] 대량 업로드`,
-        message: `${cleanedRowsToInsert.length}건의 데이터를 일괄 등록했습니다.`,
+        title: `[${report.name}] 데이터 등록`,
+        message: `${cleanedRowsToInsert.length}건의 데이터를 등록했습니다.`,
         link: `/report/${reportId}`,
         type: 'ACTIVITY'
     }).catch(console.error);
@@ -376,9 +406,19 @@ export async function deleteRowsAction(reportId: string, rowIds: string[]) {
 
     const timestamp = new Date().toISOString();
 
+    const uiConfig = report.uiConfig ? JSON.parse(report.uiConfig) : {};
+    if (uiConfig.isIntegrityProtected) {
+        throw new Error('데이터 무결성 보호가 설정된 테이블입니다. 삭제하려면 [TABLE CONFIG]에서 보호 설정을 해제해 주세요.');
+    }
+
+    let deletedCount = 0;
     for (const id of rowIds) {
         const [row] = await queryTable('dashboard_data', { filters: { id: String(id) } });
-        if (!row || (user.role === 'VIEWER' && row.creatorId !== user.id)) continue;
+        if (!row) continue;
+        
+        if (user.role === 'VIEWER' && row.creatorId !== user.id) {
+            continue;
+        }
 
         // 1. 가상 테이블 논리 삭제
         await updateRows('dashboard_data', {
@@ -399,6 +439,11 @@ export async function deleteRowsAction(reportId: string, rowIds: string[]) {
             const filterKey = idCol?.name || columns[0].name;
             await DbSyncService.deleteFromPhysicalTable(report.tableName, { [filterKey]: String(rowData[filterKey]) }, user.id);
         }
+        deletedCount++;
+    }
+
+    if (deletedCount === 0 && rowIds.length > 0) {
+        throw new Error('삭제할 수 있는 권한이 없거나 대상 데이터를 찾을 수 없습니다.');
     }
 
     logActivity({

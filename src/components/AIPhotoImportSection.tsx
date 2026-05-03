@@ -119,8 +119,12 @@ export function AIPhotoImportSection({ reportId, columns, onClose, onStatusShow 
     try {
         const rows = validItems.map(it => it.data);
         const result = await addRowsAction(reportId, rows);
-        onStatusShow('저장 완료', `${result.addedCount}건의 데이터가 추가되었습니다. (중복 ${result.skippedCount}건 제외)`, 'success');
-        onClose();
+        if (result.success) {
+            onStatusShow('저장 완료', `${result.addedCount}건의 데이터가 추가되었습니다. (중복/오류 ${result.skippedCount}건 제외)`, 'success');
+            onClose();
+        } else {
+            onStatusShow('저장 제한', result.error || '데이터를 저장할 수 없습니다.', 'warning');
+        }
     } catch (error: any) {
         onStatusShow('저장 실패', error.message || '저장 중 오류가 발생했습니다.', 'error');
     } finally {

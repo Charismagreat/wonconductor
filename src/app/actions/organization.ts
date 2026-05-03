@@ -25,17 +25,24 @@ export async function getOrganizationDataAction() {
         orderBy: 'name' 
     });
     
-    // 조인된 데이터 조회 (sqlite 문법)
-    // [Soft Delete] 유저와 부서 모두 삭제되지 않은 데이터만 조회
-    const membersSql = `
-        SELECT u.*, d.name as departmentName 
-        FROM user u 
-        LEFT JOIN department d ON u.departmentId = d.id 
-        WHERE u.isActive = 1 AND u.__is_deleted = 0
-        ORDER BY d.name, u.fullName
-    `;
-    const membersResult = await executeSQL(membersSql);
-    const members = membersResult?.rows || [];
+    // 유저 데이터 조회 (삭제되지 않고 활성화된 유저)
+    const users = await queryTable('user', {
+        filters: { isActive: '1', __is_deleted: '0' }
+    });
+
+    // 부서 정보를 Map으로 변환하여 빠른 조인 지원
+    const deptMap = new Map(departments.map((d: any) => [d.id, d.name]));
+
+    // 데이터 조인 (departmentId를 기반으로 departmentName 추가)
+    const members = users.map((u: any) => ({
+        ...u,
+        departmentName: deptMap.get(u.departmentId) || '소속 없음'
+    })).sort((a, b) => {
+        // 부서명 순, 이름 순 정렬
+        const deptCompare = (a.departmentName || '').localeCompare(b.departmentName || '');
+        if (deptCompare !== 0) return deptCompare;
+        return (a.fullName || '').localeCompare(b.fullName || '');
+    });
 
     return { departments, members };
 }

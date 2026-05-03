@@ -42,11 +42,23 @@ export async function getKnowledgeListAction(query?: string) {
         knowledge: knowledge || [],
         physical: (physicalTables || []).map((t: any) => {
           const isProtected = (knowledge || []).some((k: any) => k.target_id === t.tableName && k.target_type === 'PHYSICAL' && k.is_current === 1);
-          return { id: t.tableName, name: t.displayName || t.tableName, type: 'PHYSICAL', isProtected };
+          return { 
+            id: t.tableName, 
+            name: t.displayName || t.tableName, 
+            type: 'PHYSICAL', 
+            isProtected,
+            physicalTableName: t.tableName 
+          };
         }),
         view: (tableViews || []).map((t: any) => {
           const isProtected = (knowledge || []).some((k: any) => k.target_id === t.reportId && k.target_type === 'VIRTUAL' && k.is_current === 1);
-          return { id: t.reportId, name: t.name || t.reportId, type: 'VIRTUAL', isProtected };
+          return { 
+            id: t.reportId, 
+            name: t.name || t.reportId, 
+            type: 'VIRTUAL', 
+            isProtected,
+            physicalTableName: t.tableName 
+          };
         })
       }
     };

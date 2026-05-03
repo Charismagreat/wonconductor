@@ -14,15 +14,18 @@ export async function getTodayAttendanceAction() {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
     try {
-        // SQL 엔진의 500 에러를 회피하기 위해 전체 조회 후 JS 레벨에서 필터링
-        const result = await executeSQL('SELECT * FROM dashboard_data');
+        // [Soft Delete] 삭제되지 않은 데이터만 조회
+        const rows = await queryTable('dashboard_data', { 
+            filters: { isDeleted: '0' },
+            limit: 100 // 최근 데이터 위주로 조회
+        });
         
-        if (result.rows && result.rows.length > 0) {
+        if (rows && rows.length > 0) {
             // 오늘 날짜의 해당 사용자가 작성한 '출근' 타입 행 찾기
-            const attendanceRow = result.rows.find((row: any) => {
-                const isMyRow = row.creatorId === user.id;
+            const attendanceRow = rows.find((row: any) => {
+                const isMyRow = String(row.creatorId) === String(user.id);
                 const isToday = row.createdAt?.startsWith(today);
-                if (!isMyRow || !isToday || Number(row.isDeleted) === 1) return false;
+                if (!isMyRow || !isToday) return false;
 
                 try {
                     const data = JSON.parse(row.data);

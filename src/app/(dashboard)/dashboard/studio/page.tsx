@@ -45,7 +45,8 @@ export default async function DataAnalysisStudioPage() {
       ...r,
       name: r.displayName || r.name,
       _count: { rows: rowCount },
-      isVirtualReport: !r.tableName
+      isVirtualReport: !r.tableName,
+      physicalTableName: r.tableName // 물리 테이블 소스 추가
     };
   }));
 
@@ -58,6 +59,7 @@ export default async function DataAnalysisStudioPage() {
       .map((t: any) => ({
         id: t.tableName,
         tableName: t.tableName,
+        physicalTableName: t.tableName, // 물리 테이블 소스 추가
         name: t.displayName || t.tableName,
         _count: { rows: t.rowCount || 0 },
         isSystemTable: true,

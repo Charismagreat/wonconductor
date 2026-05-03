@@ -32,6 +32,25 @@ interface DashboardHubClientProps {
   hometaxStats?: any;
 }
 
+const LocalBadge = ({ children, color = 'blue', scale = 1.0 }: { children: React.ReactNode, color?: string, scale?: number }) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-50 text-blue-600 border-blue-100',
+      indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+      slate: 'bg-slate-100 text-slate-500 border-slate-200',
+      amber: 'bg-amber-50 text-amber-600 border-amber-100',
+      rose: 'bg-rose-50 text-rose-600 border-rose-100',
+    };
+  
+    return (
+      <span 
+        className={`px-1.5 py-0.5 rounded text-[9px] font-black border uppercase tracking-tight inline-flex items-center gap-1 ${colors[color] || colors.blue}`}
+        style={{ transform: `scale(${scale})`, transformOrigin: 'left center' }}
+      >
+        {children}
+      </span>
+    );
+  };
+
 export function DashboardHubClient({ user, isStaff, reports, events, financeStats, hometaxStats }: DashboardHubClientProps) {
   const pathname = usePathname();
   const [showManualModal, setShowManualModal] = useState(false);
@@ -354,15 +373,17 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 pt-5 border-t border-slate-50">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg text-[9px] font-bold text-slate-500 border border-slate-100">
-                            <span className="text-blue-600 font-black">ID:</span> {report.id}
-                          </div>
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/50 rounded-lg text-[9px] font-bold text-blue-600">
-                            <span className="font-black">REPO:</span> {report.sheetName || 'MY DB'}
-                          </div>
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[9px] font-bold shadow-lg shadow-blue-500/10">
-                            <span className="font-black">{report._count?.rows ?? '0'}</span> Rows
-                          </div>
+                          <LocalBadge color="blue" scale={0.95}>
+                            REPO: {report.sheetName || 'MY DB'}
+                          </LocalBadge>
+                          {(report.tableName || report.id) && (
+                            <LocalBadge color="slate" scale={0.95}>
+                              SOURCE: {report.tableName || report.id}
+                            </LocalBadge>
+                          )}
+                          <LocalBadge color="indigo" scale={0.95}>
+                            {report._count?.rows ?? '0'} ROWS
+                          </LocalBadge>
                         </div>
                       </div>
                     </div>

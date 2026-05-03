@@ -65,25 +65,36 @@ export async function saveFormTemplateAction(data: {
   try {
     await initFormStudioTables();
 
-    let query = '';
-    let params: any[] = [];
-
     if (data.id) {
       // Update existing
-      query = `UPDATE form_templates SET name = ?, backgroundImageData = ?, mappingConfig = ?, sourceTable = ?, status = ? WHERE id = ?`;
-      params = [data.name, data.backgroundImageData, data.mappingConfig, data.sourceTable, data.status, data.id];
+      await updateRows('form_templates', {
+        name: data.name,
+        backgroundImageData: data.backgroundImageData,
+        mappingConfig: data.mappingConfig,
+        sourceTable: data.sourceTable,
+        status: data.status
+      }, { filters: { id: String(data.id) } });
     } else {
       // Insert new
-      query = `INSERT INTO form_templates (name, backgroundImageData, mappingConfig, sourceTable, status, createdAt) VALUES (?, ?, ?, ?, ?, ?)`;
-      params = [data.name, data.backgroundImageData, data.mappingConfig, data.sourceTable, data.status, new Date().toISOString()];
+      await insertRows('form_templates', [{
+        name: data.name,
+        backgroundImageData: data.backgroundImageData,
+        mappingConfig: data.mappingConfig,
+        sourceTable: data.sourceTable,
+        status: data.status,
+        createdAt: new Date().toISOString()
+      }]);
     }
 
-    const result = await executeSQL(query, params);
-    
-    // 삽입된 ID를 가져오기 위해 최근 추가된 레코드 조회 (SQLite의 last_insert_rowid() 대용)
+    // 삽입된 ID를 가져오기 위해 최근 추가된 레코드 조회
     if (!data.id) {
-        const lastRecord = await executeSQL('SELECT id FROM form_templates ORDER BY id DESC LIMIT 1');
-        return { success: true, id: lastRecord[0]?.id };
+        const lastRecords = await queryTable('form_templates', {
+            orderBy: 'id',
+            orderDirection: 'DESC',
+            limit: 1
+        });
+        const lastRecord = Array.isArray(lastRecords) ? lastRecords[0] : (lastRecords?.rows?.[0]);
+        return { success: true, id: lastRecord?.id };
     }
 
     return { success: true, id: data.id };
@@ -99,17 +110,14 @@ export async function saveFormTemplateAction(data: {
 export async function listFormTemplatesAction(status?: 'DRAFT' | 'PUBLISHED') {
   try {
     await initFormStudioTables();
-    let query = 'SELECT * FROM form_templates';
-    let params: any[] = [];
+    const filters: any = {};
+    if (status) filters.status = status;
     
-    if (status) {
-      query += ' WHERE status = ?';
-      params.push(status);
-    }
-    
-    query += ' ORDER BY id DESC';
-    const templatesResult = await executeSQL(query, params);
-    const templates = Array.isArray(templatesResult) ? templatesResult : (templatesResult?.rows || []);
+    const templates = await queryTable('form_templates', { 
+        filters,
+        orderBy: 'id',
+        orderDirection: 'DESC'
+    });
     return { success: true, templates };
   } catch (error: any) {
     console.error('Failed to list form templates:', error);
@@ -123,10 +131,10 @@ export async function listFormTemplatesAction(status?: 'DRAFT' | 'PUBLISHED') {
 export async function getFormTemplateAction(id: number) {
   try {
     await initFormStudioTables();
-    const resultRaw = await executeSQL('SELECT * FROM form_templates WHERE id = ?', [id]);
-    const result = Array.isArray(resultRaw) ? resultRaw : (resultRaw?.rows || []);
-    if (result && result.length > 0) {
-      return { success: true, template: result[0] };
+    const results = await queryTable('form_templates', { filters: { id: String(id) }, limit: 1 });
+    const template = Array.isArray(results) ? results[0] : (results?.rows?.[0]);
+    if (template) {
+      return { success: true, template };
     }
     return { success: false, error: '템플릿을 찾을 수 없습니다.' };
   } catch (error: any) {
@@ -146,9 +154,13 @@ export async function saveFormSubmissionAction(data: {
 }) {
   try {
     await initFormStudioTables();
-    const query = `INSERT INTO form_submissions (templateId, userId, customerData, manualInputs, createdAt) VALUES (?, ?, ?, ?, ?)`;
-    const params = [data.templateId, data.userId, data.customerData, data.manualInputs, new Date().toISOString()];
-    await executeSQL(query, params);
+    await insertRows('form_submissions', [{
+      templateId: data.templateId,
+      userId: data.userId,
+      customerData: data.customerData,
+      manualInputs: data.manualInputs,
+      createdAt: new Date().toISOString()
+    }]);
     return { success: true };
   } catch (error: any) {
     console.error('Failed to save form submission:', error);

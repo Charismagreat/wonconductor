@@ -19,6 +19,7 @@ import { getUnifiedTableSchema, getUnifiedTableName } from './schema-registry';
  * 사용자 요청에 따라 MY DB의 모든 테이블과 리포트를 포함하도록 확장되었습니다.
  */
 export async function getProactivePublishingSuggestionsAction() {
+  revalidatePath('/publishing', 'layout');
   const user = await getSessionAction();
   if (!user) throw new Error('인증이 필요합니다.');
 
@@ -40,6 +41,7 @@ export async function getProactivePublishingSuggestionsAction() {
       suggestions.push({
         tableId: sys.id,
         tableName: sys.name,
+        physicalTableName: sys.id, // 시스템 소스는 ID 자체가 물리적 식별자
         templateId: 'cash-report',
         reason: sys.reason,
         priority: 'high'
@@ -50,12 +52,14 @@ export async function getProactivePublishingSuggestionsAction() {
     try {
       const reports = await queryTable('dashboard_master', { limit: 100 });
       for (const r of reports) {
+        const reportKey = r.reportId || String(r.id);
         // 이미 추가된 시스템 소스와 중복 방지
-        if (suggestions.some(s => s.tableId === r.reportId)) continue;
+        if (suggestions.some(s => s.tableId === reportKey)) continue;
         
         suggestions.push({
-          tableId: r.reportId,
+          tableId: reportKey,
           tableName: r.name,
+          physicalTableName: r.tableName || reportKey,
           templateId: 'custom-app',
           reason: r.description || `사용자 정의 리포트: ${r.sheetName || 'MY DB'}`,
           priority: 'medium'
@@ -67,13 +71,15 @@ export async function getProactivePublishingSuggestionsAction() {
 
     // 3. 물리 테이블 (전체 포함)
     for (const table of tables) {
-      const name = table.displayName || table.name;
+      const name = table.displayName || table.tableName;
+      const tableId = table.tableName;
       // 이미 리포트나 시스템 소스로 추가된 경우 스킵
-      if (suggestions.some(s => s.tableId === table.name || s.tableName === name)) continue;
+      if (!tableId || suggestions.some(s => s.tableId === tableId || s.tableName === name || s.physicalTableName === tableId)) continue;
 
       suggestions.push({
-        tableId: table.name,
+        tableId: tableId,
         tableName: name,
+        physicalTableName: tableId,
         templateId: 'custom-app',
         reason: `'${name}' 테이블의 원시 데이터를 활용하여 앱을 빌드합니다.`,
         priority: 'low'

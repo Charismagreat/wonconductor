@@ -33,6 +33,25 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
     loadSources();
   }, []);
 
+  const LocalBadge = ({ children, color = 'blue', scale = 1.0 }: { children: React.ReactNode, color?: string, scale?: number }) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-50 text-blue-600 border-blue-100',
+      indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+      slate: 'bg-slate-100 text-slate-500 border-slate-200',
+      amber: 'bg-amber-50 text-amber-600 border-amber-100',
+      rose: 'bg-rose-50 text-rose-600 border-rose-100',
+    };
+  
+    return (
+      <span 
+        className={`px-1.5 py-0.5 rounded text-[9px] font-black border uppercase tracking-tight inline-flex items-center gap-1 ${colors[color] || colors.blue}`}
+        style={{ transform: `scale(${scale})`, transformOrigin: 'left center' }}
+      >
+        {children}
+      </span>
+    );
+  };
+
   const filteredSources = sources.filter(s => {
     const matchesSearch = s.tableName?.toLowerCase().includes(searchQuery.toLowerCase());
     if (filter === 'financial') return matchesSearch && (s.templateId === 'cash-report' || s.tableId?.includes('finance'));
@@ -59,7 +78,7 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={onClose} />
       
-      <div className="relative w-full max-w-4xl bg-white rounded-[40px] shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col max-h-[90vh] border border-white/20 animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+      <div className="relative w-full max-w-5xl bg-white rounded-[40px] shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col max-h-[90vh] border border-white/20 animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
         
         {/* Header */}
         <div className="p-8 border-b border-slate-50 bg-white/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
@@ -170,7 +189,9 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
                           }`}>
                             {source.templateId === 'cash-report' ? 'Financial' : 'General'}
                           </span>
-                          <span className={`text-[9px] font-black tracking-widest ${isSelected ? 'text-blue-400' : 'text-slate-200'}`}>ID: {source.tableId}</span>
+                          <LocalBadge color="slate" scale={0.9}>
+                            SOURCE: {source.physicalTableName || source.tableId || 'N/A'}
+                          </LocalBadge>
                         </div>
                         <h4 className={`text-base font-black tracking-tight transition-colors ${isSelected ? 'text-blue-900' : 'text-slate-900 group-hover:text-blue-600'}`}>{source.tableName}</h4>
                         {source.reason && (

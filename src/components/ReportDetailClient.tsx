@@ -90,6 +90,7 @@ export function ReportDetailClient({
                 initialTags={initialTags}
                 initialUiConfig={uiConfig}
                 rowCount={rows.length}
+                tableName={report.tableName}
                 onToggleAccessManager={() => setShowAccessManager(true)}
             />
 

@@ -30,6 +30,25 @@ interface GuardrailSettingsClientProps {
     initialRules: any[];
 }
 
+const LocalBadge = ({ children, color = 'blue', scale = 1.0 }: { children: React.ReactNode, color?: string, scale?: number }) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-50 text-blue-600 border-blue-100',
+      indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+      slate: 'bg-slate-100 text-slate-500 border-slate-200',
+      amber: 'bg-amber-50 text-amber-600 border-amber-100',
+      rose: 'bg-rose-50 text-rose-600 border-rose-100',
+    };
+  
+    return (
+      <span 
+        className={`px-1.5 py-0.5 rounded text-[9px] font-black border uppercase tracking-tight inline-flex items-center gap-1 ${colors[color] || colors.blue}`}
+        style={{ transform: `scale(${scale})`, transformOrigin: 'left center' }}
+      >
+        {children}
+      </span>
+    );
+  };
+
 export default function GuardrailSettingsClient({ reports, initialRules }: GuardrailSettingsClientProps) {
     const [selectedReportId, setSelectedReportId] = useState<string | null>(reports[0]?.id || null);
     const [rules, setRules] = useState(initialRules);
@@ -118,14 +137,18 @@ export default function GuardrailSettingsClient({ reports, initialRules }: Guard
                                 }`}
                             >
                                 <div className="min-w-0">
-                                    <p className={`text-xs font-black truncate uppercase tracking-tight ${
+                                    <p className={`text-xs font-black truncate uppercase tracking-tight mb-1.5 ${
                                         selectedReportId === report.id ? 'text-blue-600' : 'text-slate-900'
                                     }`}>
                                         {report.name}
                                     </p>
-                                    <p className="text-[10px] text-slate-400 font-bold truncate">
-                                        {report.tableName}
-                                    </p>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {report.tableName && (
+                                            <LocalBadge color={selectedReportId === report.id ? 'amber' : 'slate'} scale={0.9}>
+                                                SOURCE: {report.tableName}
+                                            </LocalBadge>
+                                        )}
+                                    </div>
                                 </div>
                                 <ChevronRight 
                                     size={14} 
@@ -144,10 +167,18 @@ export default function GuardrailSettingsClient({ reports, initialRules }: Guard
                 <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm p-10 min-h-full relative overflow-hidden">
                     <div className="flex items-center justify-between mb-8">
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
-                                <Settings2 className="text-blue-600" size={24} />
-                                {selectedReport?.name}
-                            </h2>
+                            <div className="flex items-center gap-4">
+                                <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
+                                    <Settings2 className="text-blue-600" size={24} />
+                                    {selectedReport?.name}
+                                </h2>
+                                {selectedReport?.tableName && (
+                                    <div className="flex items-center gap-2 bg-slate-900 text-white px-3 py-1.5 rounded-xl shadow-lg shadow-slate-900/20 shrink-0">
+                                        <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Source</span>
+                                        <span className="font-mono font-bold text-[11px] tracking-tight">{selectedReport.tableName}</span>
+                                    </div>
+                                )}
+                            </div>
                             <div className="flex items-center gap-4 mt-3">
                                 <button 
                                     onClick={() => setActiveTab('rules')}

@@ -25,7 +25,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   const router = useRouter();
   
   const [name, setName] = useState(initialTemplate?.name || '새 양식');
-  const [sourceTable, setSourceTable] = useState(initialTemplate?.sourceTable || tables[0] || '');
+  const [sourceTable, setSourceTable] = useState(initialTemplate?.sourceTable || '');
   const [backgroundImage, setBackgroundImage] = useState<string | null>(initialTemplate?.backgroundImageData || null);
   const [mappings, setMappings] = useState<MappingItem[]>(
     initialTemplate?.mappingConfig ? JSON.parse(initialTemplate.mappingConfig) : []

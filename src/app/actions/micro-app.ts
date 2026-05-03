@@ -23,13 +23,10 @@ export async function updateMicroAppProjectAction(projectId: string, updates: an
     if (sanitizedUpdates.uiSettings && typeof sanitizedUpdates.uiSettings !== 'string') sanitizedUpdates.uiSettings = JSON.stringify(sanitizedUpdates.uiSettings);
     if (sanitizedUpdates.tags && typeof sanitizedUpdates.tags !== 'string') sanitizedUpdates.tags = JSON.stringify(sanitizedUpdates.tags);
 
-    const fields = Object.keys(sanitizedUpdates).map(k => `${k} = ?`).join(', ');
-    const values = [...Object.values(sanitizedUpdates), updatedAt, projectId];
-
-    await executeSQL(
-      `UPDATE micro_app_projects SET ${fields}, updatedAt = ? WHERE projectId = ?`,
-      values
-    );
+    await updateRows('micro_app_projects', {
+      ...sanitizedUpdates,
+      updatedAt
+    }, { filters: { projectId } });
 
     revalidatePath('/publishing');
     revalidatePath(`/publishing/edit/${projectId}`);
@@ -96,10 +93,10 @@ export async function removeAllSourcesFromProjectAction(projectId: string) {
 export async function publishProjectAction(projectId: string) {
   try {
     const now = new Date().toISOString();
-    await executeSQL(
-      `UPDATE micro_app_projects SET status = 'PUBLISHED', updatedAt = ? WHERE projectId = ?`,
-      [now, projectId]
-    );
+    await updateRows('micro_app_projects', {
+      status: 'PUBLISHED',
+      updatedAt: now
+    }, { filters: { projectId } });
     revalidatePath('/publishing');
     return { success: true };
   } catch (error) {
@@ -299,7 +296,7 @@ export async function createMicroAppProjectAction(name: string) {
  */
 export async function deleteMicroAppProjectAction(projectId: string) {
   try {
-    await executeSQL(`DELETE FROM micro_app_projects WHERE projectId = ?`, [projectId]);
+    await deleteRows('micro_app_projects', { filters: { projectId } });
     revalidatePath('/publishing');
     return { success: true };
   } catch (error) {
@@ -313,7 +310,7 @@ export async function deleteMicroAppProjectAction(projectId: string) {
  */
 export async function deleteMicroAppAction(projectId: string) {
   try {
-    await executeSQL(`DELETE FROM micro_app_projects WHERE projectId = ?`, [projectId]);
+    await deleteRows('micro_app_projects', { filters: { projectId } });
     revalidatePath('/publishing');
     return { success: true };
   } catch (error) {
@@ -338,7 +335,11 @@ export async function getMicroApp(projectId: string) {
     
     return {
       ...app,
-      widgets: app.widgets ? JSON.parse(app.widgets) : []
+      widgets: app.widgets ? JSON.parse(app.widgets) : [],
+      sources: app.sources ? JSON.parse(app.sources) : [],
+      mappingConfig: app.mappingConfig ? JSON.parse(app.mappingConfig) : [],
+      uiSettings: app.uiSettings ? JSON.parse(app.uiSettings) : {},
+      tags: app.tags ? JSON.parse(app.tags) : []
     };
   } catch (error) {
     console.error('Failed to get micro app:', error);

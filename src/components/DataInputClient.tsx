@@ -109,7 +109,14 @@ export function DataInputClient({ report, session, columns, rows }: DataInputCli
                             <SafeIcon icon={Database} isMounted={isMounted} size={12} />
                             <span>Target Database</span>
                         </div>
-                        <h2 className="text-sm font-black text-gray-900">{report.name}</h2>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-sm font-black text-gray-900">{report.name}</h2>
+                            {report.tableName && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest bg-slate-900 text-white shadow-sm">
+                                    Source: {report.tableName}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 

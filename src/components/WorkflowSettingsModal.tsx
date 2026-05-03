@@ -77,7 +77,14 @@ export function WorkflowSettingsModal({ report, onClose }: WorkflowSettingsModal
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-slate-900 tracking-tight lowercase">사후 프로세스 설정</h2>
-                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{report.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{report.name}</p>
+                                {report.tableName && (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest bg-slate-900 text-white shadow-sm">
+                                        Source: {report.tableName}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400">

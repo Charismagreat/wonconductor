@@ -37,7 +37,7 @@ function LocalBadge({ children, variant = 'default', className = '' }: { childre
         purple: 'bg-purple-600 text-white border-transparent'
     };
     return (
-        <span className={`px-2 py-0.5 border rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${variants[variant]} ${className}`}>
+        <span className={`px-2 py-0.5 border rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${variants[variant]} ${className}`}>
             {children}
         </span>
     );
@@ -166,7 +166,7 @@ export default function KnowledgeEditor({ initialTargetId, initialTargetType = '
 
             <div className="flex flex-col lg:flex-row gap-10 items-start">
                 {/* 1. Sidebar: Table List */}
-                <div className="w-full lg:w-80 space-y-6 shrink-0">
+                <div className="w-full lg:w-96 space-y-6 shrink-0">
                     <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col max-h-[800px]">
                         <div className="p-6 border-b border-slate-50 bg-slate-50/50 space-y-4">
                             <div className="flex p-1 bg-white border border-slate-100 rounded-xl">
@@ -218,15 +218,15 @@ export default function KnowledgeEditor({ initialTargetId, initialTargetType = '
                                         <button 
                                             key={t.id} 
                                             onClick={() => handleSelect(t.id, 'PHYSICAL')}
-                                            className={`w-full px-6 py-5 text-left transition-all group flex items-center justify-between ${selectedTarget.id === t.id ? 'bg-blue-50/50 border-l-4 border-blue-600' : 'hover:bg-slate-50'}`}
+                                            className={`w-full px-5 py-5 text-left transition-all group flex items-center justify-between ${selectedTarget.id === t.id ? 'bg-blue-50/50 border-l-4 border-blue-600' : 'hover:bg-slate-50'}`}
                                         >
                                             <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <div className={`text-xs font-black truncate uppercase tracking-tight ${selectedTarget.id === t.id ? 'text-blue-600' : 'text-slate-900'}`}>{t.name || t.id}</div>
-                                                    <LocalBadge variant="blue" className="scale-[0.7] origin-left">Table</LocalBadge>
-                                                    {t.isProtected && <LocalBadge variant="green" className="scale-[0.7] origin-left">Protected</LocalBadge>}
+                                                <div className={`text-sm font-black truncate uppercase tracking-tight mb-1 ${selectedTarget.id === t.id ? 'text-blue-600' : 'text-slate-900'}`}>{t.name || t.id}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <LocalBadge variant="blue" className="scale-[0.9] origin-left">Table</LocalBadge>
+                                                    { (t.physicalTableName || t.id) && <LocalBadge variant="outline" className="scale-[0.9] origin-left font-mono opacity-60">SOURCE: {(t.physicalTableName || t.id)}</LocalBadge> }
+                                                    {t.isProtected && <LocalBadge variant="green" className="scale-[0.9] origin-left">Protected</LocalBadge>}
                                                 </div>
-                                                <div className="text-[9px] text-slate-400 font-bold font-mono">{t.id}</div>
                                             </div>
                                             <ChevronRight size={14} className={`transition-all ${selectedTarget.id === t.id ? 'text-blue-600 translate-x-1' : 'text-slate-200 group-hover:text-slate-400'}`} />
                                         </button>
@@ -243,15 +243,15 @@ export default function KnowledgeEditor({ initialTargetId, initialTargetType = '
                                         <button 
                                             key={t.id} 
                                             onClick={() => handleSelect(t.id, 'VIRTUAL')}
-                                            className={`w-full px-6 py-5 text-left transition-all group flex items-center justify-between ${selectedTarget.id === t.id ? 'bg-indigo-50/50 border-l-4 border-indigo-600' : 'hover:bg-slate-50'}`}
+                                            className={`w-full px-5 py-5 text-left transition-all group flex items-center justify-between ${selectedTarget.id === t.id ? 'bg-indigo-50/50 border-l-4 border-indigo-600' : 'hover:bg-slate-50'}`}
                                         >
                                             <div className="min-w-0 flex-1">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <div className={`text-xs font-black truncate uppercase tracking-tight ${selectedTarget.id === t.id ? 'text-indigo-600' : 'text-slate-900'}`}>{t.name || t.id}</div>
-                                                    <LocalBadge variant="purple" className="scale-[0.7] origin-left">View</LocalBadge>
-                                                    {t.isProtected && <LocalBadge variant="green" className="scale-[0.7] origin-left">Protected</LocalBadge>}
+                                                <div className={`text-sm font-black truncate uppercase tracking-tight mb-1 ${selectedTarget.id === t.id ? 'text-indigo-600' : 'text-slate-900'}`}>{t.name || t.id}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <LocalBadge variant="purple" className="scale-[0.9] origin-left">View</LocalBadge>
+                                                    { (t.physicalTableName || t.id) && <LocalBadge variant="outline" className="scale-[0.9] origin-left font-mono opacity-60">SOURCE: {(t.physicalTableName || t.id)}</LocalBadge> }
+                                                    {t.isProtected && <LocalBadge variant="green" className="scale-[0.9] origin-left">Protected</LocalBadge>}
                                                 </div>
-                                                <div className="text-[9px] text-slate-400 font-bold font-mono">{t.id}</div>
                                             </div>
                                             <ChevronRight size={14} className={`transition-all ${selectedTarget.id === t.id ? 'text-indigo-600 translate-x-1' : 'text-slate-200 group-hover:text-slate-400'}`} />
                                         </button>

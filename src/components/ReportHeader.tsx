@@ -20,8 +20,28 @@ interface ReportHeaderProps {
   initialTags?: string[];
   initialUiConfig?: any;
   rowCount?: number;
+  tableName?: string;
   onToggleAccessManager?: () => void;
 }
+
+const LocalBadge = ({ children, color = 'blue', scale = 1.0 }: { children: React.ReactNode, color?: string, scale?: number }) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-50 text-blue-600 border-blue-100',
+      indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+      slate: 'bg-slate-100 text-slate-500 border-slate-200',
+      amber: 'bg-amber-50 text-amber-600 border-amber-100',
+      rose: 'bg-rose-50 text-rose-600 border-rose-100',
+    };
+  
+    return (
+      <span 
+        className={`px-1.5 py-0.5 rounded text-[9px] font-black border uppercase tracking-tight inline-flex items-center gap-1 ${colors[color] || colors.blue}`}
+        style={{ transform: `scale(${scale})`, transformOrigin: 'left center' }}
+      >
+        {children}
+      </span>
+    );
+  };
 
 export function ReportHeader({ 
   reportId, 
@@ -36,6 +56,7 @@ export function ReportHeader({
   initialTags = [],
   initialUiConfig = {},
   rowCount,
+  tableName,
   onToggleAccessManager
 }: ReportHeaderProps) {
   const router = useRouter();
@@ -128,9 +149,6 @@ export function ReportHeader({
                   </button>
                   <h1 className="text-xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3 font-[family-name:var(--font-geist-sans)] leading-tight">
                     {name}
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-400 text-[10px] font-black rounded-lg border border-slate-200">
-                      <span className="text-blue-600">ID:</span> {reportId}
-                    </div>
                     <FileText className="text-blue-600 shrink-0" size={24} />
                     {isOwner && !isReadOnly && (
                       <button 
@@ -151,10 +169,14 @@ export function ReportHeader({
                 
                 <div className="flex flex-wrap items-center gap-4 mt-4">
                   <div className="text-slate-500 font-bold leading-relaxed max-w-2xl flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-xl shadow-lg shadow-blue-500/20 shrink-0">
-                        <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Repository</span>
-                        <span className="font-black text-[11px]">{sheetName}</span>
-                    </div>
+                    <LocalBadge color="blue" scale={1.1}>
+                        REPO: {sheetName}
+                    </LocalBadge>
+                    {(tableName || id) && (
+                        <LocalBadge color="slate" scale={1.1}>
+                            SOURCE: {tableName || id}
+                        </LocalBadge>
+                    )}
                     {initialTags.length > 0 && initialTags.map((tag, idx) => (
                       <div key={idx} className="bg-white text-blue-600 px-3 py-1 rounded-full text-[10px] font-black border border-blue-100 flex items-center gap-1.5 shadow-sm shrink-0">
                         <span className="w-1 h-1 bg-blue-400 rounded-full" />

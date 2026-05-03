@@ -13,6 +13,25 @@ interface SourceSelectionModalProps {
   setSearchQuery: (query: string) => void;
 }
 
+const LocalBadge = ({ children, color = 'blue', scale = 1.0 }: { children: React.ReactNode, color?: string, scale?: number }) => {
+  const colors: Record<string, string> = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-100',
+    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+    slate: 'bg-slate-100 text-slate-500 border-slate-200',
+    amber: 'bg-amber-50 text-amber-600 border-amber-100',
+    rose: 'bg-rose-50 text-rose-600 border-rose-100',
+  };
+
+  return (
+    <span 
+      className={`px-2 py-0.5 rounded-md text-[10px] font-black border uppercase tracking-tight inline-flex items-center gap-1 ${colors[color] || colors.blue}`}
+      style={{ transform: `scale(${scale})`, transformOrigin: 'left center' }}
+    >
+      {children}
+    </span>
+  );
+};
+
 export function SourceSelectionModal({
   isOpen,
   onClose,
@@ -27,7 +46,8 @@ export function SourceSelectionModal({
   const filteredTables = allTables.filter(t => 
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.sheetName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (t.displayName && t.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
+    (t.displayName && t.displayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (t.physicalTableName && t.physicalTableName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -39,7 +59,7 @@ export function SourceSelectionModal({
       />
       
       {/* Modal Content */}
-      <div className="relative bg-white w-full max-w-2xl max-h-[80vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+      <div className="relative bg-white w-full max-w-2xl max-h-[85vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -64,7 +84,7 @@ export function SourceSelectionModal({
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Search tables by name or ID..."
+              placeholder="Search tables by name, ID or source..."
               className="w-full pl-12 pr-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-100 transition-all outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -73,7 +93,7 @@ export function SourceSelectionModal({
           </div>
 
           {/* Table List */}
-          <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
             {filteredTables.length === 0 ? (
               <div className="py-20 text-center">
                 <p className="text-slate-300 font-bold italic">No tables found matching your search.</p>
@@ -83,26 +103,36 @@ export function SourceSelectionModal({
                 <button
                   key={table.id}
                   onClick={() => toggleTable(table.id)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-[24px] transition-all group ${
+                  className={`w-full flex items-center gap-4 p-5 rounded-[28px] transition-all group border ${
                     selectedIds.includes(table.id) 
-                    ? 'bg-blue-600 text-white shadow-xl shadow-blue-500/30 translate-x-2' 
-                    : 'hover:bg-slate-50 text-slate-600 hover:translate-x-1'
+                    ? 'bg-blue-600 text-white border-blue-500 shadow-xl shadow-blue-500/30 translate-x-2' 
+                    : 'bg-white border-slate-50 hover:bg-slate-50 text-slate-600 hover:translate-x-1'
                   }`}
                 >
-                  <div className={`p-3 rounded-xl transition-colors ${
+                  <div className={`p-4 rounded-2xl transition-colors shrink-0 ${
                     selectedIds.includes(table.id) ? 'bg-white/20' : 'bg-slate-100 group-hover:bg-white'
                   }`}>
-                    {selectedIds.includes(table.id) ? <Check size={18} /> : <BarChart3 size={18} />}
+                    {selectedIds.includes(table.id) ? <Check size={20} /> : <BarChart3 size={20} />}
                   </div>
-                  <div className="flex-1 text-left overflow-hidden">
-                    <p className="text-sm font-black truncate">{table.displayName || table.name}</p>
-                    <p className={`text-[10px] tracking-tight opacity-60 font-bold ${
-                      selectedIds.includes(table.id) ? 'text-blue-100' : 'text-slate-400'
-                    }`}>
-                      <span className="uppercase">ID:</span> {table.id} {table.sheetName ? `• ${table.sheetName}` : ''}
+                  <div className="flex-1 text-left min-w-0">
+                    <p className={`text-sm font-black truncate mb-1.5 ${selectedIds.includes(table.id) ? 'text-white' : 'text-slate-900'}`}>
+                      {table.displayName || table.name}
                     </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                       {(table.physicalTableName || table.name || table.id) && (
+                         <LocalBadge color="slate" scale={0.9}>
+                           SOURCE: {table.physicalTableName || table.name || table.id}
+                         </LocalBadge>
+                       )}
+                       
+                       {table.isSystemTable && (
+                         <LocalBadge color={selectedIds.includes(table.id) ? 'rose' : 'blue'} scale={0.9}>
+                           SYSTEM
+                         </LocalBadge>
+                       )}
+                    </div>
                   </div>
-                  <ChevronRight size={18} className={`transition-transform ${selectedIds.includes(table.id) ? 'rotate-90' : 'opacity-0 group-hover:opacity-100'}`} />
+                  <ChevronRight size={18} className={`transition-transform shrink-0 ${selectedIds.includes(table.id) ? 'rotate-90' : 'opacity-0 group-hover:opacity-100'}`} />
                 </button>
               ))
             )}

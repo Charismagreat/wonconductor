@@ -57,8 +57,8 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
   const [pending, setPending] = useState(false);
   const [isAIPromptModalOpen, setIsAIPromptModalOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState(project.tags?.join(', ') || '');
-  const [customHtml, setCustomHtml] = useState(project.uiSettings.customHtml || '');
-  const [customCss, setCustomCss] = useState(project.uiSettings.customCss || '');
+  const [customHtml, setCustomHtml] = useState(project.uiSettings?.customHtml || '');
+  const [customCss, setCustomCss] = useState(project.uiSettings?.customCss || '');
   const [tableDisplayNames, setTableDisplayNames] = useState<Record<string, string>>(project.uiSettings?.tableDisplayNames || {});
   const [sourceSchemas, setSourceSchemas] = useState<any[]>([]);
   const router = useRouter();

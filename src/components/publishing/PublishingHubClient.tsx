@@ -190,7 +190,17 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
                     <div className="flex flex-col min-w-0">
                       <h3 className="text-sm font-black text-slate-800 truncate">{project.name}</h3>
                       <p className="text-[10px] text-slate-400 font-medium truncate">
-                        {project.sources.length}개의 데이터 소스 연결됨
+                        {(() => {
+                          const sources = project.sources;
+                          if (!sources) return 0;
+                          if (Array.isArray(sources)) return sources.length;
+                          try {
+                            const parsed = JSON.parse(sources);
+                            return Array.isArray(parsed) ? parsed.length : 0;
+                          } catch (e) {
+                            return 0;
+                          }
+                        })()}개의 데이터 소스 연결됨
                       </p>
                     </div>
                   </div>

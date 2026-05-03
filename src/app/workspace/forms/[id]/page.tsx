@@ -15,7 +15,17 @@ export default async function WorkspaceFormFillPage({ params }: { params: Promis
 
   const template = result.template;
 
-  // 데이터 그룹화 로직 추가 (견적번호 등 기준)
+  // 데이터 소스 테이블에서 데이터 가져오기
+  let sourceData: any[] = [];
+  if (template.sourceTable) {
+    try {
+      const results = await queryTable(template.sourceTable, { filters: { __is_deleted: '0' } });
+      sourceData = Array.isArray(results) ? results : (results?.rows || []);
+    } catch (error) {
+      console.error('Failed to fetch source data:', error);
+    }
+  }
+
   let processedData = sourceData;
   if (sourceData.length > 0) {
     const groupKey = '견적번호'; // 기준이 되는 키

@@ -6,6 +6,7 @@ import { listFormTemplatesAction } from '@/app/actions/form-studio';
 import Link from 'next/link';
 import { Plus, FileText, Image as ImageIcon, LayoutTemplate } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import FormDeleteButton from './FormDeleteButton';
 
 export default async function FormStudioPage() {
   const result = await listFormTemplatesAction();
@@ -73,14 +74,24 @@ export default async function FormStudioPage() {
                   </p>
                 </div>
                 <div className="flex items-center justify-between mt-4">
-                  <span className={`px-3 py-1 text-xs font-bold rounded-lg ${
-                    tpl.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {tpl.status === 'PUBLISHED' ? '배포됨' : '작성중'}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {new Date(tpl.createdAt).toLocaleDateString()}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 text-xs font-bold rounded-lg ${
+                      tpl.status === 'PUBLISHED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {tpl.status === 'PUBLISHED' ? '배포됨' : '작성중'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      최종 수정: {new Date(tpl.__updated_at || tpl.createdAt).toLocaleString('ko-KR', {
+                        year: 'numeric',
+                        month: 'numeric',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      })}
+                    </span>
+                  </div>
+                  <FormDeleteButton id={tpl.id} name={tpl.name} />
                 </div>
               </div>
             </div>

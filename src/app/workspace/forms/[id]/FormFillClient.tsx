@@ -212,8 +212,18 @@ export default function FormFillClient({ template, sourceData }: Props) {
             {/* Overlay Inputs */}
             {mappings.map(mapping => {
               // 선택된 행에 값이 있으면 사용, 없으면 수기 입력값 사용
-              const autoValue = selectedRow ? String(selectedRow[mapping.columnKey] || '') : '';
-              const value = autoValue || manualInputs[mapping.id] || '';
+              const rawValue = selectedRow ? (selectedRow[mapping.columnKey] ?? '') : '';
+              const value = String(rawValue || manualInputs[mapping.id] || '');
+              
+              // 숫자 여부 확인 및 포맷팅 (콤마 추가)
+              const isNumeric = value !== '' && !isNaN(Number(value.replace(/,/g, '')));
+              const displayValue = isNumeric 
+                ? Number(value.replace(/,/g, '')).toLocaleString() 
+                : value;
+
+              // 정렬 및 너비 계산
+              const alignment = mapping.textAlign || (isNumeric ? 'right' : 'left');
+              const width = mapping.width || 15;
 
               return (
                 <div 
@@ -223,11 +233,12 @@ export default function FormFillClient({ template, sourceData }: Props) {
                     left: `${mapping.x}%`, 
                     top: `${mapping.y}%`,
                     transform: 'translate(0, -50%)',
+                    width: `${width}%`,
                   }}
                 >
                   <div
                     style={{ 
-                      // 800px 기준 비율 계산: (mapping.fontSize / 800) * 100 = fontSize * 0.125 cqw
+                      // 800px 기준 비율 계산
                       fontSize: `${mapping.fontSize * 0.125}cqw`,
                       whiteSpace: 'nowrap',
                       color: '#000',
@@ -235,10 +246,13 @@ export default function FormFillClient({ template, sourceData }: Props) {
                       padding: '0 0.5cqw',
                       margin: '0',
                       fontFamily: 'inherit',
-                      fontWeight: '500'
+                      fontWeight: '500',
+                      textAlign: alignment,
+                      display: 'flex',
+                      justifyContent: alignment === 'center' ? 'center' : alignment === 'right' ? 'flex-end' : 'flex-start'
                     }}
                   >
-                    {value || `[${mapping.columnKey}]`}
+                    {displayValue}
                   </div>
                 </div>
               );

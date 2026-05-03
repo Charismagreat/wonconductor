@@ -82,7 +82,8 @@ export async function saveFormTemplateAction(data: {
         mappingConfig: data.mappingConfig,
         sourceTable: data.sourceTable,
         status: data.status,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        __is_deleted: 0
       }]);
     }
 
@@ -110,14 +111,19 @@ export async function saveFormTemplateAction(data: {
 export async function listFormTemplatesAction(status?: 'DRAFT' | 'PUBLISHED') {
   try {
     await initFormStudioTables();
-    const filters: any = {};
-    if (status) filters.status = status;
+    // queryTable might not support OR conditions easily in filters, 
+    // but in EGDesk helpers, usually we handle this by fetching and filtering in JS if needed,
+    // or improving the filter. For now, let's try to set it to 0 and fix existing nulls.
+    const filters: any = { status: status || 'PUBLISHED' };
     
-    const templates = await queryTable('form_templates', { 
+    const allTemplates = await queryTable('form_templates', { 
         filters,
         orderBy: 'id',
         orderDirection: 'DESC'
     });
+    
+    const templates = (Array.isArray(allTemplates) ? allTemplates : (allTemplates?.rows || []))
+        .filter((t: any) => t.__is_deleted === 0 || t.__is_deleted === '0' || t.__is_deleted === null);
     return { success: true, templates };
   } catch (error: any) {
     console.error('Failed to list form templates:', error);
@@ -164,6 +170,79 @@ export async function saveFormSubmissionAction(data: {
     return { success: true };
   } catch (error: any) {
     console.error('Failed to save form submission:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * 템플릿 삭제
+ */
+export async function deleteFormTemplateAction(id: number) {
+  try {
+    // 1. form_templates 테이블에서 삭제 (__is_deleted = 1)
+    await updateRows('form_templates', {
+      __is_deleted: 1,
+      __deleted_at: new Date().toISOString()
+    }, { filters: { id: String(id) } });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to delete form template:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * AI를 사용하여 양식 이미지 내 필드 위치를 분석하고 매핑 제안을 생성합니다.
+ */
+export async function analyzeFormMappingAction(imageData: string, columns: string[]) {
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    
+    // API 키는 환경 변수에서 가져옵니다.
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+
+    // Base64 데이터에서 헤더 제거 및 바이너리 변환
+    const base64Content = imageData.replace(/^data:image\/(png|jpeg|webp);base64,/, '');
+    
+    const prompt = `
+      당신은 전문적인 문서 양식 분석가입니다. 
+      제공된 이미지(문서 양식)를 분석하여 다음 데이터 컬럼들이 위치해야 할 최적의 좌표를 찾으세요.
+      
+      대상 컬럼 목록: ${columns.join(', ')}
+      
+      [분석 규칙]
+      1. 각 컬럼의 이름(예: 견적번호, 일자)이 이미지 어디에 적혀있는지 찾으세요.
+      2. 텍스트 라벨 바로 옆이나 아래에 있는 빈 칸(데이터가 입력될 공간)의 중심 좌표를 백분율(0-100)로 계산하세요.
+      3. x: 가로 위치 (0=왼쪽, 100=오른쪽), y: 세로 위치 (0=상단, 100=하단)
+      4. 결과는 반드시 다음과 같은 순수 JSON 배열 형식으로만 응답하세요. 다른 설명은 생략하세요.
+      
+      JSON 형식 예시:
+      [
+        {"columnKey": "컬럼명", "x": 10.5, "y": 20.2, "fontSize": 14},
+        ...
+      ]
+    `;
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Content,
+          mimeType: 'image/png' // 실제 타입에 맞춰 조정 가능하나 png로 통칭
+        }
+      }
+    ]);
+
+    const responseText = result.response.text();
+    // JSON 추출 (코드 블록 제거 등)
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    const proposals = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+
+    return { success: true, proposals };
+  } catch (error: any) {
+    console.error('AI Analysis failed:', error);
     return { success: false, error: error.message };
   }
 }

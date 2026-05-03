@@ -26,19 +26,30 @@ export default async function FormStudioBuilderPage({ searchParams }: { searchPa
   const reportsRaw = await queryTable('dashboard_master', { limit: 100 }).catch(() => []);
   const reportsArray = Array.isArray(reportsRaw) ? reportsRaw : (reportsRaw?.rows || []);
 
-  // 통합 소스 목록 생성
-  const safeTables = [
-    ...tablesArray.map((t: any) => ({
-      id: t.tableName || t.name || t,
+  // 통합 소스 목록 생성 및 중복 제거
+  const sourceMap = new Map<string, any>();
+
+  // 1. 물리 테이블 추가
+  tablesArray.forEach((t: any) => {
+    const id = t.tableName || t.name || t;
+    sourceMap.set(id, {
+      id,
       name: t.displayName || t.tableName || t.name || String(t),
       physicalTableName: t.tableName || t.name || t
-    })),
-    ...reportsArray.map((r: any) => ({
-      id: r.reportId || String(r.id),
+    });
+  });
+
+  // 2. 가상 리포트 추가 (이미 있는 ID면 리포트 설정으로 덮어쓰거나 유지 - 여기서는 리포트 우선순위로 업데이트)
+  reportsArray.forEach((r: any) => {
+    const id = r.reportId || String(r.id);
+    sourceMap.set(id, {
+      id,
       name: r.name,
       physicalTableName: r.tableName || r.reportId || String(r.id)
-    }))
-  ];
+    });
+  });
+
+  const safeTables = Array.from(sourceMap.values());
   
   // 테이블들의 스키마(컬럼 목록) 정보를 미리 수집
   const tableSchemas: Record<string, string[]> = {};

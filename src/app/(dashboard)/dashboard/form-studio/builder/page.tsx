@@ -18,24 +18,43 @@ export default async function FormStudioBuilderPage({ searchParams }: { searchPa
     }
   }
 
-  // 데이터 소스 선택을 위해 테이블 목록 가져오기
+  // 1. 물리 테이블 목록 가져오기
   const tablesRaw = await listTables();
   const tablesArray = Array.isArray(tablesRaw) ? tablesRaw : (tablesRaw?.tables || []);
-  const safeTables = tablesArray.map((t: any) => typeof t === 'string' ? t : (t.tableName || t.name));
+  
+  // 2. 가상 리포트 목록 가져오기
+  const reportsRaw = await queryTable('dashboard_master', { limit: 100 }).catch(() => []);
+  const reportsArray = Array.isArray(reportsRaw) ? reportsRaw : (reportsRaw?.rows || []);
+
+  // 통합 소스 목록 생성
+  const safeTables = [
+    ...tablesArray.map((t: any) => ({
+      id: t.tableName || t.name || t,
+      name: t.displayName || t.tableName || t.name || String(t),
+      physicalTableName: t.tableName || t.name || t
+    })),
+    ...reportsArray.map((r: any) => ({
+      id: r.reportId || String(r.id),
+      name: r.name,
+      physicalTableName: r.tableName || r.reportId || String(r.id)
+    }))
+  ];
   
   // 테이블들의 스키마(컬럼 목록) 정보를 미리 수집
   const tableSchemas: Record<string, string[]> = {};
   for (const table of safeTables) {
     try {
       // 1건만 조회하여 컬럼명 추출
-      const result = await queryTable({ tableName: table, limit: 1 });
-      if (result.success && result.data && result.data.length > 0) {
-        tableSchemas[table] = Object.keys(result.data[0]);
+      const result = await queryTable(table.physicalTableName || table.id, { limit: 1 });
+      const rows = Array.isArray(result) ? result : (result?.rows || result?.data || []);
+      
+      if (rows.length > 0) {
+        tableSchemas[table.id] = Object.keys(rows[0]);
       } else {
-        tableSchemas[table] = []; // 데이터가 없으면 빈 배열
+        tableSchemas[table.id] = []; 
       }
     } catch (e) {
-      tableSchemas[table] = [];
+      tableSchemas[table.id] = [];
     }
   }
 

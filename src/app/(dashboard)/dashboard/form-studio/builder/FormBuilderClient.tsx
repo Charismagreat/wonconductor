@@ -17,7 +17,7 @@ interface MappingItem {
 
 interface Props {
   initialTemplate: any;
-  tables: string[];
+  tables: any[];
   tableSchemas: Record<string, string[]>;
 }
 
@@ -219,7 +219,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
                 </div>
               ) : (
                 <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-[11px] font-black border border-blue-100 animate-in fade-in slide-in-from-left-2">
-                  {sourceTable}
+                  {tables.find(t => t.id === sourceTable)?.name || sourceTable}
                   <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setSourceTable('')} />
                 </span>
               )}
@@ -307,7 +307,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
       <SourceSelectionModal 
         isOpen={isSourceModalOpen}
         onClose={() => setIsSourceModalOpen(false)}
-        allTables={tables.map(t => ({ id: t, name: t, displayName: t }))}
+        allTables={tables}
         selectedIds={sourceTable ? [sourceTable] : []}
         toggleTable={(id) => setSourceTable(prev => prev === id ? '' : id)}
         searchQuery={searchQuery}

@@ -12,6 +12,7 @@ import { parseExcelWorkbook } from '@/lib/excel-parser';
 import { normalizeTableName, mapToPhysicalType } from '@/lib/db-utils';
 import { notifyBulkUpload } from '@/lib/notifications';
 import { SYSTEM_COLUMN_LIST } from '@/lib/constants/db';
+import { triggerWorkflow } from '@/lib/workflow/engine';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -115,8 +116,8 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
     for (const table of sheet.tables) {
       if (table.columns.length === 0) continue; 
 
-      // reportId will be captured from insertRows result
-      let reportId: string = '';
+      // Generate reportId before insert so it's always available
+      const reportId: string = `rep-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const basePhysicalName = normalizeTableName(table.name);
       let physicalTableName = basePhysicalName;
       let counter = 1;
@@ -210,17 +211,17 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
           });
       }
 
-      const reportInsertRes = await insertRows('dashboard_master', [{
-        reportId: `rep-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      await insertRows('dashboard_master', [{
+        reportId,
         name: table.name,
         sheetName: sheet.sheetName,
-        tableName: physicalTableName, 
+        tableName: physicalTableName,
         columns: JSON.stringify([...table.columns, ...SYSTEM_COLUMN_LIST]),
         uiConfig: JSON.stringify({ tags: (sheet.tags && sheet.tags.length > 0) ? sheet.tags : ["Excel"] }),
         ownerId: userId,
         createdAt: new Date().toISOString(),
-        isDeleted: 0, 
-        lastSerial: maxSerial 
+        isDeleted: 0,
+        lastSerial: maxSerial
       }]);
 
       // Register in table_master (Physical Registry)
@@ -232,8 +233,6 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
         rowCount: table.rows.length,
         createdAt: new Date().toISOString()
       }]).catch(() => {});
-      const insertedReport = Array.isArray(reportInsertRes) ? reportInsertRes[0] : (reportInsertRes.rows?.[0] || reportInsertRes);
-      reportId = String(insertedReport.id);
 
       if (table.rows.length > 0) {
         const vRes = await insertRows('dashboard_data', table.rows.map(row => ({
@@ -257,6 +256,9 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
         }
 
         notifyBulkUpload(table.name, user.fullName || user.username, table.rows.length, table.rows[0], table.columns, null).catch(console.error);
+
+        // Trigger AI Center workflow analysis on the first uploaded row
+        triggerWorkflow(reportId, table.rows[0], userId).catch(console.error);
       }
     }
   }

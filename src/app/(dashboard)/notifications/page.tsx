@@ -7,6 +7,7 @@ import { getSessionAction } from '@/app/actions/auth';
 import PageHeader from '@/components/PageHeader';
 import { queryTable } from '@/egdesk-helpers';
 import { redirect } from 'next/navigation';
+import { getWorkflowsByStatusAction } from '@/app/actions/ai-center-workflows';
 
 export const metadata: Metadata = {
     title: '전사 업무 관제 허브 | Workflow Hub',
@@ -25,7 +26,7 @@ export default async function NotificationsPage() {
 
     // 기본 본인 알림 로드
     const myNotifications = await getAllNotificationsAction();
-    
+
     // 관리자인 경우 전사 로그 로드
     let adminLogs: any[] = [];
     if (user.role === 'ADMIN') {
@@ -41,10 +42,23 @@ export default async function NotificationsPage() {
         console.error('Failed to fetch departments for filter:', err);
     }
 
+    // AI Center 워크플로우 로드 (Workflows 탭용)
+    let suggestedWorkflows: any[] = [];
+    let activeWorkflows: any[] = [];
+    if (user.role === 'ADMIN' || user.role === 'EDITOR') {
+        try {
+            [suggestedWorkflows, activeWorkflows] = await Promise.all([
+                getWorkflowsByStatusAction('suggested'),
+                getWorkflowsByStatusAction('active'),
+            ]);
+        } catch (err) {
+            console.error('Failed to fetch workflows for Workflows tab:', err);
+        }
+    }
+
     return (
         <div className="flex-1 overflow-y-auto">
             <main className="max-w-[1600px] mx-auto px-8 md:px-12 pt-6 pb-12 space-y-6">
-
 
                 {!isComponentValid ? (
                     <div className="p-20 bg-red-50 border-2 border-dashed border-red-200 rounded-[32px] text-center">
@@ -52,11 +66,13 @@ export default async function NotificationsPage() {
                         <p className="text-red-400 text-xs mt-2 font-bold">BusinessWorkflowHub is undefined. Please check export/import consistency.</p>
                     </div>
                 ) : (
-                    <BusinessWorkflowHub 
+                    <BusinessWorkflowHub
                         user={user}
-                        initialNotifications={myNotifications} 
+                        initialNotifications={myNotifications}
                         initialAdminLogs={adminLogs}
                         departments={departments}
+                        suggestedWorkflows={suggestedWorkflows}
+                        activeWorkflows={activeWorkflows}
                     />
                 )}
             </main>

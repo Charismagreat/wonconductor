@@ -11,6 +11,15 @@ import {
 import { hashPassword } from './shared';
 import { getSessionAction } from './auth';
 
+/** `queryTable` may return a row array or `{ rows: [...] }` depending on MCP/backend shape. */
+function queryRows(result: unknown): any[] {
+    if (Array.isArray(result)) return result;
+    if (result && typeof result === 'object' && Array.isArray((result as { rows?: unknown }).rows)) {
+        return (result as { rows: any[] }).rows;
+    }
+    return [];
+}
+
 /**
  * 🏢 전체 조직도 데이터 조회 (부서 + 유저)
  * SQL JOIN을 사용하여 부서명이 포함된 유저 목록을 가져옵니다.
@@ -20,15 +29,15 @@ export async function getOrganizationDataAction() {
     if (!session || session.role !== 'ADMIN') return { departments: [], members: [] };
 
     // [Soft Delete] 삭제되지 않은 부서만 조회
-    const departments = await queryTable('department', { 
+    const departments = queryRows(await queryTable('department', { 
         filters: { __is_deleted: '0' },
         orderBy: 'name' 
-    });
+    }));
     
     // 유저 데이터 조회 (삭제되지 않고 활성화된 유저)
-    const users = await queryTable('user', {
+    const users = queryRows(await queryTable('user', {
         filters: { isActive: '1', __is_deleted: '0' }
-    });
+    }));
 
     // 부서 정보를 Map으로 변환하여 빠른 조인 지원
     const deptMap = new Map(departments.map((d: any) => [d.id, d.name]));
@@ -86,10 +95,10 @@ export async function createMemberAction(data: any) {
 
     // 사원번호 중복 체크 (삭제되지 않은 유저 중)
     if (data.employeeId) {
-        const existing = await queryTable('user', { 
+        const existing = queryRows(await queryTable('user', { 
             filters: { employeeId: data.employeeId, __is_deleted: '0' } 
-        });
-        if (existing && existing.length > 0) {
+        }));
+        if (existing.length > 0) {
             throw new Error(`이미 등록된 사원번호입니다: ${data.employeeId}`);
         }
     }
@@ -99,7 +108,7 @@ export async function createMemberAction(data: any) {
 
     // 부서 직접 입력 처리: 이름으로 ID 찾기 또는 생성
     if (!departmentId && data.departmentName) {
-        const [existing] = await queryTable('department', { filters: { name: data.departmentName, __is_deleted: '0' } });
+        const [existing] = queryRows(await queryTable('department', { filters: { name: data.departmentName, __is_deleted: '0' } }));
         if (existing) {
             departmentId = existing.id;
         } else {
@@ -180,11 +189,11 @@ export async function syncOrganizationExcelAction(excelRows: any[]) {
     const now = new Date().toISOString();
 
     // 1. 현재 부서 목록 로드 (삭제되지 않은 것만)
-    const existingDepts = await queryTable('department', { filters: { __is_deleted: '0' } });
+    const existingDepts = queryRows(await queryTable('department', { filters: { __is_deleted: '0' } }));
     const deptMap = new Map(existingDepts.map((d: any) => [d.name, d.id]));
 
     // 2. 현재 유저 목록 로드 (삭제되지 않은 것만)
-    const existingUsers = await queryTable('user', { filters: { __is_deleted: '0' } });
+    const existingUsers = queryRows(await queryTable('user', { filters: { __is_deleted: '0' } }));
     const userMap = new Map(existingUsers.filter((u: any) => u.employeeId).map((u: any) => [u.employeeId, u.id]));
 
     const usersToInsert: any[] = [];

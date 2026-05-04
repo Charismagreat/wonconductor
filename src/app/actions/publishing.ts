@@ -492,7 +492,7 @@ export async function getMicroAppConfigAction(id: string) {
   if (!project && id) {
     // 혹시라도 공백 등이 있을 경우를 대비해 전체 검색 후 매칭
     const all = await queryTable('micro_app_projects');
-    project = (all || []).find((c: any) => String(c.projectId).trim() === String(id).trim());
+    project = Array.isArray(all) ? all.find((c: any) => String(c.projectId).trim() === String(id).trim()) : null;
   }
 
   if (!project) {
@@ -569,7 +569,7 @@ export async function listMicroAppsAction() {
     });
 
     // 상태가 PUBLISHED인 것만 필터링 (클라이언트에서 필터링하거나 직접 필터)
-    const publishedProjects = (projects || []).filter((p: any) => p.status === 'PUBLISHED');
+    const publishedProjects = Array.isArray(projects) ? projects.filter((p: any) => p.status === 'PUBLISHED') : [];
 
     return publishedProjects.map((project: any) => {
       let sources = [];

@@ -106,10 +106,13 @@ export async function getPendingSteeringActionsAction() {
     });
 
     // 상세 정보 보정 (Join 대용)
-    return await Promise.all(pendings.map(async (p: any) => {
+    const pendingList = Array.isArray(pendings) ? pendings : [];
+    
+    return await Promise.all(pendingList.map(async (p: any) => {
         const reports: any = await getMasterRecords(p.reportId);
         const report = reports[0];
-        const [row] = await queryTable('dashboard_data', { filters: { id: p.rowId } });
+        const rows = await queryTable('dashboard_data', { filters: { id: p.rowId } });
+        const row = Array.isArray(rows) ? rows[0] : null;
         return {
             ...p,
             reportName: report?.name || '알 수 없는 보고서',
@@ -126,7 +129,8 @@ export async function decideSteeringActionAction(steeringId: string, decision: '
     const session = await getSessionAction();
     if (!session) throw new Error('인증 불가');
 
-    const [steering] = await queryTable('workflow_steering', { filters: { id: steeringId } });
+    const steeringResult = await queryTable('workflow_steering', { filters: { id: steeringId } });
+    const [steering] = Array.isArray(steeringResult) ? steeringResult : (steeringResult?.rows || []);
     if (!steering) throw new Error('항목 없음');
 
     const finalRec = modifiedRecommendation || JSON.parse(steering.recommendation);

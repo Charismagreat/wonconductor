@@ -5,6 +5,7 @@ import { addRowAction } from '@/app/actions/row';
 import { uploadFileAction } from '@/app/actions/file';
 import { queryTable, executeSQL, insertRows, updateRows, deleteRows } from '@/egdesk-helpers';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import {
@@ -277,9 +278,9 @@ export async function submitWorkspaceDataAction(formData: FormData) {
                     const itemId = String(insertedRow.id);
 
                     // 개별 항목 배경 분석 트리거
-                    analyzeWorkspaceItemAction(itemId).catch(err => {
+                    after(() => analyzeWorkspaceItemAction(itemId).catch(err => {
                         console.error(`[Batch Background Analysis Error] Item ${itemId}:`, err);
-                    });
+                    }));
 
                     return { success: true };
                 } catch (e) {
@@ -331,11 +332,10 @@ export async function submitWorkspaceDataAction(formData: FormData) {
         const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
         const itemId = String(insertedRow.id);
 
-        // [핵심] 배경 분석 트리거 (await 하지 않음 - 사용자 응답 속도 최우선)
-        // 분석 시작 (백그라운드)
-        analyzeWorkspaceItemAction(itemId).catch(err => {
+        // [핵심] 배경 분석 트리거 - after()를 사용해 응답 완료 후 실행 보장
+        after(() => analyzeWorkspaceItemAction(itemId).catch(err => {
             console.error(`[Background Analysis Error] Item ${itemId}:`, err);
-        });
+        }));
 
         // 피드 갱신 강제
         revalidatePath('/workspace');

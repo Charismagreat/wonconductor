@@ -29,8 +29,8 @@ import {
     Zap
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
-import { 
-    markNotificationAsReadAction, 
+import {
+    markNotificationAsReadAction,
     markAllNotificationsAsReadAction,
     clearOldNotificationsAction,
     getAdminNotificationLogsAction,
@@ -40,6 +40,8 @@ import {
 } from '@/app/actions/notification';
 import { requestSteeringAction } from '@/app/actions/workflow-steering';
 import { FieldReportSection } from '@/components/FieldReportSection';
+import { AICenterWorkflowsClient } from '@/components/AICenterWorkflowsClient';
+import { BrainCircuit } from 'lucide-react';
 
 
 /**
@@ -73,14 +75,17 @@ interface BusinessWorkflowHubProps {
     initialNotifications: any[];
     initialAdminLogs?: any[];
     departments?: any[];
+    suggestedWorkflows?: any[];
+    activeWorkflows?: any[];
 }
 
 /**
  * 🚀 BusinessWorkflowHub
  * Standardized Default Export for Stable Module Resolution
  */
-export default function BusinessWorkflowHub({ user, initialNotifications, initialAdminLogs = [], departments = [] }: BusinessWorkflowHubProps) {
+export default function BusinessWorkflowHub({ user, initialNotifications, initialAdminLogs = [], departments = [], suggestedWorkflows = [], activeWorkflows = [] }: BusinessWorkflowHubProps) {
     const [isMounted, setIsMounted] = useState(false);
+    const [activeTab, setActiveTab] = useState<'execution' | 'workflows'>('execution');
     const [notifications, setNotifications] = useState(initialNotifications);
     const [adminLogs, setAdminLogs] = useState(initialAdminLogs);
     const [loading, setLoading] = useState(false);
@@ -369,6 +374,48 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                     </div>
                 )}
             />
+
+            {/* Tab bar */}
+            <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-[20px] w-fit">
+                <button
+                    onClick={() => setActiveTab('execution')}
+                    className={`px-6 py-3 rounded-[16px] font-black text-[11px] uppercase tracking-widest transition-all ${
+                        activeTab === 'execution'
+                            ? 'bg-white text-blue-700 shadow-lg shadow-gray-200'
+                            : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                    <span className="flex items-center gap-2">
+                        <SafeIcon icon={Bell} isMounted={isMounted} size={13} />
+                        Execution Watcher
+                    </span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('workflows')}
+                    className={`px-6 py-3 rounded-[16px] font-black text-[11px] uppercase tracking-widest transition-all ${
+                        activeTab === 'workflows'
+                            ? 'bg-white text-purple-700 shadow-lg shadow-gray-200'
+                            : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                    <span className="flex items-center gap-2">
+                        <SafeIcon icon={BrainCircuit} isMounted={isMounted} size={13} />
+                        Workflows
+                    </span>
+                </button>
+            </div>
+
+            {/* Workflows tab content */}
+            {activeTab === 'workflows' && (
+                <AICenterWorkflowsClient
+                    suggestedWorkflows={suggestedWorkflows}
+                    activeWorkflows={activeWorkflows}
+                />
+            )}
+
+            {/* Execution Watcher tab content */}
+            {activeTab === 'execution' && <>
+
             {/* 1. Field Report Section (Consolidated from Workspace) */}
             {user.role !== 'CEO' && user.role !== 'ADMIN' && (
                 <FieldReportSection deptId={user.departmentId || 'GENERAL'} />
@@ -622,6 +669,7 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                     })
                 )}
             </div>
+            </>}
         </div>
     );
 }

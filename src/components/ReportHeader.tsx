@@ -172,9 +172,9 @@ export function ReportHeader({
                     <LocalBadge color="blue" scale={1.1}>
                         REPO: {sheetName}
                     </LocalBadge>
-                    {(tableName || id) && (
+                    {(tableName || reportId) && (
                         <LocalBadge color="slate" scale={1.1}>
-                            SOURCE: {tableName || id}
+                            SOURCE: {tableName || reportId}
                         </LocalBadge>
                     )}
                     {initialTags.length > 0 && initialTags.map((tag, idx) => (

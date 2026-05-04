@@ -140,10 +140,12 @@ export async function getAdminNotificationLogsAction(filters?: { searchTerm?: st
             // 가능한 경우 필터링 전달 (여기서는 헬퍼 제약에 따라 전체 로드 후 처리 가능성 염두)
         }
 
-        const notifications = await queryTable('notification', queryOptions);
+        const notificationsRes = await queryTable('notification', queryOptions);
+        const notifications = Array.isArray(notificationsRes) ? notificationsRes : (notificationsRes as any)?.rows ?? [];
 
         // 2. 사용자 정보 매핑을 위해 전체 사용자 목록 조회
-        const users = await queryTable('user', { limit: 1000 });
+        const usersRes = await queryTable('user', { limit: 1000 });
+        const users = Array.isArray(usersRes) ? usersRes : (usersRes as any)?.rows ?? [];
         const userMap = users.reduce((acc: any, u: any) => {
             acc[u.id] = { 
                 username: u.username, 

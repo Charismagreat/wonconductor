@@ -18,6 +18,13 @@ export const metadata: Metadata = {
   description: "나만의 스마트한 데이터베이스 솔루션, CEO DASHBOARD",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
+
 import { SystemConfigService } from "@/lib/services/system-config-service";
 import { BrandingProvider } from "@/components/providers/BrandingProvider";
 

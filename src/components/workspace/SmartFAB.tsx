@@ -97,21 +97,25 @@ export function SmartFAB() {
                     </div>
                 </div>
 
-                {/* Main FAB */}
+                {/* Main FAB: Explicit Vibrant Colors */}
                 <button
                     onClick={toggleMenu}
-                    className={`relative flex items-center justify-center w-16 h-16 rounded-full shadow-2xl shadow-indigo-500/40 transition-all duration-300 transform active:scale-90 ${
+                    className={`relative flex items-center justify-center w-16 h-16 rounded-full shadow-[0_10px_40px_rgba(37,99,235,0.4)] transition-all duration-300 transform active:scale-90 z-50 ${
                         isMenuOpen 
-                        ? 'bg-gray-800 rotate-0' 
-                        : 'bg-gradient-to-br from-blue-600 to-indigo-700'
+                        ? 'bg-slate-800' 
+                        : 'bg-blue-600'
                     }`}
                 >
-                    <div className={`transition-transform duration-300 ${isMenuOpen ? 'rotate-0' : 'rotate-0'}`}>
-                       {isMenuOpen ? <X size={28} className="text-white" /> : <Plus size={32} className="text-white" />}
+                    <div className="transition-transform duration-300">
+                       {isMenuOpen ? (
+                         <X size={28} className="text-white stroke-[3]" />
+                       ) : (
+                         <Plus size={34} className="text-white stroke-[3]" />
+                       )}
                     </div>
                     
                     {!isMenuOpen && (
-                        <div className="absolute inset-0 rounded-full border-2 border-indigo-400 opacity-50 animate-ping" style={{ animationDuration: '3s' }} />
+                        <div className="absolute inset-0 rounded-full border-4 border-blue-400 opacity-30 animate-ping" style={{ animationDuration: '2s' }} />
                     )}
                 </button>
             </div>

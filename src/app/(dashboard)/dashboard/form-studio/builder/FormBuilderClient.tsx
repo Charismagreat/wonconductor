@@ -2,12 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveFormTemplateAction, analyzeFormMappingAction } from '@/app/actions/form-studio';
+import { saveFormTemplateAction, analyzeFormMappingAction, optimizeHtmlForMappingAction } from '@/app/actions/form-studio';
 import { 
   Plus, Save, Trash2, Upload, Database, Image as ImageIcon, Sparkles, Wand2, Zap, Loader2, 
   ChevronLeft, ChevronRight, Settings, Maximize, MousePointer2, AlignLeft, AlignRight, 
   AlignStartVertical as AlignTop, AlignEndVertical as AlignBottom, LayoutGrid, ArrowLeft, ArrowRight,
-  Pencil, Play, X, GripVertical
+  Pencil, Play, X, GripVertical, Code, Eye, Terminal, FileUp, AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { SourceSelectionModal } from '@/components/dashboard/SourceSelectionModal';
@@ -49,11 +49,35 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   const [newFormName, setNewFormName] = useState(name);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [builderMode, setBuilderMode] = useState<'classic' | 'modern'>(() => {
+  const [builderMode, setBuilderMode] = useState<'classic' | 'modern' | 'html'>(() => {
     if (initialTemplate?.formType === 'MODERN') return 'modern';
+    if (initialTemplate?.formType === 'HTML') return 'html';
     return 'classic';
   });
+  const [htmlContent, setHtmlContent] = useState(initialTemplate?.webLayoutConfig && initialTemplate?.formType === 'HTML' ? initialTemplate.webLayoutConfig : '');
+  const [htmlViewMode, setHtmlViewMode] = useState<'code' | 'preview'>('code');
+  const [missingAssets, setMissingAssets] = useState<string[]>([]);
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [assetMapping, setAssetMapping] = useState<Record<string, string>>({});
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
+
+  const handleAssetUpload = async (filename: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      setAssetMapping(prev => ({ ...prev, [filename]: base64 }));
+      
+      // HTML 코드 내의 파일명을 Base64로 치환
+      setHtmlContent(prev => {
+        const regex = new RegExp(`src=["']${filename}["']`, 'g');
+        return prev.replace(regex, `src="${base64}"`);
+      });
+      
+      // 누락 목록에서 제거
+      setMissingAssets(prev => prev.filter(f => f !== filename));
+    };
+    reader.readAsDataURL(file);
+  };
   const [webLayout, setWebLayout] = useState<any>(() => {
     try {
       return initialTemplate?.webLayoutConfig ? JSON.parse(initialTemplate.webLayoutConfig) : { sections: [] };
@@ -503,10 +527,62 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
     }
   };
 
+  const handleHtmlAutoMapping = async () => {
+    if (!htmlContent.trim()) {
+      alert('먼저 HTML 코드를 입력해 주세요.');
+      return;
+    }
+    if (!sourceTable) {
+      alert('먼저 데이터 소스를 선택해 주세요.');
+      return;
+    }
+
+    // 로컬 파일 참조 감지 (http, https, data: 로 시작하지 않는 src)
+    const srcRegex = /src=["']((?!http|https|data:)[^"']+)["']/g;
+    const matches = Array.from(htmlContent.matchAll(srcRegex)).map(match => match[1]);
+    const uniqueFiles = Array.from(new Set(matches));
+
+    if (uniqueFiles.length > 0) {
+      setMissingAssets(uniqueFiles);
+      setIsAssetModalOpen(true);
+      return; // 모달을 띄우고 중단
+    }
+
+    proceedWithHtmlMapping();
+  };
+
+  const proceedWithHtmlMapping = async () => {
+    const availableFields = tableSchemas[sourceTable] || [];
+    if (availableFields.length === 0) {
+      alert('사용 가능한 필드가 없습니다.');
+      return;
+    }
+
+    if (!confirm('AI가 HTML 코드를 분석하여 데이터 소스 컬럼과 자동으로 연결(매핑)합니다. 기존 코드가 수정될 수 있습니다. 진행하시겠습니까?')) {
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const result = await optimizeHtmlForMappingAction(htmlContent, availableFields);
+      if (result.success && result.optimizedHtml) {
+        setHtmlContent(result.optimizedHtml);
+        alert('AI 자동 데이터 연결이 완료되었습니다! 수정된 코드를 확인해 보세요.');
+      } else {
+        alert('AI 분석 실패: ' + (result.error || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('HTML Auto-mapping failed:', error);
+      alert('분석 중 오류가 발생했습니다.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const confirmPublish = async () => {
     if (isPublishing) return;
     
-    // Validation
+    console.log('[FormStudio] confirmPublish started');
     const finalName = publishMode === 'new' ? newFormName : name;
     if (!finalName.trim()) {
       alert('양식 이름을 입력해주세요.');
@@ -515,31 +591,35 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
 
     setIsPublishing(true);
     try {
+      console.log(`[FormStudio] Saving with mode: ${publishMode}, type: ${builderMode.toUpperCase()}`);
+      console.log(`[FormStudio] WebLayoutConfig size: ${builderMode === 'html' ? htmlContent.length : 'N/A'}`);
+
       const result = await saveFormTemplateAction({
         id: publishMode === 'overwrite' ? initialTemplate?.id : undefined,
         name: finalName,
-        formType: builderMode.toUpperCase() as 'CLASSIC' | 'MODERN',
+        formType: builderMode.toUpperCase() as 'CLASSIC' | 'MODERN' | 'HTML',
         backgroundImageData: backgroundImage || '',
         mappingConfig: JSON.stringify(mappings),
-        webLayoutConfig: JSON.stringify(webLayout),
+        webLayoutConfig: builderMode === 'html' ? htmlContent : JSON.stringify(webLayout),
         sourceTable: sourceTable,
         status: 'PUBLISHED'
       });
       
+      console.log('[FormStudio] saveFormTemplateAction result:', result);
+
       if (result.success) {
         alert(publishMode === 'new' ? '새 양식이 성공적으로 생성되었습니다.' : '양식이 성공적으로 업데이트되었습니다.');
         setIsPublishModalOpen(false);
-        if (publishMode === 'new') {
-          router.push('/dashboard/form-studio');
-        }
+        router.push('/dashboard/form-studio');
       } else {
         alert('저장 실패: ' + (result.error || '알 수 없는 오류가 발생했습니다.'));
       }
     } catch (error: any) {
-      console.error('Publish failed:', error);
+      console.error('[FormStudio] Publish failed:', error);
       alert('처리 중 시스템 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsPublishing(false);
+      console.log('[FormStudio] confirmPublish finished');
     }
   };
 
@@ -694,14 +774,27 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
                 <Zap size={14} />
                 MODERN (AI)
               </button>
+              <button 
+                onClick={() => setBuilderMode('html')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                  builderMode === 'html' 
+                    ? 'bg-white text-blue-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Code size={14} />
+                HTML (CUSTOM)
+              </button>
             </div>
 
             <div className="h-8 w-[1px] bg-slate-100 mx-2 hidden md:block" />
             
             <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <div className={`w-2 h-2 rounded-full animate-pulse ${builderMode === 'html' ? 'bg-purple-500' : 'bg-green-500'}`} />
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {builderMode === 'classic' ? 'Visual Mapping Mode Active' : 'AI Dynamic Mode Active'}
+                {builderMode === 'classic' ? 'Visual Mapping Mode Active' : 
+                 builderMode === 'modern' ? 'AI Dynamic Mode Active' : 
+                 'Custom HTML Mode Active'}
               </span>
             </div>
           </div>
@@ -916,7 +1009,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
                 </div>
               </div>
             </div>
-        ) : (
+        ) : builderMode === 'modern' ? (
             /* MODERN (AI) MODE CANVAS */
             <div className="flex-1 relative bg-slate-50 rounded-[40px] border border-slate-200 shadow-inner overflow-y-auto min-h-[600px] w-full max-w-5xl mx-auto flex flex-col p-8">
               
@@ -1010,6 +1103,105 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
                   </div>
                 </div>
               )}
+            </div>
+          ) : (
+            /* HTML CUSTOM MODE CANVAS (Integrated & Togglable) */
+            <div className="flex-1 flex flex-col gap-6 w-full max-w-5xl mx-auto h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Toggle Header */}
+              <div className="flex items-center justify-between bg-white/80 backdrop-blur-md px-8 py-4 rounded-[32px] border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-1 bg-slate-100 p-1.5 rounded-[22px] border border-slate-200/50">
+                  <button 
+                    onClick={() => setHtmlViewMode('code')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[11px] font-black transition-all ${
+                      htmlViewMode === 'code' 
+                        ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-[1.02]' 
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Terminal size={14} />
+                    코드보기 (EDITOR)
+                  </button>
+                  <button 
+                    onClick={() => setHtmlViewMode('preview')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[11px] font-black transition-all ${
+                      htmlViewMode === 'preview' 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 scale-[1.02]' 
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Eye size={14} />
+                    미리보기 (PREVIEW)
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={handleHtmlAutoMapping}
+                    disabled={isAnalyzing}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-[10px] font-black hover:bg-indigo-100 transition-all shadow-sm border border-indigo-100 uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={14} className="text-indigo-500" />
+                    )}
+                    AI 자동 데이터 연결
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (confirm('기본 템플릿으로 초기화하시겠습니까?')) {
+                        setHtmlContent(`
+<div style="font-family: sans-serif; padding: 40px; background: #fff; border-radius: 20px;">
+  <h1 style="color: #1e293b; margin-bottom: 24px;">커스텀 HTML 양식</h1>
+  <p style="color: #64748b; margin-bottom: 40px;">여기에 직접 HTML을 작성하세요. input 태그의 <b>name</b> 속성을 테이블 컬럼명과 일치시키면 데이터가 자동 연동됩니다.</p>
+  
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    ${columns.slice(0, 4).map(col => `
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <label style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">${col}</label>
+      <input name="${col}" type="text" style="width: 100%; padding: 12px 16px; border: 2px solid #f1f5f9; border-radius: 12px; font-size: 14px;" placeholder="${col} 입력..." />
+    </div>`).join('')}
+  </div>
+</div>`);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-[10px] font-black text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-widest"
+                  >
+                    <Zap size={14} className="text-amber-500" />
+                    Reset to Template
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Content Area */}
+              <div className="flex-1 min-h-[600px] flex flex-col relative overflow-hidden">
+                {htmlViewMode === 'code' ? (
+                  <div className="flex-1 flex flex-col bg-slate-900 rounded-[40px] p-8 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex items-center gap-2 mb-6 opacity-40">
+                      <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />
+                      <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />
+                      <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />
+                      <span className="ml-2 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Source Code Editor</span>
+                    </div>
+                    <textarea
+                      value={htmlContent}
+                      onChange={(e) => setHtmlContent(e.target.value)}
+                      className="flex-1 bg-transparent border-none focus:ring-0 text-indigo-100 font-mono text-sm resize-none custom-scrollbar leading-relaxed selection:bg-blue-500/30"
+                      placeholder="<!-- 여기에 HTML 코드를 입력하세요 -->"
+                      spellCheck={false}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex-1 bg-white rounded-[40px] border border-slate-200 shadow-xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex-1 overflow-auto p-12 bg-slate-100/30 custom-scrollbar">
+                      <div 
+                        className="w-full h-full min-h-[400px] bg-white rounded-3xl shadow-sm ring-1 ring-slate-100"
+                        dangerouslySetInnerHTML={{ __html: htmlContent || '<div class="h-full flex items-center justify-center text-slate-400 font-bold italic py-40">코드를 입력하면 여기에 실시간으로 표시됩니다.</div>' }} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1109,6 +1301,92 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
                   ) : (
                     '확인'
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Asset Upload Modal (HTML Mode Guardrail) */}
+      {isAssetModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300"
+            onClick={() => setIsAssetModalOpen(false)}
+          />
+          <div className="relative bg-white w-full max-w-lg rounded-[40px] shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+            <div className="bg-amber-50 p-8 flex items-center gap-6 border-b border-amber-100">
+              <div className="w-16 h-16 bg-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <AlertCircle size={32} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800">누락된 파일이 감지되었습니다</h3>
+                <p className="text-xs font-bold text-amber-700 mt-1 uppercase tracking-widest opacity-70">Asset verification required</p>
+              </div>
+            </div>
+
+            <div className="p-10">
+              <p className="text-sm font-bold text-slate-500 leading-relaxed mb-8">
+                입력하신 HTML 코드 내에 다음 로컬 파일들이 참조되고 있습니다. <br/>
+                정확한 AI 분석과 미리보기를 위해 해당 파일들을 준비해 주세요.
+              </p>
+
+              <div className="space-y-4 mb-10 max-h-[300px] overflow-auto custom-scrollbar pr-2">
+                {missingAssets.map((file, idx) => (
+                  <div key={idx} className="group flex flex-col gap-3 p-5 bg-slate-50 rounded-3xl border border-slate-100 transition-all hover:bg-white hover:shadow-md hover:border-blue-100">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-white rounded-xl shadow-sm border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-500 transition-colors">
+                        <ImageIcon size={20} className="text-slate-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-mono font-black text-slate-700 truncate">{file}</p>
+                        <p className="text-[10px] font-bold text-amber-500 uppercase tracking-tight mt-0.5">Missing Asset</p>
+                      </div>
+                    </div>
+                    
+                    <label className="relative flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all group/btn">
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleAssetUpload(file, f);
+                        }}
+                      />
+                      <FileUp size={16} className="text-slate-400 group-hover/btn:text-blue-500 group-hover/btn:scale-110 transition-all" />
+                      <span className="text-[11px] font-black text-slate-500 group-hover/btn:text-blue-600 uppercase tracking-widest">파일 선택하기</span>
+                    </label>
+                  </div>
+                ))}
+                
+                {missingAssets.length === 0 && (
+                  <div className="py-12 flex flex-col items-center justify-center gap-4 bg-green-50 rounded-[32px] border border-green-100 animate-in zoom-in-95">
+                    <div className="w-12 h-12 bg-green-500 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/20">
+                      <Zap size={24} className="text-white" />
+                    </div>
+                    <p className="text-sm font-black text-green-700">모든 파일이 준비되었습니다!</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    setIsAssetModalOpen(false);
+                    proceedWithHtmlMapping();
+                  }}
+                  className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  <Sparkles size={18} className="text-amber-400" />
+                  모두 확인했으며 분석을 계속합니다
+                </button>
+                <button 
+                  onClick={() => setIsAssetModalOpen(false)}
+                  className="w-full py-4 bg-slate-100 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-colors"
+                >
+                  수정하러 가기
                 </button>
               </div>
             </div>

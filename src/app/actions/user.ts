@@ -12,10 +12,12 @@ export async function getUsersAction() {
         throw new Error('접근 권한이 없습니다.');
     }
 
-    const users = await queryTable('user', { 
+    const usersRaw = await queryTable('user', { 
         orderBy: 'username',
         orderDirection: 'ASC'
     });
+
+    const users = Array.isArray(usersRaw) ? usersRaw : (usersRaw as any)?.rows ?? [];
 
     return users.map((user: any) => ({
         ...user,
@@ -31,7 +33,8 @@ export async function updateUserAction(userId: string, data: any) {
     }
 
     // admin_user 본인의 역할이나 활성화 상태 변경은 제한 (안전장치)
-    const targetUsers = await queryTable('user', { filters: { id: String(userId) } });
+    const targetUsersRaw = await queryTable('user', { filters: { id: String(userId) } });
+    const targetUsers = Array.isArray(targetUsersRaw) ? targetUsersRaw : (targetUsersRaw as any)?.rows ?? [];
     const targetUser = targetUsers[0];
     if (targetUser?.username === 'admin_user') {
         if (data.role !== 'ADMIN' || data.isActive === false) {
@@ -45,7 +48,8 @@ export async function updateUserAction(userId: string, data: any) {
     // 아이디 중복 체크 (수정 시 본인 제외)
     if (username) {
         const trimmedUsername = username.trim();
-        const existingUsers = await queryTable('user', { filters: { username: trimmedUsername } });
+        const existingUsersRaw = await queryTable('user', { filters: { username: trimmedUsername } });
+        const existingUsers = Array.isArray(existingUsersRaw) ? existingUsersRaw : (existingUsersRaw as any)?.rows ?? [];
         if (existingUsers.length > 0 && existingUsers[0].id !== userId) {
             throw new Error('이미 사용 중인 아이디입니다.');
         }
@@ -53,7 +57,8 @@ export async function updateUserAction(userId: string, data: any) {
 
     // 사번 중복 체크 (수정 시 본인 제외)
     if (finalEmployeeId) {
-        const existingEmps = await queryTable('user', { filters: { employeeId: finalEmployeeId } });
+        const existingEmpsRaw = await queryTable('user', { filters: { employeeId: finalEmployeeId } });
+        const existingEmps = Array.isArray(existingEmpsRaw) ? existingEmpsRaw : (existingEmpsRaw as any)?.rows ?? [];
         if (existingEmps.length > 0 && existingEmps[0].id !== userId) {
             throw new Error('이미 다른 사용자가 사용 중인 사번입니다.');
         }
@@ -84,12 +89,14 @@ export async function createUserAction(data: any) {
     const finalEmployeeId = employeeId?.trim() || null;
     
     // 아이디 중복 체크
-    const existingUsers = await queryTable('user', { filters: { username: trimmedUsername } });
+    const existingUsersRaw = await queryTable('user', { filters: { username: trimmedUsername } });
+    const existingUsers = Array.isArray(existingUsersRaw) ? existingUsersRaw : (existingUsersRaw as any)?.rows ?? [];
     if (existingUsers.length > 0) throw new Error('이미 존재하는 아이디입니다.');
 
     // 사번 중복 체크
     if (finalEmployeeId) {
-        const existingEmps = await queryTable('user', { filters: { employeeId: finalEmployeeId } });
+        const existingEmpsRaw = await queryTable('user', { filters: { employeeId: finalEmployeeId } });
+        const existingEmps = Array.isArray(existingEmpsRaw) ? existingEmpsRaw : (existingEmpsRaw as any)?.rows ?? [];
         if (existingEmps.length > 0) throw new Error('이미 존재하는 사번입니다.');
     }
 
@@ -159,7 +166,8 @@ export async function bulkCreateUsersAction(usersData: any[]) {
                 : 'VIEWER';
             
             // 아이디 중복 체크
-            const existingUsers = await queryTable('user', { filters: { username: trimmedUsername } });
+            const existingUsersRaw = await queryTable('user', { filters: { username: trimmedUsername } });
+            const existingUsers = Array.isArray(existingUsersRaw) ? existingUsersRaw : (existingUsersRaw as any)?.rows ?? [];
             if (existingUsers.length > 0) {
                 skippedCount++;
                 skippedItems.push({ username: trimmedUsername, reason: '아이디 중복' });
@@ -168,7 +176,8 @@ export async function bulkCreateUsersAction(usersData: any[]) {
 
             // 사번 중복 체크
             if (finalEmployeeId) {
-                const existingEmps = await queryTable('user', { filters: { employeeId: finalEmployeeId } });
+                const existingEmpsRaw = await queryTable('user', { filters: { employeeId: finalEmployeeId } });
+                const existingEmps = Array.isArray(existingEmpsRaw) ? existingEmpsRaw : (existingEmpsRaw as any)?.rows ?? [];
                 if (existingEmps.length > 0) {
                     skippedCount++;
                     skippedItems.push({ username: trimmedUsername, reason: '사번 중복' });
@@ -219,7 +228,8 @@ export async function deleteUserAction(userId: string) {
     }
 
     // 기본 관리자 계정 삭제 방지
-    const targetUsers = await queryTable('user', { filters: { id: userId } });
+    const targetUsersRaw = await queryTable('user', { filters: { id: userId } });
+    const targetUsers = Array.isArray(targetUsersRaw) ? targetUsersRaw : (targetUsersRaw as any)?.rows ?? [];
     const targetUser = targetUsers[0];
     if (targetUser?.username === 'admin_user') {
         throw new Error('기본 관리자 계정은 삭제할 수 없습니다.');

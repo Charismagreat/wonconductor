@@ -101,7 +101,8 @@ export default async function ReportDetailPage({
     } else {
       // 일반 사용자 보고서 또는 물리 테이블
       const filter = /^\d+$/.test(id) ? { id: String(id) } : { reportId: id };
-      const reports = await queryTable('dashboard_master', { filters: filter });
+      const reportsRaw = await queryTable('dashboard_master', { filters: filter });
+      const reports = Array.isArray(reportsRaw) ? reportsRaw : (reportsRaw?.rows || []);
       report = reports[0];
 
       if (!report) {

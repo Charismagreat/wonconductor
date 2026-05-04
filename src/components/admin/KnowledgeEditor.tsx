@@ -13,6 +13,7 @@ import {
     Database,
     Zap
 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import { 
     getKnowledgeListAction, 
     proposeAIKnowledgeAction, 
@@ -130,39 +131,32 @@ export default function KnowledgeEditor({ initialTargetId, initialTargetType = '
     const filteredViews = tableList.view.filter(t => t.id.toLowerCase().includes(search.toLowerCase()) || (t.name && t.name.toLowerCase().includes(search.toLowerCase())));
 
     return (
-        <div className="flex flex-col gap-10 min-h-screen pb-20">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3">
-                        <div className="p-2.5 bg-blue-600 rounded-[20px] text-white shadow-xl shadow-blue-500/20">
-                            <Brain size={24} />
-                        </div>
-                        AI Guardrail Center
-                    </h1>
-                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-2 ml-1">
-                        Intelligence governance & Knowledge base management
-                    </p>
-                </div>
-                <div className="flex gap-3">
-                    <button 
-                        onClick={handleProposeAI} 
-                        disabled={loading || !selectedTarget.id}
-                        className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-100 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-blue-600" />}
-                        AI Profiling
-                    </button>
-                    <button 
-                        onClick={handleApprove} 
-                        disabled={loading || !proposal}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        <CheckCircle className="w-4 h-4" />
-                        Final Approve
-                    </button>
-                </div>
-            </div>
+        <div className="flex flex-col gap-6 min-h-screen pb-20">
+            <PageHeader 
+                title="AI GUARDRAIL CENTER"
+                description="Intelligence governance & Knowledge base management"
+                icon={Brain}
+                rightElement={
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={handleProposeAI} 
+                            disabled={loading || !selectedTarget.id}
+                            className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-100 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-blue-600" />}
+                            AI Profiling
+                        </button>
+                        <button 
+                            onClick={handleApprove} 
+                            disabled={loading || !proposal}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <CheckCircle className="w-4 h-4" />
+                            Final Approve
+                        </button>
+                    </div>
+                }
+            />
 
             <div className="flex flex-col lg:flex-row gap-10 items-start">
                 {/* 1. Sidebar: Table List */}

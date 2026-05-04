@@ -11,7 +11,8 @@ import {
   History,
   Search,
   Filter,
-  Check
+  Check,
+  Star
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -137,46 +138,46 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-      <main className="max-w-[1600px] mx-auto px-8 md:px-12 pt-6 pb-12 space-y-12 w-full overflow-y-auto">
+      <main className="max-w-[1600px] mx-auto px-8 md:px-12 pt-6 pb-12 space-y-8 w-full overflow-y-auto">
         <PageHeader 
           title={isStaff ? "Employee Hub" : (pathname === '/dashboard' ? "Dashboard" : "My DB")}
           description={isStaff ? "부서별로 공유된 데이터 테이블과 입력 양식을 확인할 수 있습니다." : 
                       (activeTab === 'reports' ? "조직의 모든 데이터를 관리하고 분석할 수 있는 데이터 센터입니다." : "데이터베이스 전체를 시점별로 저장하고 복구할 수 있는 백업 센터입니다.")}
           icon={pathname === '/dashboard' ? Star : Database}
           rightElement={
-            !isStaff && activeTab === 'reports' && (
-              <button 
-                onClick={() => setShowManualModal(true)}
-                className="px-6 py-3 bg-blue-600 text-white font-black rounded-2xl hover:bg-slate-900 transition-all active:scale-95 shadow-xl shadow-blue-500/20 text-sm tracking-widest uppercase flex items-center gap-2"
-              >
-                <Plus size={16} />
-                테이블 직접 만들기
-              </button>
-            )
+            <div className="flex flex-col md:flex-row items-center gap-6">
+              {!isStaff && (
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-[20px] shadow-sm">
+                  <button 
+                    onClick={() => setActiveTab('reports')}
+                    className={`px-6 py-2.5 rounded-[16px] text-[10px] font-black uppercase tracking-widest transition-all ${
+                      activeTab === 'reports' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    MY DB Repository
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('backups')}
+                    className={`px-6 py-2.5 rounded-[16px] text-[10px] font-black uppercase tracking-widest transition-all ${
+                      activeTab === 'backups' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    System Snapshots
+                  </button>
+                </div>
+              )}
+              {!isStaff && activeTab === 'reports' && (
+                <button 
+                  onClick={() => setShowManualModal(true)}
+                  className="px-6 py-3 bg-blue-600 text-white font-black rounded-2xl hover:bg-slate-900 transition-all active:scale-95 shadow-xl shadow-blue-500/20 text-sm tracking-widest uppercase flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  테이블 직접 만들기
+                </button>
+              )}
+            </div>
           }
         />
-
-        {/* Tab Navigation (Premium Style) */}
-        {!isStaff && (
-          <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-[22px] w-fit">
-            <button 
-              onClick={() => setActiveTab('reports')}
-              className={`px-8 py-3 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all ${
-                activeTab === 'reports' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              MY DB Repository
-            </button>
-            <button 
-              onClick={() => setActiveTab('backups')}
-              className={`px-8 py-3 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all ${
-                activeTab === 'backups' ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              System Snapshots
-            </button>
-          </div>
-        )}
 
         {/* Content based on active tab */}
         {activeTab === 'reports' ? (
@@ -194,91 +195,84 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
 
             {/* Smart Toolbox (Search & Filters) */}
             <section className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-900/5 space-y-10">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div className="flex items-center gap-4">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+                <div className="flex items-center gap-4 shrink-0">
                   <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
                     <Filter size={24} />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900 leading-tight tracking-tight">지능형 탐색</h2>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total {reports.length} tables integrated</p>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <h2 className="text-xl font-black text-slate-900 leading-tight tracking-tight">지능형 탐색</h2>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total {reports.length} tables integrated</p>
+                    </div>
+                    {/* Results Badge (Moved from Bottom) */}
+                    <div className="px-3 py-1.5 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20 animate-in zoom-in duration-300">
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                        Results: {filteredReports.length}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="relative flex-1 lg:max-w-md group">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
-                  <input 
-                    type="text" 
-                    placeholder="Search by name, ID or description..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:bg-white transition-all outline-none placeholder:text-slate-400"
-                  />
-                </div>
-              </div>
-
-              {/* Category Chips & Tag Cloud */}
-              <div className="pt-6 border-t border-slate-50 space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2 relative ${
-                        selectedCategory === cat 
-                        ? 'bg-slate-900 text-white shadow-xl shadow-slate-900/20 ring-4 ring-slate-900/5' 
-                        : 'bg-white text-slate-400 hover:bg-slate-50 border border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      {selectedCategory === cat && <Check size={12} strokeWidth={3} className="text-blue-400" />}
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {allTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <div className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
-                      <Filter size={10} /> TAG FILTERS
-                    </div>
-                    {allTags.map(tag => (
+                <div className="flex flex-col md:flex-row items-center gap-4 flex-1 justify-center">
+                  {/* Category Chips */}
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-1 rounded-[22px] border border-slate-100/50">
+                    {categories.map(cat => (
                       <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
-                          selectedTags.includes(tag)
-                          ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-5 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                          selectedCategory === cat 
+                          ? 'bg-slate-900 text-white shadow-lg' 
+                          : 'text-slate-400 hover:text-slate-600'
                         }`}
                       >
-                        #{tag}
+                        {selectedCategory === cat && <Check size={12} strokeWidth={3} className="text-blue-400" />}
+                        {cat}
                       </button>
                     ))}
                   </div>
-                )}
+
+                  {/* Search Bar */}
+                  <div className="relative w-full md:max-w-xs group">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                    <input 
+                      type="text" 
+                      placeholder="Search tables..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:bg-white transition-all outline-none placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Tag Cloud (Integrated) */}
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">
+                    <Filter size={10} /> TAGS
+                  </div>
+                  {allTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                        selectedTags.includes(tag)
+                        ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
+                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
 
             {/* Reports List */}
             <section className="max-w-[1600px] mx-auto">
-              <div className="flex items-center justify-between mb-8 px-2">
-                <div className="flex items-center gap-3">
-                  <FileSpreadsheet size={24} className="text-blue-600" />
-                  <div className="flex flex-col">
-                    <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">{isStaff ? 'My Workspace' : 'MY DB Repository'}</h2>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Authorized data objects only</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                   <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Results: <span className="text-blue-600 text-sm ml-1">{filteredReports.length}</span>
-                    </span>
-                   </div>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredReports.map((report: any) => {
                    return (
@@ -293,8 +287,8 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                         className="absolute inset-0 z-0"
                       />
 
-                      <div className="p-7 relative z-10 pointer-events-none">
-                        <div className="flex items-start gap-4 mb-6">
+                      <div className="p-6 relative z-10 pointer-events-none">
+                        <div className="flex items-start gap-4 mb-4">
                           <div className={`p-3 rounded-2xl transition-all duration-500 shrink-0 ${
                               report.isFinanceTable ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white group-hover:scale-110 shadow-sm' :
                               report.isSystemTable ? 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 shadow-sm' :
@@ -372,7 +366,7 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 pt-5 border-t border-slate-50">
+                        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-50">
                           <LocalBadge color="blue" scale={0.95}>
                             REPO: {report.sheetName || 'MY DB'}
                           </LocalBadge>

@@ -8,20 +8,12 @@ import {
   Search, 
   Grid, 
   List,
-  Sparkles,
   Layout,
   Wallet,
   Calendar,
-  Layers,
   Settings,
-  Database,
   ArrowRight,
-  Briefcase,
-  Bell,
-  Clock,
-  AlertTriangle,
-  TrendingUp,
-  CheckCircle2
+  Clock
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,8 +25,10 @@ import {
 import { 
   Trash2, 
   Edit3,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2
 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 interface PublishingHubClientProps {
   initialApps: any[];
@@ -105,62 +99,38 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
   if (!isMounted) return null;
 
   return (
-    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+      <PageHeader 
+        title="APP STUDIO"
+        description="AI를 통해 전사 데이터를 기반으로 비즈니스 앱을 조립하고 안전하게 퍼블리싱합니다."
+        icon={Rocket}
+        rightElement={
+          <div className="flex flex-wrap items-center gap-4 w-full md:w-fit">
+            <div className="relative flex-1 md:w-80 group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <input 
+                type="text" 
+                placeholder="앱 또는 프로젝트 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:bg-white transition-all outline-none"
+              />
+            </div>
+
+            <button 
+              onClick={handleCreateProject}
+              disabled={isCreating}
+              className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              {isCreating ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+              {isCreating ? '생성 중...' : '새 앱 프로젝트'}
+            </button>
+          </div>
+        }
+      />
       
-      {/* 1. Stats Grid - Unified with Workflow Hub */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Live Apps', count: initialApps.length, icon: Layers, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Draft Projects', count: initialProjects.filter(p => p.status !== 'PUBLISHED').length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'AI Designer', count: 'Pro', icon: Sparkles, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Data Sources', count: 'Ready', icon: Database, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        ].map((s, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-lg transition-all">
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-              <p className={`text-2xl font-black ${s.color}`}>{s.count}</p>
-            </div>
-            <div className={`${s.bg} ${s.color} p-3 rounded-2xl group-hover:scale-110 transition-transform`}>
-              <s.icon size={20} />
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {/* 2. Quick Search & Control Bar - Unified with Workflow Hub */}
-      <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-l-8 border-l-blue-600">
-        <div className="flex items-center gap-5">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100">
-            <Layout size={24} />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight">앱 및 프로젝트 통합 관리</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">App & Project Management</p>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap items-center gap-4 w-full md:w-fit">
-          <div className="relative flex-1 md:w-80 group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-            <input 
-              type="text" 
-              placeholder="앱 또는 프로젝트 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:bg-white transition-all outline-none"
-            />
-          </div>
 
-          <button 
-            onClick={handleCreateProject}
-            disabled={isCreating}
-            className="px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
-          >
-            <Plus size={18} />
-            {isCreating ? '생성 중...' : '새 앱 프로젝트'}
-          </button>
-        </div>
-      </div>
 
       {/* 3. Projects Section (Drafts) */}
       <section>

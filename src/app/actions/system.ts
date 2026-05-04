@@ -15,6 +15,19 @@ export async function getSystemSettingsAction() {
 }
 
 /**
+ * 🏢 공개 시스템 설정 조회 (회사명 등)
+ */
+export async function getPublicSystemSettingsAction() {
+    const settings = await SystemConfigService.getSettings();
+    
+    return {
+        companyName: settings?.companyName || 'Won Conductor',
+        logoUrl: settings?.logoUrl,
+        themeColor: settings?.themeColor
+    };
+}
+
+/**
  * 💾 전역 시스템 설정 업데이트
  */
 export async function updateSystemSettingsAction(updates: Partial<SystemSettings>) {

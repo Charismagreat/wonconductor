@@ -3,6 +3,7 @@ import { SmartFAB } from '@/components/workspace/SmartFAB';
 import UserMenu from '@/components/workspace/UserMenu';
 
 import { getSessionAction } from '@/app/actions/auth';
+import { getPublicSystemSettingsAction } from '@/app/actions/system';
 import { redirect } from 'next/navigation';
 
 export default async function WorkspaceLayout({
@@ -15,13 +16,16 @@ export default async function WorkspaceLayout({
         redirect('/login');
     }
 
+    const settings = await getPublicSystemSettingsAction();
+    const companyName = settings?.companyName || 'Won Conductor';
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col relative w-full overflow-hidden mobile-shell">
             {/* Header: Unified with User Name & Logout */}
             <header className="fixed top-0 w-full bg-white bg-opacity-90 backdrop-blur-md border-b border-gray-100 z-40 h-14 flex items-center justify-between px-6">
                 <div className="flex items-center gap-2">
                     <h1 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                        Won Conductor
+                        {companyName}
                     </h1>
                 </div>
                 <div className="flex items-center gap-4">

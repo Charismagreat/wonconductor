@@ -178,3 +178,39 @@ export async function decideSteeringActionAction(steeringId: string, decision: '
     revalidatePath('/notifications');
     return { success: true };
 }
+
+/**
+ * 특정 업무를 수동으로 STEERING HUB로 이동(지휘 요청)시킵니다.
+ */
+export async function requestSteeringAction(reportId: string, rowId: string, reasoning: string = "관리자에 의해 수동으로 지휘가 요청되었습니다.") {
+    const session = await getSessionAction();
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'EDITOR')) {
+        throw new Error('권한이 없습니다.');
+    }
+
+    try {
+        // AI 추천을 먼저 받아온 후 steering 테이블에 저장
+        // (기존 recommendWorkflowAction 로직을 활용하되, 수동 요청임을 명시)
+        await recommendWorkflowAction(reportId, rowId, { _manualRequest: true });
+        
+        // 최근 생성된 steering 항목의 reasoning을 업데이트 (수동 사유 추가)
+        const [latest] = await queryTable('workflow_steering', {
+            filters: { reportId, rowId, status: 'PENDING' },
+            orderBy: 'createdAt',
+            orderDirection: 'DESC',
+            limit: 1
+        });
+
+        if (latest) {
+            await updateRows('workflow_steering', {
+                reasoning: `[수동 지휘 요청] ${reasoning}\n\n시스템 분석: ${latest.reasoning}`
+            }, { filters: { id: latest.id } });
+        }
+
+        revalidatePath('/workflow/steering');
+        return { success: true };
+    } catch (error: any) {
+        console.error('[Manual Steering Request Error]:', error);
+        throw new Error(error.message || '지휘 요청에 실패했습니다.');
+    }
+}

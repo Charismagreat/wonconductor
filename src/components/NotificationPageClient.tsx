@@ -24,8 +24,11 @@ import {
     UserCheck,
     AlertTriangle,
     MapPin,
-    Trash2
+    Trash2,
+    Filter,
+    Zap
 } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 import { 
     markNotificationAsReadAction, 
     markAllNotificationsAsReadAction,
@@ -35,8 +38,9 @@ import {
     purgeWorkspaceTestDataAction,
     deleteNotificationGroupAction
 } from '@/app/actions/notification';
+import { requestSteeringAction } from '@/app/actions/workflow-steering';
 import { FieldReportSection } from '@/components/FieldReportSection';
-import { Filter } from 'lucide-react';
+
 
 /**
  * 🛡️ Explicit SafeIcon: Uses actual component references to avoid "undefined" errors.
@@ -86,6 +90,7 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDept, setSelectedDept] = useState('ALL');
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [isSteeringId, setIsSteeringId] = useState<string | null>(null);
 
     const toggleGroup = async (key: string, latestLog?: any) => {
         const isOpening = !expandedGroups[key];
@@ -218,6 +223,45 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
         }
     };
 
+    const handleRequestSteering = async (log: any) => {
+        if (!isAdmin || isSteeringId) return;
+
+        const openItemMatch = typeof log.link === 'string' ? log.link.match(/[?&]openItem=([^&]+)/) : null;
+        const rowId = openItemMatch ? decodeURIComponent(openItemMatch[1]) : null;
+        const reportMatch = log.title?.match(/\[(.*?)\]/);
+        const reportName = reportMatch ? reportMatch[1] : null;
+
+        if (!rowId || !reportName) {
+            alert('데이터 연동 정보가 부족하여 지휘 요청을 할 수 없습니다.');
+            return;
+        }
+
+        // reportId를 찾기 위해 departments나 다른 메타데이터를 활용하거나 
+        // link(/report/reportId)에서 추출
+        const reportIdMatch = log.link?.match(/\/report\/([^/?]+)/);
+        const reportId = reportIdMatch ? reportIdMatch[1] : null;
+
+        if (!reportId) {
+            alert('보고서 ID를 찾을 수 없습니다.');
+            return;
+        }
+
+        const ok = window.confirm(`[${reportName}] 관련 업무를 STEERING HUB(대표이사 지휘)로 이동하시겠습니까?\n\nAI가 해당 데이터를 분석하여 대표이사에게 추천 조치를 보고하게 됩니다.`);
+        if (!ok) return;
+
+        setIsSteeringId(log.id);
+        try {
+            const res = await requestSteeringAction(reportId, rowId);
+            if (res.success) {
+                alert('STEERING HUB로 성공적으로 전달되었습니다.\n대표이사가 지휘 센터에서 해당 내용을 확인하고 조치를 결정하게 됩니다.');
+            }
+        } catch (err: any) {
+            alert(err.message || '지휘 요청 중 오류가 발생했습니다.');
+        } finally {
+            setIsSteeringId(null);
+        }
+    };
+
     // 🛡️ UNYIELDING MOUNT GUARD
     if (!isMounted) {
         return (
@@ -285,7 +329,46 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
     };
 
     return (
-        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            <PageHeader 
+                title="WORKFLOW HUB"
+                description={user.role === 'ADMIN' 
+                    ? "전사 업무 여정을 실시간으로 관제하고 진행 상태를 모니터링합니다." 
+                    : "본인에게 할당된 업무 흐름과 실시간 알림을 확인합니다."}
+                icon={Bell}
+                rightElement={(
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                        <div className="relative min-w-[140px]">
+                            <select 
+                                value={selectedDept}
+                                onChange={(e) => setSelectedDept(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 shadow-sm focus:ring-2 focus:ring-blue-500/20 appearance-none transition-all cursor-pointer hover:bg-slate-50"
+                            >
+                                <option value="ALL">전체 부서 관제</option>
+                                {departments.map((dept) => (
+                                    <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                ))}
+                            </select>
+                            <SafeIcon icon={Filter} isMounted={isMounted} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
+                        </div>
+
+                        <form onSubmit={handleAdminSearch} className="relative w-full md:w-64">
+                            <input 
+                                type="text" 
+                                placeholder="사원명, 업무 검색..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-900 placeholder:text-slate-400 shadow-sm focus:ring-2 focus:ring-blue-500/20 transition-all hover:bg-slate-50"
+                            />
+                            <SafeIcon icon={Search} isMounted={isMounted} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                        </form>
+                        
+                        <div className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 flex items-center gap-2">
+                            <div className="w-1 h-1 bg-white rounded-full animate-pulse" /> LIVE
+                        </div>
+                    </div>
+                )}
+            />
             {/* 1. Field Report Section (Consolidated from Workspace) */}
             {user.role !== 'CEO' && user.role !== 'ADMIN' && (
                 <FieldReportSection deptId={user.departmentId || 'GENERAL'} />
@@ -294,7 +377,7 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
             {/* 2. Stats Grid - Unified with Department Workspace Design */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
-                    { label: '전체 소식', count: stats.total, icon: Bell, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { label: '전체 업무', count: stats.total, icon: Bell, color: 'text-blue-600', bg: 'bg-blue-50' },
                     { label: '진행 대기', count: stats.todo, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
                     { label: '조치 필요', count: stats.actionRequired, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
                     { label: '진행 중', count: stats.inProgress, icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
@@ -312,102 +395,10 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                 ))}
             </div>
 
-            {/* Quick Search & Filter Bar */}
-            <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 border-l-8 border-l-blue-600">
-                <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center border border-blue-100">
-                        <SafeIcon icon={Briefcase} isMounted={isMounted} size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-black text-slate-800 tracking-tight">지능형 업무 관제 서버</h1>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Workflow Hub Live Monitor</p>
-                    </div>
-                </div>
-                
-                <div className="flex flex-wrap items-center gap-4 w-full md:w-fit">
-                    {/* Department Filter (Replaces Workspace Sidebar) */}
-                    <div className="relative min-w-[160px]">
-                        <select 
-                            value={selectedDept}
-                            onChange={(e) => setSelectedDept(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border-slate-100 rounded-2xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20 appearance-none transition-all cursor-pointer"
-                        >
-                            <option value="ALL">전체 부서 관제</option>
-                            {departments.map((dept) => (
-                                <option key={dept.id} value={dept.id}>{dept.name}</option>
-                            ))}
-                        </select>
-                        <SafeIcon icon={Filter} isMounted={isMounted} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                    </div>
 
-                    <form onSubmit={handleAdminSearch} className="flex-1 md:w-80 relative">
-                        <input 
-                            type="text" 
-                            placeholder="사원명, 업무 내용 검색..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-slate-100 rounded-2xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                        />
-                        <SafeIcon icon={Search} isMounted={isMounted} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                    </form>
-                    <div className="px-4 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> LIVE
-                    </div>
-                    {/* 
-                        [정지] 테스트 데이터 일괄 삭제 기능 - 필요 시 주석 해제하여 사용
-                        isAdmin && (
-                        <>
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">최근</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={365}
-                                    value={purgeDays}
-                                    onChange={(e) => setPurgeDays(Math.max(1, Math.min(365, Number(e.target.value) || 30)))}
-                                    className="w-16 px-2 py-1 rounded-md border border-slate-200 text-xs font-bold text-slate-700"
-                                />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">일</span>
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    if (isPreviewingPurge || isPurgingTestData) return;
-                                    setIsPreviewingPurge(true);
-                                    try {
-                                        const preview = await previewWorkspaceTestDataPurgeAction(purgeDays);
-                                        alert(
-                                            `삭제 미리보기 (최근 ${preview.days}일)\n` +
-                                            `- 대상 항목: ${preview.targetItems}건\n` +
-                                            `- 연관 알림: ${preview.targetNotifications}건\n` +
-                                            `- 연관 파일: ${preview.targetFiles}건`
-                                        );
-                                    } catch (err: any) {
-                                        alert(err?.message || '삭제 대상 미리보기에 실패했습니다.');
-                                    } finally {
-                                        setIsPreviewingPurge(false);
-                                    }
-                                }}
-                                disabled={isPreviewingPurge || isPurgingTestData}
-                                className="px-4 py-2 rounded-xl bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-slate-500/20 disabled:opacity-60 disabled:cursor-not-allowed hover:bg-slate-800 transition-colors"
-                                title="삭제 대상 미리보기"
-                            >
-                                {isPreviewingPurge ? '미리보기...' : '삭제 미리보기'}
-                            </button>
-                            <button
-                                onClick={handlePurgeWorkspaceTestData}
-                                disabled={isPurgingTestData || isPreviewingPurge}
-                                className="px-4 py-2 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20 disabled:opacity-60 disabled:cursor-not-allowed hover:bg-red-700 transition-colors"
-                                title="사원이 등록한 워크스페이스 테스트 데이터 일괄 삭제"
-                            >
-                                {isPurgingTestData ? '삭제 중...' : '테스트 데이터 일괄 삭제'}
-                            </button>
-                        </>
-                    )*/}
-                </div>
-            </div>
 
             {/* Journey View */}
-            <div className="space-y-12">
+            <div className="space-y-4">
                 {loading ? (
                     <div className="bg-white border border-slate-100 rounded-[32px] p-20 text-center text-slate-300">
                         <SafeIcon icon={Loader2} isMounted={isMounted} size={32} className="animate-spin mb-4 mx-auto" />
@@ -542,6 +533,25 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                                         </div>
 
                                         <div className="flex items-center gap-4">
+                                            {/* ⚡ 지휘 요청 버튼 */}
+                                            {isAdmin && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleRequestSteering(latestLog);
+                                                    }}
+                                                    disabled={isSteeringId === latestLog.id}
+                                                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border border-transparent group/zap ${
+                                                        isSteeringId === latestLog.id 
+                                                        ? 'bg-blue-100 text-blue-600 animate-pulse' 
+                                                        : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-200'
+                                                    }`}
+                                                    title="대표이사(CEO) 지휘 요청 - STEERING HUB로 이동"
+                                                >
+                                                    <SafeIcon icon={isSteeringId === latestLog.id ? Loader2 : Zap} isMounted={isMounted} size={20} className={isSteeringId === latestLog.id ? "animate-spin" : "group-hover/zap:scale-110 transition-transform"} />
+                                                </button>
+                                            )}
+
                                             {/* 🗑️ 삭제 버튼 (관리자 전용) */}
                                             {isAdmin && (
                                                 <button 
@@ -559,6 +569,7 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                                             <div className="text-right hidden md:block">
                                                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">최종 업데이트</p>
                                                 <p className="text-xs font-bold text-slate-600">
+                                                    <span className="opacity-40 font-medium mr-1.5">{new Date(latestLog.createdAt).toLocaleDateString([], { month: '2-digit', day: '2-digit' })}</span>
                                                     {new Date(latestLog.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
@@ -595,7 +606,7 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                                                                     {log.title}
                                                                 </span>
                                                                 <span className="text-[9px] font-medium text-slate-400">
-                                                                    {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    {new Date(log.createdAt).toLocaleDateString([], { month: '2-digit', day: '2-digit' })} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                             </div>
                                                             <p className="text-[10px] text-slate-400 mt-0.5">{log.message}</p>

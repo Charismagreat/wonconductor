@@ -10,7 +10,7 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, description, icon: Icon, rightElement }: PageHeaderProps) {
     return (
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6">
             <div className="animate-in fade-in slide-in-from-left duration-500">
                 <h1 className="text-xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3 font-[family-name:var(--font-geist-sans)]">
                     <span className="uppercase">{title}</span>

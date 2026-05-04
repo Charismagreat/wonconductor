@@ -26,8 +26,9 @@ import {
 } from '@/app/actions/ai';
 import { SmartChart } from '@/components/SmartChart';
 import { SourceSelectionModal } from '@/components/dashboard/SourceSelectionModal';
-import { Plus, Rocket } from 'lucide-react';
+import { Plus, Rocket, Compass, Loader2 } from 'lucide-react';
 import { QuickAppBuilderModal } from '@/components/dashboard/QuickAppBuilderModal';
+import PageHeader from '@/components/PageHeader';
 
 // 저장소 키 (하위 호환성 및 로그 확인용)
 const STORAGE_KEY = 'egdesk_ai_studio_state';
@@ -297,9 +298,74 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
   const currentTargetedConfig = currentTargetedChart?.versions[currentTargetedChart.currentVersion];
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 min-h-[calc(100vh-12rem)] animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <PageHeader 
+        title="CHART STUDIO"
+        description="테이블 데이터를 AI가 분석하여 최적의 차트와 인사이트를 생성합니다."
+        icon={Compass}
+        rightElement={
+          <div className="flex flex-wrap items-center gap-4 w-full md:w-fit justify-end">
+            <div className="flex flex-wrap gap-2 items-center">
+              {selectedIds.length === 0 ? (
+                <div className="flex items-center gap-2 text-slate-300 mr-2">
+                  <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">No tables selected. Click 'Data Source'.</span>
+                </div>
+              ) : (
+                selectedIds.map(id => {
+                  const table = allTables.find(t => t.id === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-xl text-[10px] font-black border border-blue-100 animate-in fade-in slide-in-from-right-2">
+                      {table?.displayName || table?.name || id}
+                      <X size={10} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => toggleTable(id)} />
+                    </span>
+                  );
+                })
+              )}
+            </div>
+
+            <button 
+              onClick={() => setIsSourceModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 group shrink-0"
+            >
+              <Plus size={14} className="group-hover:rotate-90 transition-transform" />
+              Data Source
+            </button>
+            
+            {(selectedIds.length > 0 || charts.length > 0) && (
+              <button 
+                onClick={() => {
+                  setIsAppBuildMode(!isAppBuildMode);
+                  setSelectedChartIdsForApp([]);
+                }}
+                className={`px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 ${
+                  isAppBuildMode 
+                  ? 'bg-amber-100 text-amber-600 border border-amber-200 shadow-amber-500/10' 
+                  : 'bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-indigo-500/10 hover:bg-indigo-100'
+                }`}
+              >
+                {isAppBuildMode ? <X size={14} /> : <Rocket size={14} />}
+                {isAppBuildMode ? 'Exit Build Mode' : 'Create Micro-App'}
+              </button>
+            )}
+
+            {selectedIds.length > 0 && (
+              <button 
+                onClick={() => handleSend("현재 선택한 테이블들의 데이터를 분석해서 시각화 차트를 추천해줘.")}
+                disabled={isTyping || isAppBuildMode}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-2"
+              >
+                {isTyping ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {isTyping ? 'Analyzing...' : 'Auto-Generate'}
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 min-h-[calc(100vh-16rem)]">
       {/* 1. Left Column: Full Height Chat Interface */}
-      <div className="xl:col-span-1 flex flex-col h-full min-h-[600px]">
+      <div className="xl:col-span-2 flex flex-col h-full min-h-[600px]">
         <div className="flex-1 bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-slate-50 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -428,145 +494,82 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                </div>
             </div>
       </div>
-      {/* 2. Right Column: Data Source + Charts */}
-      <div className="xl:col-span-2 flex flex-col gap-8">
-        {/* 2a. Data Source Context Bar */}
-        <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex flex-wrap items-center gap-4 flex-1">
-            <button 
-              onClick={() => setIsSourceModalOpen(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 group shrink-0"
-            >
-              <Plus size={16} className="group-hover:rotate-90 transition-transform" />
-              Data Source
-            </button>
-            
-            <div className="flex flex-wrap gap-2 items-center">
-              {selectedIds.length === 0 ? (
-                <div className="flex items-center gap-2 text-slate-300 ml-2">
-                  <span className="w-1.5 h-1.5 bg-slate-200 rounded-full animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">No tables selected. Click 'Data Source'.</span>
+
+      {/* 2. Right Column: Visualization Area */}
+      <div className="xl:col-span-3 flex flex-col h-full">
+        <div className="space-y-8 h-full">
+          {selectedIds.length === 0 ? (
+            <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-white rounded-[40px] border border-dashed border-slate-200 text-center p-12">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-8">
+                <PieChart size={48} className="text-slate-200" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight uppercase tracking-widest">Ready to Analyze</h3>
+              <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm">
+                왼쪽 목록에서 분석하고 싶은 테이블을 선택하면 AI가 데이터를 검토하여 최적의 시각화를 추천해 드립니다.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
+              {charts.length === 0 && !isTyping && (
+                <div className="md:col-span-2 h-[400px] flex flex-col items-center justify-center bg-white rounded-[40px] border border-dashed border-slate-100 text-center">
+                   <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 animate-bounce">
+                     <Sparkles size={24} />
+                   </div>
+                   <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Ready to Visualize</h4>
+                   <p className="text-xs text-slate-400 font-medium">채팅을 통해 분석을 시작하거나 왼쪽 하단의 'Auto-Generate'를 눌러보세요.</p>
                 </div>
-              ) : (
-                selectedIds.map(id => {
-                  const table = allTables.find(t => t.id === id);
-                  return (
-                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-[11px] font-black border border-blue-100 animate-in fade-in slide-in-from-left-2">
-                      {table?.displayName || table?.name || id}
-                      <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => toggleTable(id)} />
-                    </span>
-                  );
-                })
+              )}
+              
+              {charts.map((chart) => (
+                <div 
+                  key={chart.id} 
+                  className={chart.layout?.span === 'full' ? 'md:col-span-2' : 'md:col-span-1'}
+                >
+                  <SmartChart 
+                    config={chart.versions[chart.currentVersion]} 
+                    isSelected={selectedChartId === chart.id}
+                    currentVersion={chart.currentVersion + 1}
+                    totalVersions={chart.versions.length}
+                    onVersionChange={(v) => handleVersionChange(chart.id, v)}
+                    onPin={() => handlePinChart(chart.id, chart.versions[chart.currentVersion], chart.layout)}
+                    isPinned={pinnedIds.includes(chart.id)}
+                    onSelect={() => setSelectedChartId(prev => prev === chart.id ? null : chart.id)}
+                    onDelete={() => handleDeleteChart(chart.id)}
+                    layout={chart.layout}
+                    onLayoutChange={(newLayout) => handleLayoutChange(chart.id, newLayout)}
+                    isBuildMode={isAppBuildMode}
+                    isBuildSelected={selectedChartIdsForApp.includes(chart.id)}
+                    onBuildSelect={(selected) => {
+                      setSelectedChartIdsForApp(prev => 
+                        selected ? [...prev, chart.id] : prev.filter(id => id !== chart.id)
+                      );
+                    }}
+                  />
+                </div>
+              ))}
+
+              {isTyping && (
+                <div className="md:col-span-2 bg-white/50 backdrop-blur-sm p-12 rounded-[40px] border border-dashed border-blue-200 flex flex-col items-center justify-center animate-in fade-in duration-300">
+                   <div className="relative w-16 h-16 mb-6">
+                      <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
+                      <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
+                   </div>
+                   <p className="text-xs font-black text-blue-600 uppercase tracking-widest animate-pulse mb-8">AI가 데이터를 분석하며 차트를 구성 중입니다...</p>
+                   
+                   <button 
+                    onClick={handleCancelAnalysis}
+                    className="px-6 py-2.5 bg-white text-red-500 border border-red-100 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm flex items-center gap-2"
+                   >
+                     <X size={14} />
+                     Cancel Analysis
+                   </button>
+                </div>
               )}
             </div>
-          </div>
-          
-          <div className="flex items-center gap-3 shrink-0">
-             {/* 퀵 빌더 모드 토글 (항상 노출하거나 차트가 있을 때 노출) */}
-             {(selectedIds.length > 0 || charts.length > 0) && (
-               <button 
-                 id="build-mode-toggle"
-                 onClick={() => {
-                   setIsAppBuildMode(!isAppBuildMode);
-                   setSelectedChartIdsForApp([]);
-                 }}
-                 className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center gap-3 ${
-                   isAppBuildMode 
-                   ? 'bg-amber-100 text-amber-600 border border-amber-200 shadow-amber-500/10' 
-                   : 'bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-indigo-500/10 hover:bg-indigo-100'
-                 }`}
-               >
-                 {isAppBuildMode ? <X size={14} /> : <Rocket size={14} />}
-                 {isAppBuildMode ? 'Exit Build Mode' : 'Create Micro-App'}
-               </button>
-             )}
-
-             {selectedIds.length > 0 && (
-               <button 
-                onClick={() => handleSend("현재 선택한 테이블들의 데이터를 분석해서 시각화 차트를 추천해줘.")}
-                disabled={isTyping || isAppBuildMode}
-                className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-3"
-              >
-                {isTyping ? <RotateCcw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isTyping ? 'Analyzing...' : 'Auto-Generate'}
-              </button>
-             )}
-          </div>
+          )}
         </div>
-
-        {/* 2b. Visualization Area */}
-        <div className="space-y-8 h-full">
-               {selectedIds.length === 0 ? (
-                 <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-white rounded-[40px] border border-dashed border-slate-200 text-center p-12">
-                   <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-8">
-                     <PieChart size={48} className="text-slate-200" />
-                   </div>
-                   <h3 className="text-xl font-black text-slate-900 mb-2 tracking-tight uppercase tracking-widest">Ready to Analyze</h3>
-                   <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm">
-                     왼쪽 목록에서 분석하고 싶은 테이블을 선택하면 AI가 데이터를 검토하여 최적의 시각화를 추천해 드립니다.
-                   </p>
-                 </div>
-               ) : (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
-                    {charts.length === 0 && !isTyping && (
-                      <div className="md:col-span-2 h-[400px] flex flex-col items-center justify-center bg-white rounded-[40px] border border-dashed border-slate-100 text-center">
-                         <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 animate-bounce">
-                           <Sparkles size={24} />
-                         </div>
-                         <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Ready to Visualize</h4>
-                         <p className="text-xs text-slate-400 font-medium">채팅을 통해 분석을 시작하거나 왼쪽 하단의 'Auto-Generate'를 눌러보세요.</p>
-                      </div>
-                    )}
-                    
-                    {charts.map((chart) => (
-                      <div 
-                        key={chart.id} 
-                        className={chart.layout?.span === 'full' ? 'md:col-span-2' : 'md:col-span-1'}
-                      >
-                        <SmartChart 
-                          config={chart.versions[chart.currentVersion]} 
-                          isSelected={selectedChartId === chart.id}
-                          currentVersion={chart.currentVersion + 1}
-                          totalVersions={chart.versions.length}
-                          onVersionChange={(v) => handleVersionChange(chart.id, v)}
-                          onPin={() => handlePinChart(chart.id, chart.versions[chart.currentVersion], chart.layout)}
-                          isPinned={pinnedIds.includes(chart.id)}
-                          onSelect={() => setSelectedChartId(prev => prev === chart.id ? null : chart.id)}
-                          onDelete={() => handleDeleteChart(chart.id)}
-                          layout={chart.layout}
-                          onLayoutChange={(newLayout) => handleLayoutChange(chart.id, newLayout)}
-                          isBuildMode={isAppBuildMode}
-                          isBuildSelected={selectedChartIdsForApp.includes(chart.id)}
-                          onBuildSelect={(selected) => {
-                            setSelectedChartIdsForApp(prev => 
-                              selected ? [...prev, chart.id] : prev.filter(id => id !== chart.id)
-                            );
-                          }}
-                        />
-                      </div>
-                    ))}
-
-                    {isTyping && (
-                      <div className="md:col-span-2 bg-white/50 backdrop-blur-sm p-12 rounded-[40px] border border-dashed border-blue-200 flex flex-col items-center justify-center animate-in fade-in duration-300">
-                         <div className="relative w-16 h-16 mb-6">
-                            <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-                            <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
-                         </div>
-                         <p className="text-xs font-black text-blue-600 uppercase tracking-widest animate-pulse mb-8">AI가 데이터를 분석하며 차트를 구성 중입니다...</p>
-                         
-                         <button 
-                          onClick={handleCancelAnalysis}
-                          className="px-6 py-2.5 bg-white text-red-500 border border-red-100 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all shadow-sm flex items-center gap-2"
-                         >
-                           <X size={14} />
-                           Cancel Analysis
-                         </button>
-                      </div>
-                    )}
-                 </div>
-               )}
-            </div>
-         </div>
+      </div>
+    </div>
       
       {/* 3. AI Trace Modal */}
       {activeTraces && (

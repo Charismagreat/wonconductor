@@ -8,8 +8,8 @@ export default async function GuardrailSettingsPage() {
   const res = await getKnowledgeListAction();
   
   return (
-    <div className="container mx-auto py-10">
+    <main className="w-full mx-auto pt-6 pb-12 px-8 md:px-12 space-y-6">
       <KnowledgeEditor />
-    </div>
+    </main>
   );
 }

@@ -7,6 +7,7 @@ import { SettingsItem } from '@/components/workspace/SettingsItem';
 import { useTheme } from '@/components/ThemeProvider';
 import { getSessionAction, logoutAction } from '@/app/actions/auth';
 import { useRouter } from 'next/navigation';
+import PageHeader from '@/components/PageHeader';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -118,29 +119,30 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="max-w-xl mx-auto pb-24">
-            {/* Profile Header */}
-            <div className="px-4 pt-4 mb-8">
-                <div className="bg-white/40 backdrop-blur-md border border-white/60 p-6 rounded-3xl shadow-sm flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-orange-400 flex items-center justify-center text-white mb-4 border-4 border-white shadow-xl">
-                        {user?.avatarUrl ? (
-                            <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                            <User size={40} />
-                        )}
+        <div className="w-full mx-auto px-8 md:px-12 py-8 pb-24">
+            <PageHeader 
+                title="USER SETTINGS"
+                description="개인 프로필 정보와 워크스페이스 환경을 설정합니다."
+                icon={User}
+                rightElement={
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => router.back()}
+                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={() => alert('설정이 성공적으로 저장되었습니다.')}
+                            className="px-8 py-2.5 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all"
+                        >
+                            Save Changes
+                        </button>
                     </div>
-                    <h2 className="text-xl font-black text-gray-900 mb-1 tracking-tight">
-                        {user?.fullName || '사용자'} 님
-                    </h2>
-                    <p className="text-xs font-bold text-gray-500 mb-4">
-                        {user?.role === 'ADMIN' ? '관리자' : user?.role === 'EDITOR' ? '편집자' : '사원'} | 사번: {user?.employeeId || '미등록'}
-                    </p>
-                    
-                    <button className="px-6 py-2 bg-white/80 border border-gray-100 rounded-xl text-xs font-black text-gray-600 shadow-sm hover:bg-white transition-all">
-                        프로필 관리
-                    </button>
-                </div>
-            </div>
+                }
+            />
+
+            {/* Profile Header removed as requested */}
 
             {/* Settings Sections */}
             <motion.div 

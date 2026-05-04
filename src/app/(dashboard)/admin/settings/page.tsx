@@ -27,7 +27,7 @@ export default async function SettingsPage() {
         icon={Settings}
       />
 
-      <main className="max-w-[1600px] mx-auto mt-12 space-y-12">
+      <main className="w-full mx-auto mt-6 space-y-6">
         <SettingsClient initialSettings={initialSettings} />
       </main>
     </div>

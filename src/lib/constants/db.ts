@@ -22,6 +22,27 @@ export const SYSTEM_COLUMNS = {
         type: 'string',
         isRequired: true,
         isSystem: true
+    },
+    MODIFIER_ID: {
+        name: '__modifier_id',
+        displayName: '수정자',
+        type: 'string',
+        isRequired: false,
+        isSystem: true
+    },
+    IS_DELETED: {
+        name: '__is_deleted',
+        displayName: '삭제여부',
+        type: 'number',
+        isRequired: true,
+        isSystem: true
+    },
+    DELETED_AT: {
+        name: '__deleted_at',
+        displayName: '삭제일시',
+        type: 'date',
+        isRequired: false,
+        isSystem: true
     }
 } as const;
 

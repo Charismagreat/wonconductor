@@ -184,7 +184,10 @@ export async function uploadExcelAction(formData: FormData, userId: string) {
               ...row,
               __created_at: now,
               __updated_at: now,
-              __creator_id: userId
+              __creator_id: userId,
+              __modifier_id: userId,
+              __is_deleted: 0,
+              __deleted_at: null
            };
            validRows.push(enrichedRow);
         } else {

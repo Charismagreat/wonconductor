@@ -38,7 +38,7 @@ export default async function WorkspacePage() {
     const notifCount = uniqueNotifKeys.size;
 
     return (
-        <div className="pb-24 pt-4">
+        <div className="pb-24 pt-1">
             {/* 기획안 디자인이 반영된 요약 대시보드 */}
             <DashboardSummary 
                 user={session} 

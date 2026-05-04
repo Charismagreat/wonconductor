@@ -165,7 +165,7 @@ export default function FormFillClient({ template, sourceData }: Props) {
   };
 
   return (
-    <div className="flex flex-col min-h-0 h-full bg-white relative overflow-hidden -mx-4 -mt-6 w-[calc(100%+2rem)]">
+    <div className="fixed inset-0 z-[60] bg-white flex flex-col overflow-hidden animate-in fade-in duration-300">
       {/* Page Header: Sticky at the top of the content area */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0 z-50">
         <div className="flex items-center gap-3">
@@ -179,7 +179,7 @@ export default function FormFillClient({ template, sourceData }: Props) {
             {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
           <div className="flex flex-col">
-            <h1 className="text-sm font-black text-slate-900 truncate max-w-[120px] xs:max-w-none">{template.name}</h1>
+            <h1 className="text-sm font-black text-gray-900 truncate max-w-[120px] xs:max-w-none">{template.name}</h1>
             <span className="text-[9px] text-blue-500 font-black uppercase tracking-widest">{template.formType}</span>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ClipboardList, Clock, Bell, Loader2, MapPin } from 'lucide-react';
+import { ClipboardList, Clock, Bell, Loader2, MapPin, FileText, ChevronRight } from 'lucide-react';
 import { checkInAction } from '@/app/workspace/attendance-actions';
 import LogoutButton from '../LogoutButton';
 
@@ -71,69 +71,39 @@ export function DashboardSummary({ user, attendance: initialAttendance, todoCoun
     };
 
     return (
-        <div className="glass rounded-3xl p-6 mb-8 overflow-hidden relative group transition-all duration-500">
-            {/* Background Accent */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full -translate-y-12 translate-x-12 blur-3xl group-hover:bg-blue-400/20 transition-colors" />
-
-            <div className="flex items-center justify-between mb-8 relative z-10">
-                <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-                        {user.fullName?.charAt(0) || user.username?.charAt(0)}
-                    </div>
-                    <div className="flex items-baseline space-x-1">
-                        <h2 className="text-xl font-bold text-foreground">{user.fullName || user.username}</h2>
-                        <span className="text-muted-foreground text-sm">님의 업무 공간</span>
-                    </div>
-                </div>
-                <LogoutButton 
-                    className="bg-secondary text-muted-foreground rounded-lg font-semibold hover:bg-accent hover:text-accent-foreground shadow-none" 
-                />
-            </div>
-
-            <div className="space-y-4 relative z-10">
-                {/* 1. Attendance Section (Top, High Priority) */}
-                <div className="bg-blue-500/5 dark:bg-blue-500/10 rounded-2xl p-4 flex items-center justify-between border border-blue-500/10">
-                    <div className="flex items-center space-x-3">
-                        <div className="w-9 h-9 rounded-xl glass text-emerald-500 flex items-center justify-center">
-                            <Clock size={20} />
+        <div className="bg-white rounded-2xl p-[10px] mb-6 shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div className="space-y-2 relative z-10">
+                {/* 1. Attendance Section (More Compact) */}
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2 flex items-center justify-between border border-slate-100">
+                    <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                            <Clock size={18} />
                         </div>
-                        <span className="font-bold text-foreground/80">근태</span>
+                        <span className="text-xs font-bold text-slate-600">오늘의 근태</span>
                     </div>
                     <div className="flex items-center">
                         {attendance ? (
-                            <div className="flex items-center space-x-3 text-right">
-                                <div className="flex items-center space-x-1.5">
-                                    <MapPin size={14} className="text-blue-500" />
-                                    <span className="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-md uppercase">HQ</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <span className="font-black text-lg text-foreground">
-                                        {(() => {
-                                            const now = new Date();
-                                            const month = now.getMonth() + 1;
-                                            const date = now.getDate();
-                                            const day = ['일', '월', '화', '수', '목', '금', '토'][now.getDay()];
-                                            return `${month}월 ${date}일(${day}) ${attendance.checkInTime}`;
-                                        })()} 출근
-                                    </span>
-                                    {attendance.isLate ? (
-                                        <span className="px-2 py-0.5 bg-red-500/10 text-red-500 text-[10px] font-bold rounded-full">지각</span>
-                                    ) : (
-                                        <span className="px-2 py-0.5 glass text-emerald-500 text-[10px] font-bold rounded-full border border-emerald-500/20">정상</span>
-                                    )}
-                                </div>
+                            <div className="flex items-center space-x-2 text-right">
+                                <span className="font-bold text-sm text-slate-900">
+                                    {attendance.checkInTime} 출근
+                                </span>
+                                {attendance.isLate ? (
+                                    <span className="px-1.5 py-0.5 bg-red-500/10 text-red-500 text-[9px] font-bold rounded-md">지각</span>
+                                ) : (
+                                    <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 text-[9px] font-bold rounded-md">정상</span>
+                                )}
                             </div>
                         ) : (
                             <button 
                                 onClick={handleCheckIn}
                                 disabled={isCheckingIn}
-                                className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all text-sm shadow-lg shadow-blue-600/30 disabled:opacity-50"
+                                className="flex items-center space-x-1.5 px-4 py-1.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 active:scale-95 transition-all text-xs shadow-md shadow-blue-600/20 disabled:opacity-50"
                             >
                                 {isCheckingIn ? (
-                                    <Loader2 size={18} className="animate-spin" />
+                                    <Loader2 size={14} className="animate-spin" />
                                 ) : (
                                     <>
-                                        <MapPin size={16} />
+                                        <MapPin size={14} />
                                         <span>출근 하기</span>
                                     </>
                                 )}
@@ -142,39 +112,52 @@ export function DashboardSummary({ user, attendance: initialAttendance, todoCoun
                     </div>
                 </div>
 
-                {/* 2. Todo & Notification Grid (Bottom, Inline) */}
-                <div className="grid grid-cols-2 gap-4">
-                    <Link href="/workspace/todo" className="glass bg-opacity-40 rounded-2xl p-4 flex flex-col border border-transparent hover:border-orange-500/30 hover:bg-orange-500/5 transition-all group/item min-h-[130px]">
+                {/* 2. Todo & Notification Grid (Smaller) */}
+                <div className="grid grid-cols-2 gap-2">
+                    <Link href="/workspace/todo" className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2 flex flex-col border border-transparent hover:border-orange-500/30 transition-all group/item min-h-[60px]">
                         <div className="flex items-center space-x-2">
-                            <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center">
-                                <ClipboardList size={16} />
+                            <div className="w-6 h-6 rounded-md bg-orange-500/10 text-orange-500 flex items-center justify-center">
+                                <ClipboardList size={14} />
                             </div>
-                            <span className="text-[11px] font-black text-muted-foreground uppercase tracking-tight">할 일</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">할 일</span>
                         </div>
-                        <div className="flex-1 flex items-center justify-center w-full relative">
-                            <div className="flex items-center space-x-1 translate-x-1.5">
-                                <span className="text-4xl font-black text-foreground group-hover/item:text-orange-500 transition-colors tracking-tight">
+                        <div className="flex-1 flex items-center justify-center">
+                            <div className="flex items-center space-x-1">
+                                <span className="text-3xl font-black text-slate-900 group-hover/item:text-orange-500 transition-colors">
                                     {todoCount}
                                 </span>
-                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                <div className="w-1 h-1 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                             </div>
                         </div>
                     </Link>
 
-                    <Link href="/workspace/notifications" className="glass bg-opacity-40 rounded-2xl p-4 flex flex-col border border-transparent hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group/item min-h-[130px] cursor-pointer">
+                    <Link href="/workspace/notifications" className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2 flex flex-col border border-transparent hover:border-blue-500/30 transition-all group/item min-h-[60px]">
                         <div className="flex items-center space-x-2">
-                            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
-                                <Bell size={16} />
+                            <div className="w-6 h-6 rounded-md bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                                <Bell size={14} />
                             </div>
-                            <span className="text-[11px] font-black text-muted-foreground uppercase tracking-tight">알림</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">알림</span>
                         </div>
-                        <div className="flex-1 flex items-center justify-center w-full">
-                            <span className="text-4xl font-black text-foreground group-hover/item:text-blue-500 transition-colors tracking-tight">
+                        <div className="flex-1 flex items-center justify-center">
+                            <span className="text-3xl font-black text-slate-900 group-hover/item:text-blue-500 transition-colors">
                                 {notifCount}
                             </span>
                         </div>
                     </Link>
                 </div>
+
+                {/* 3. Forms Section (Compact Version) */}
+                <Link href="/workspace/forms" className="bg-indigo-50/50 dark:bg-indigo-500/10 rounded-xl p-2 flex items-center justify-between border border-indigo-100/50 hover:border-indigo-500/30 transition-all group/forms">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center group-hover/forms:scale-110 transition-transform">
+                            <FileText size={18} />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-600">양식 조회 및 출력</span>
+                        </div>
+                    </div>
+                    <ChevronRight size={16} className="text-indigo-400 group-hover:translate-x-1 transition-transform" />
+                </Link>
             </div>
         </div>
     );

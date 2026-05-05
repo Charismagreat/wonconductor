@@ -616,8 +616,8 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                                             <div className="text-right hidden md:block">
                                                 <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">최종 업데이트</p>
                                                 <p className="text-xs font-bold text-slate-600">
-                                                    <span className="opacity-40 font-medium mr-1.5">{new Date(latestLog.createdAt).toLocaleDateString([], { month: '2-digit', day: '2-digit' })}</span>
-                                                    {new Date(latestLog.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    <span className="opacity-40 font-medium mr-1.5">{new Date(latestLog.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit', timeZone: 'Asia/Seoul' })}</span>
+                                                    {new Date(latestLog.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })}
                                                 </p>
                                             </div>
                                             <button 
@@ -653,7 +653,7 @@ export default function BusinessWorkflowHub({ user, initialNotifications, initia
                                                                     {log.title}
                                                                 </span>
                                                                 <span className="text-[9px] font-medium text-slate-400">
-                                                                    {new Date(log.createdAt).toLocaleDateString([], { month: '2-digit', day: '2-digit' })} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    {new Date(log.createdAt).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit', timeZone: 'Asia/Seoul' })} {new Date(log.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })}
                                                                 </span>
                                                             </div>
                                                             <p className="text-[10px] text-slate-400 mt-0.5">{log.message}</p>

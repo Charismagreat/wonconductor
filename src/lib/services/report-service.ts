@@ -3,6 +3,7 @@ import { DbSyncService } from './db-sync-service';
 import { ValidationService } from './validation-service';
 import { HistoryService } from './history-service';
 import { revalidatePath } from 'next/cache';
+import { getNowKST, formatToKST } from '../data-utils';
 
 export class ReportService {
     /**
@@ -69,7 +70,7 @@ export class ReportService {
 
             if (hasChanged) {
                 const updatedDataStr = JSON.stringify(newRowData);
-                await updateRows('dashboard_data', { data: updatedDataStr, updatedAt: new Date().toISOString() }, { filters: { id: String(row.id) } });
+                await updateRows('dashboard_data', { data: updatedDataStr, updatedAt: getNowKST() }, { filters: { id: String(row.id) } });
 
                 // 물리 테이블 동기화
                 if (tableName) {
@@ -90,18 +91,18 @@ export class ReportService {
             const serialNum = Number(val);
             if (serialNum > 10000 && serialNum < 100000) {
                 const dateInfo = new Date(Math.floor(serialNum - 25569) * 86400 * 1000);
-                return !isNaN(dateInfo.getTime()) ? dateInfo.toISOString().split('T')[0] : String(val);
+                return !isNaN(dateInfo.getTime()) ? formatToKST(dateInfo).split('T')[0] : String(val);
             }
         }
         const d = new Date(val);
-        return !isNaN(d.getTime()) ? d.toISOString() : String(val);
+        return !isNaN(d.getTime()) ? formatToKST(d) : String(val);
     }
 
     /**
      * [Soft Delete] 보고서를 논리적으로 삭제하고 데이터를 보존합니다.
      */
     static async softDeleteReport(reportId: string, tableName?: string, userId: string = 'system') {
-        const timestamp = new Date().toISOString();
+        const timestamp = getNowKST();
         
         // 1. 마스터 정보 논리 삭제
         await updateRows('dashboard_master', { 

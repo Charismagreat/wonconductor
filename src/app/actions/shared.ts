@@ -38,11 +38,15 @@ export async function checkReportAuthorization(reportId: string, userId: string,
     if (!report) return false;
     if (report.ownerId === userId) return true;
 
-    // 1. 개별 사용자 권한 확인
+    // 1. 개별 사용자 권한 확인 (차단 여부 우선 확인)
     const userAccessRaw = await queryTable('dashboard_access', {
         filters: { reportId: String(reportId), userId: String(userId) }
     });
     const userAccess = Array.isArray(userAccessRaw) ? userAccessRaw : (userAccessRaw as any)?.rows ?? [];
+    
+    // 명시적으로 차단된 경우
+    if (userAccess.some((a: any) => String(a.isBlocked) === '1' || Number(a.isBlocked) === 1)) return false;
+    // 명시적으로 허용된 기록이 있는 경우
     if (userAccess.length > 0) return true;
 
     // 2. 부서 권한 확인
@@ -54,10 +58,15 @@ export async function checkReportAuthorization(reportId: string, userId: string,
             filters: { reportId: String(reportId), departmentId: String(user.departmentId) }
         });
         const deptAccess = Array.isArray(deptAccessRaw) ? deptAccessRaw : (deptAccessRaw as any)?.rows ?? [];
+        
+        // 부서 차단 확인
+        if (deptAccess.some((a: any) => String(a.isBlocked) === '1' || Number(a.isBlocked) === 1)) return false;
+        // 부서 허용 확인
         if (deptAccess.length > 0) return true;
     }
     
-    return false;
+    // 기본 정책: 허용 (사용자 요청에 따라 Whitelist에서 Blacklist 방식으로 전환)
+    return true;
 }
 
 /**
@@ -119,8 +128,8 @@ export const SYSTEM_TABLES = [
             { name: 'reportId', type: 'TEXT', notNull: true },
             { name: 'data', type: 'TEXT', notNull: true },
             { name: 'contentHash', type: 'TEXT' },
-            { name: 'isDeleted', type: 'INTEGER', defaultValue: 0 },
-            { name: 'deletedAt', type: 'TEXT' },
+            { name: '__is_deleted', type: 'INTEGER', defaultValue: 0 },
+            { name: '__deleted_at', type: 'TEXT' },
             { name: 'creatorId', type: 'TEXT' },
             { name: 'updaterId', type: 'TEXT' },
             { name: 'createdAt', type: 'TEXT', notNull: true },
@@ -133,6 +142,7 @@ export const SYSTEM_TABLES = [
             { name: 'userId', type: 'TEXT' }, // NULL 가능 (부서 권한일 경우)
             { name: 'departmentId', type: 'TEXT' }, // 부서 ID (사용자 권한일 경우 NULL)
             { name: 'role', type: 'TEXT', notNull: true, defaultValue: 'VIEWER' },
+            { name: 'isBlocked', type: 'INTEGER', defaultValue: 0 },
             { name: 'grantedAt', type: 'TEXT', notNull: true },
             { name: 'grantedBy', type: 'TEXT', notNull: true }
         ] as any[]

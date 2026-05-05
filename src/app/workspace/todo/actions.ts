@@ -20,7 +20,7 @@ export async function getTodoListAction() {
             orderDirection: 'DESC'
         });
         
-        return Array.isArray(tasks) ? tasks : [];
+        return Array.isArray(tasks) ? tasks : (tasks as any)?.rows || [];
     } catch (err) {
         console.error('[Todo Action] Failed to fetch tasks:', err);
         return [];
@@ -36,7 +36,8 @@ export async function updateTaskStatusAction(taskId: string, newStatus: string) 
 
     try {
         // 1. 기존 상태 확인
-        const tasks = await queryTable('action_task', { filters: { id: taskId } });
+        const tasksRes = await queryTable('action_task', { filters: { id: taskId } });
+        const tasks = Array.isArray(tasksRes) ? tasksRes : (tasksRes as any)?.rows || [];
         const task = tasks[0];
         if (!task) throw new Error('업무를 찾을 수 없습니다.');
         
@@ -110,8 +111,9 @@ export async function getTaskHistoryAction(taskId: string) {
 
         // 대상을 알기 위해 유저 정보도 매칭 (필요시)
         const userIds = Array.from(new Set(historyList.map((h: any) => h.changedById)));
-        const users = await queryTable('user', { filters: { id: userIds } });
-        const userMap = new Map((users as any[]).map(u => [String(u.id), u.fullName || u.username]));
+        const usersRes = await queryTable('user', { filters: { id: userIds } });
+        const users = Array.isArray(usersRes) ? usersRes : (usersRes as any)?.rows || [];
+        const userMap = new Map(users.map((u: any) => [String(u.id), u.fullName || u.username]));
 
         return historyList.map((h: any) => ({
             ...h,

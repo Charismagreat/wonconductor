@@ -1,4 +1,5 @@
 import { queryTable, insertRows, updateRows, deleteRows, createTable, deleteTable, renameTable } from '@/egdesk-helpers';
+import { getNowKST } from '../data-utils';
 import { castToPhysicalValue } from '@/lib/db-utils';
 import fs from 'fs/promises';
 
@@ -6,7 +7,7 @@ export class DbSyncService {
     private static logPath = 'schema_sync_trace.log';
 
     private static async log(level: 'INFO' | 'ERROR', msg: string) {
-        const entry = `[${new Date().toISOString()}] [${level}] ${msg}\n`;
+        const entry = `[${getNowKST()}] [${level}] ${msg}\n`;
         await fs.appendFile(this.logPath, entry).catch(() => {});
     }
 
@@ -93,7 +94,7 @@ export class DbSyncService {
             // [Soft Delete 적용] 물리적 삭제 대신 플래그 업데이트
             const updateRes = await updateRows(tableName, { 
                 __is_deleted: 1, 
-                __deleted_at: new Date().toISOString(),
+                __deleted_at: getNowKST(),
                 __modifier_id: userId
             }, { filters });
             
@@ -204,7 +205,7 @@ export class DbSyncService {
                     displayName: reportName,
                     category: 'EXCEL', // Default for migrated tables
                     schema: JSON.stringify(newColumns),
-                    createdAt: new Date().toISOString()
+                    createdAt: getNowKST()
                 }]);
             }
         } catch (e) {

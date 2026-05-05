@@ -50,7 +50,8 @@ export async function getProactivePublishingSuggestionsAction() {
 
     // 2. 사용자가 생성한 리포트 (dashboard_master 테이블)
     try {
-      const reports = await queryTable('dashboard_master', { limit: 100 });
+      const reportsRes = await queryTable('dashboard_master', { limit: 100 });
+      const reports = Array.isArray(reportsRes) ? reportsRes : (reportsRes as any)?.rows || [];
       for (const r of reports) {
         const reportKey = r.reportId || String(r.id);
         // 이미 추가된 시스템 소스와 중복 방지
@@ -265,7 +266,8 @@ export async function getPublishingAIAdjustmentAction(
   const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
   // 1. 가용한 모든 테이블 정보 수집 (지식 아카이브 활용)
-  const knowledge = await queryTable('table_knowledge', { limit: 50 });
+  const knowledgeRes = await queryTable('table_knowledge', { limit: 50 });
+  const knowledge = Array.isArray(knowledgeRes) ? knowledgeRes : (knowledgeRes as any)?.rows || [];
   const tableContext = knowledge.map((k: any) => ({
     id: k.table_name,
     name: k.description || k.table_name,
@@ -379,10 +381,11 @@ export async function getAISuggestedProjectSetupAction(appId: string) {
           console.warn(`     ! 스키마 조회 실패 (${s.id}):`, e.message);
           return [];
       });
-      const samples = await queryTable(s.id, { limit: 3 }).catch(e => {
+      const samplesRes = await queryTable(s.id, { limit: 3 }).catch(e => {
           console.warn(`     ! 샘플 데이터 조회 실패 (${s.id}):`, e.message);
           return [];
       });
+      const samples = Array.isArray(samplesRes) ? samplesRes : (samplesRes as any)?.rows || [];
       return { id: s.id, name: s.name, schema, samples };
     }));
 
@@ -488,7 +491,8 @@ export async function getMicroAppConfigAction(id: string) {
   const results = await queryTable('micro_app_projects', { filters: { projectId: id }, limit: 1 });
   console.log(`[getMicroAppConfigAction] Searching for Published App ID: "${id}"`);
   
-  let project = results?.[0];
+  const resultsList = Array.isArray(results) ? results : (results as any)?.rows || [];
+  let project = resultsList[0];
   if (!project && id) {
     // 혹시라도 공백 등이 있을 경우를 대비해 전체 검색 후 매칭
     const all = await queryTable('micro_app_projects');
@@ -626,7 +630,8 @@ export async function profileAllTablesAction() {
     try {
       // 1. Sample Data & Schema
       const schema = await getTableSchema(table.name);
-      const rows = await queryTable(table.name, { limit: 5 });
+      const rowsRes = await queryTable(table.name, { limit: 5 });
+      const rows = Array.isArray(rowsRes) ? rowsRes : (rowsRes as any)?.rows || [];
       
       // 2. AI Analysis
       const prompt = `
@@ -783,7 +788,8 @@ async function fetchSingleSourceData(sourceTableId: string, options: any = {}) {
 
   while (allRows.length < targetLimit) {
     const fetchLimit = Math.min(CHUNK_SIZE, targetLimit - allRows.length);
-    const rowsChunk = await queryTable(sourceTableId, { ...options, limit: fetchLimit, offset: currentOffset });
+    const rowsChunkRaw = await queryTable(sourceTableId, { ...options, limit: fetchLimit, offset: currentOffset });
+    const rowsChunk = Array.isArray(rowsChunkRaw) ? rowsChunkRaw : (rowsChunkRaw as any)?.rows || [];
     
     if (!rowsChunk || rowsChunk.length === 0) break;
     

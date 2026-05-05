@@ -27,19 +27,20 @@ export default async function DataInputPage({
     redirect('/');
   }
 
-  // 권한 체크를 위한 별도 조회 (Many-to-Many 대응)
-  const accessList = await queryTable('dashboard_access', {
-    filters: { reportId: id, userId: String(session.id) }
+  // 권한 체크: 기본 허용 정책 적용
+  const accessListRaw = await queryTable('dashboard_access', {
+    filters: { reportId: id, userId: String(session.id), isBlocked: 1 }
   });
-  const hasExplicitAccess = accessList.length > 0;
+  const accessList = Array.isArray(accessListRaw) ? accessListRaw : (accessListRaw as any)?.rows ?? [];
+  const isBlocked = accessList.length > 0;
 
-  // 권한 체크: ADMIN, EDITOR, 소유자(Owner) 또는 명시적으로 허용된 사용자만 접근 가능
+  // 권한 체크: ADMIN, EDITOR, 소유자(Owner) 또는 차단되지 않은 모든 사용자
   const isManagement =
     session.role === 'ADMIN' ||
     session.role === 'EDITOR' ||
     report.ownerId === session.id;
 
-  const isAuthorized = isManagement || hasExplicitAccess;
+  const isAuthorized = isManagement || !isBlocked;
 
   if (!isAuthorized) {
     return (

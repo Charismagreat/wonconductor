@@ -163,7 +163,7 @@ export async function updateReportAccessAction(reportId: string, userIds: string
     
     const records: any[] = [];
     
-    // 1. 사원별 권한 추가
+    // 1. 사원별 권한 추가 (차단 목록으로 저장)
     if (userIds.length > 0) {
         userIds.forEach(userId => {
             records.push({
@@ -171,13 +171,14 @@ export async function updateReportAccessAction(reportId: string, userIds: string
                 userId,
                 departmentId: null,
                 role: 'VIEWER',
+                isBlocked: 1, // 차단됨
                 grantedAt: new Date().toISOString(),
                 grantedBy: session.id
             });
         });
     }
 
-    // 2. 부서별 권한 추가
+    // 2. 부서별 권한 추가 (차단 목록으로 저장)
     if (departmentIds.length > 0) {
         departmentIds.forEach(deptId => {
             records.push({
@@ -185,6 +186,7 @@ export async function updateReportAccessAction(reportId: string, userIds: string
                 userId: null,
                 departmentId: deptId,
                 role: 'VIEWER',
+                isBlocked: 1, // 차단됨
                 grantedAt: new Date().toISOString(),
                 grantedBy: session.id
             });
@@ -208,7 +210,9 @@ export async function getReportAccessListAction(reportId: string) {
     if (!reportId) return { users: [], departments: [] };
     try {
         await SystemTableService.ensureTable('dashboard_access');
-        const accessListRaw = await queryTable('dashboard_access', { filters: { reportId: String(reportId) } });
+        const accessListRaw = await queryTable('dashboard_access', { 
+            filters: { reportId: String(reportId), isBlocked: 1 } 
+        });
         const accessList = Array.isArray(accessListRaw) ? accessListRaw : (accessListRaw as any)?.rows ?? [];
 
         const userIds = accessList.map((a: any) => a.userId).filter(Boolean);

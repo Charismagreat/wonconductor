@@ -21,11 +21,12 @@ export default async function SharePage({ params }: SharePageProps) {
   }
 
   // 2. Fetch Micro App Config from DB
-  const results = await queryTable('micro_app_config', {
+  const resultsRaw = await queryTable('micro_app_config', {
     filters: { id }
   });
+  const results = Array.isArray(resultsRaw) ? resultsRaw : (resultsRaw as any)?.rows || [];
 
-  if (!results || results.length === 0) {
+  if (results.length === 0) {
     notFound();
   }
 

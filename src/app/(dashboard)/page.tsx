@@ -63,11 +63,20 @@ export default async function DashboardPage() {
   const reportsArray = Array.isArray(rawAllReports) ? rawAllReports : (rawAllReports?.rows || []);
   let allReports = reportsArray.filter((r: any) => String(r.isDeleted) === '0');
 
-  // VIEWER 필터링: 본인 소유이거나 접근 권한이 부여된 보고서만
+  // VIEWER 필터링: 기본 허용이며, 명시적으로 차단(isBlocked: 1)된 보고서만 제외
   if (user.role === 'VIEWER') {
-    const accessList = await queryTable('dashboard_access', { filters: { userId: String(user.id) } });
-    const authorizedIds = new Set(accessList.map((a: any) => a.reportId));
-    allReports = allReports.filter((r: any) => r.ownerId === user.id || authorizedIds.has(r.reportId));
+    const accessListRaw = await queryTable('dashboard_access', { 
+        filters: { userId: String(user.id), isBlocked: 1 } 
+    });
+    const accessList = Array.isArray(accessListRaw) ? accessListRaw : (accessListRaw as any)?.rows ?? [];
+    const blockedIds = new Set(accessList.map((a: any) => a.reportId));
+    
+    allReports = allReports.filter((r: any) => {
+        // 본인 소유는 항상 허용
+        if (r.ownerId === user.id) return true;
+        // 차단된 목록에 있으면 제외
+        return !blockedIds.has(r.reportId);
+    });
   }
 
   // [통합 로직] 보고서별 데이터 행 개수 계산 함수

@@ -185,7 +185,7 @@ export function ReportHeader({
                     ))}
                     <span className="text-slate-300">|</span>
                     <div className="flex items-center gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest">
-                        <span>Synchronized at {new Date(createdAt).toLocaleString()}</span>
+                        <span>Synchronized at {new Date(createdAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</span>
                         {rowCount !== undefined && (
                             <>
                                 <span className="text-slate-200">|</span>

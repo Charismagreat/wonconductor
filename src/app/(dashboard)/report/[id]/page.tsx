@@ -138,7 +138,7 @@ export default async function ReportDetailPage({
                 const usedVirtualIds = new Set();
 
                 rows = rowsData.map((r: any, idx: number) => {
-                    let isDeleted = r.__is_deleted === 1 || r.isDeleted === 1;
+                    const isDeleted = String(r.__is_deleted) === '1' || Number(r.__is_deleted) === 1 || String(r.isDeleted) === '1' || Number(r.isDeleted) === 1;
                     let vr = virtualRows.find((v: any) => {
                         try {
                             const d = JSON.parse(v.data);
@@ -146,18 +146,21 @@ export default async function ReportDetailPage({
                         } catch(e) { return false; }
                     });
 
+                    let finalIsDeleted = isDeleted;
                     if (vr) {
                         usedVirtualIds.add(vr.id);
-                        if (vr.__is_deleted === 1 || vr.isDeleted === 1) isDeleted = true;
+                        if (String(vr.__is_deleted) === '1' || Number(vr.__is_deleted) === 1 || String(vr.isDeleted) === '1' || Number(vr.isDeleted) === 1) {
+                            finalIsDeleted = true;
+                        }
                     }
 
-                    return { ...r, isDeleted };
+                    return { ...r, id: vr ? vr.id : r.id, isDeleted: finalIsDeleted };
                 });
 
                 // 가상 테이블에만 남아있는 삭제된 행 추가
                 virtualRows.forEach((v: any) => {
                     if (!usedVirtualIds.has(v.id)) {
-                        const isDeleted = v.__is_deleted === 1 || v.isDeleted === 1;
+                        const isDeleted = String(v.__is_deleted) === '1' || Number(v.__is_deleted) === 1 || String(v.isDeleted) === '1' || Number(v.isDeleted) === 1;
                         if (isDeleted) {
                             try {
                                 rows.push({ ...JSON.parse(v.data), isDeleted: true });
@@ -170,7 +173,7 @@ export default async function ReportDetailPage({
                 const rowsData = Array.isArray(rowsDataRaw) ? rowsDataRaw : (rowsDataRaw?.rows || []);
                 rows = rowsData.map((r: any) => ({
                     ...JSON.parse(r.data),
-                    isDeleted: r.__is_deleted === 1 || r.isDeleted === 1
+                    isDeleted: String(r.__is_deleted) === '1' || Number(r.__is_deleted) === 1 || String(r.isDeleted) === '1' || Number(r.isDeleted) === 1
                 }));
             }
         } else {
@@ -178,7 +181,7 @@ export default async function ReportDetailPage({
             const rowsData = Array.isArray(rowsDataRaw) ? rowsDataRaw : (rowsDataRaw?.rows || []);
             rows = rowsData.map((r: any) => ({
                 ...JSON.parse(r.data),
-                isDeleted: r.__is_deleted === 1 || r.isDeleted === 1
+                isDeleted: String(r.__is_deleted) === '1' || Number(r.__is_deleted) === 1 || String(r.isDeleted) === '1' || Number(r.isDeleted) === 1
             }));
         }
       }

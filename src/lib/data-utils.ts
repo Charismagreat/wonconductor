@@ -45,7 +45,33 @@ export function isSubtotalRow(row: any): boolean {
       });
     }
     
-    const s = JSON.stringify(row).replace(/\s+/g, '').toLowerCase();
-    return s.includes(normalizedKeyword);
-  });
+  const s = JSON.stringify(row).replace(/\s+/g, '').toLowerCase();
+  return s.includes(normalizedKeyword);
+});
+}
+
+/**
+ * 현재 시간을 KST(UTC+9) 기준으로 포맷팅하여 반환합니다.
+ * ISO 형식에 +09:00 접미사를 붙여 명시적으로 한국 시간임을 나타냅니다.
+ */
+export function getNowKST(): string {
+  const now = new Date();
+  // 한국 시간(UTC+9)을 계산하기 위해 9시간을 더합니다.
+  const kstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+  // 'Z'를 제거하고 '+09:00'을 추가하여 KST임을 명시합니다.
+  return kstDate.toISOString().replace('Z', '+09:00');
+}
+
+/**
+ * 입력된 날짜를 KST(UTC+9) 기준으로 변환하여 포맷팅합니다.
+ */
+export function formatToKST(dateInput: string | Date | number): string {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return String(dateInput);
+
+  // 이미 +09:00 형식이 포함되어 있다면 그대로 반환할 수 있도록 체크 가능하나, 
+  // 일관성을 위해 다시 계산하여 반환합니다.
+  const kstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+  return kstDate.toISOString().replace('Z', '+09:00');
 }

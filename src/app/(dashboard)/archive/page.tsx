@@ -11,7 +11,10 @@ export default async function ArchivePage() {
     orderBy: 'deletedAt',
     orderDirection: 'DESC'
   });
-  const allDeletedReports = rawAllDeletedReports.filter((r: any) => String(r.isDeleted) === '1');
+  
+  // 루트 egdesk-helpers의 반환값(객체)을 배열로 변환하여 filter 호출 보장
+  const reports = Array.isArray(rawAllDeletedReports) ? rawAllDeletedReports : (rawAllDeletedReports as any)?.rows || [];
+  const allDeletedReports = reports.filter((r: any) => String(r.isDeleted) === '1');
 
   const deletedReports: any[] = [];
   for (const r of allDeletedReports) {

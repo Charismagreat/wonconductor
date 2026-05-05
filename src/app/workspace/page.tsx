@@ -26,12 +26,14 @@ export default async function WorkspacePage() {
         queryTable('notification', { filters: { userId: String(session.id), isRead: '0' } })
     ]);
     
-    // queryTable은 배열을 직접 반환하므로 .rows 없이 체크합니다.
-    const todoCount = Array.isArray(todoRows) ? todoRows.length : 0;
+    // queryTable은 배열 또는 { rows: [...] } 객체를 반환할 수 있으므로 안전하게 처리합니다.
+    const todoList = Array.isArray(todoRows) ? todoRows : (todoRows as any)?.rows || [];
+    const todoCount = todoList.length;
     
     // [최적화] 알림 수치를 고유 작업 단위로 계산하여 배지 숫자와 일치시킵니다.
+    const notifList = Array.isArray(notifRows) ? notifRows : (notifRows as any)?.rows || [];
     const uniqueNotifKeys = new Set(
-        (Array.isArray(notifRows) ? notifRows : []).map((noti: any) => 
+        notifList.map((noti: any) => 
             noti.link && noti.link.includes('openItem=') ? noti.link : noti.id
         )
     );

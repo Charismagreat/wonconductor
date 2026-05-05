@@ -113,7 +113,7 @@ export function AuditHistoryModal({ rowId, onClose }: AuditHistoryModalProps) {
                                         <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">최초 생성</span>
                                     </div>
                                     <p className="text-base font-black text-gray-900 truncate">{auditData?.creator?.fullName || auditData?.creator?.username || '시스템'}</p>
-                                    <p className="text-[10px] font-bold text-gray-400 mt-1">{auditData?.createdAt ? new Date(auditData.createdAt).toLocaleString() : '-'}</p>
+                                    <p className="text-[10px] font-bold text-gray-400 mt-1">{auditData?.createdAt ? new Date(auditData.createdAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '-'}</p>
                                 </div>
 
                                 <div className="p-5 bg-purple-50/50 border border-purple-100 rounded-3xl group hover:bg-white hover:shadow-xl hover:shadow-purple-500/5 transition-all">
@@ -124,7 +124,7 @@ export function AuditHistoryModal({ rowId, onClose }: AuditHistoryModalProps) {
                                         <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">마지막 수정</span>
                                     </div>
                                     <p className="text-base font-black text-gray-900 truncate">{auditData?.updater?.fullName || auditData?.updater?.username || '기록 없음'}</p>
-                                    <p className="text-[10px] font-bold text-gray-400 mt-1">{auditData?.updatedAt ? new Date(auditData.updatedAt).toLocaleString() : '-'}</p>
+                                    <p className="text-[10px] font-bold text-gray-400 mt-1">{auditData?.updatedAt ? new Date(auditData.updatedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '-'}</p>
                                 </div>
                             </div>
 
@@ -162,7 +162,7 @@ export function AuditHistoryModal({ rowId, onClose }: AuditHistoryModalProps) {
                                                             By {history.changedBy?.fullName || history.changedBy?.username || 'Unknown'}
                                                         </p>
                                                     </div>
-                                                    <span className="text-[10px] font-bold text-gray-400">{new Date(history.changedAt).toLocaleString()}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400">{new Date(history.changedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</span>
                                                 </div>
 
                                                 <div className="space-y-3">

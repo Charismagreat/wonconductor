@@ -621,8 +621,9 @@ async function analyzeWorkspaceItemAction(itemId: string) {
         fsSync.appendFileSync('ai_debug_trace.txt', `[${new Date().toISOString()}] item lookup result: ${item ? `found (id=${item.id})` : 'NOT FOUND'}\n`);
         if (!item) return;
 
-        const users = await queryTable('user', { filters: { id: String(item.creatorId) } });
-        const creatorUser = Array.isArray(users) ? users[0] : (users.rows?.[0]);
+        const usersRes = await queryTable('user', { filters: { id: String(item.creatorId) } });
+        const users = Array.isArray(usersRes) ? usersRes : (usersRes as any)?.rows || [];
+        const creatorUser = users[0];
 
         // [추가] Audit Trail의 시작점: 분석 시작 알림 생성
         const startLink = workspaceOpenItemLink(itemId);
@@ -823,8 +824,9 @@ export async function deleteWorkspaceItemAction(itemId: string) {
         console.log(`[Workspace Delete] Item: ${itemId}`);
 
         // 1. 이미지 파일 경로 확인 (workspace_item 또는 dashboard_data)
-        const items = await queryTable('workspace_item', { filters: { id: String(itemId) } });
-        const item = Array.isArray(items) ? items[0] : (items.rows?.[0]);
+        const itemsRes = await queryTable('workspace_item', { filters: { id: String(itemId) } });
+        const items = Array.isArray(itemsRes) ? itemsRes : (itemsRes as any)?.rows || [];
+        const item = items[0];
 
         if (item) {
             // 항목 삭제 시 연관된 알림도 물리적으로 삭제 (대시보드 잔상 제거)
@@ -839,8 +841,9 @@ export async function deleteWorkspaceItemAction(itemId: string) {
             console.log(`[Workspace Delete] Item marked as deleted: ${itemId}`);
         } else {
             // workspace_item에 없다면 dashboard_data(미분류)에서 확인
-            const rows = await queryTable('dashboard_data', { filters: { id: String(itemId) } });
-            const row = Array.isArray(rows) ? rows[0] : (rows.rows?.[0]);
+            const rowsRes = await queryTable('dashboard_data', { filters: { id: String(itemId) } });
+            const rows = Array.isArray(rowsRes) ? rowsRes : (rowsRes as any)?.rows || [];
+            const row = rows[0];
             if (row) {
                 // dashboard_data의 경우 isDeleted 플래그 활용
                 await updateRows('dashboard_data', { 

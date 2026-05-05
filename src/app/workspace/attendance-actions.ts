@@ -15,10 +15,11 @@ export async function getTodayAttendanceAction() {
 
     try {
         // [Soft Delete] 삭제되지 않은 데이터만 조회
-        const rows = await queryTable('dashboard_data', { 
+        const rowsRes = await queryTable('dashboard_data', { 
             filters: { isDeleted: '0' },
             limit: 100 // 최근 데이터 위주로 조회
         });
+        const rows = Array.isArray(rowsRes) ? rowsRes : (rowsRes as any)?.rows || [];
         
         if (rows && rows.length > 0) {
             // 오늘 날짜의 해당 사용자가 작성한 '출근' 타입 행 찾기

@@ -274,8 +274,7 @@ export async function submitWorkspaceDataAction(formData: FormData) {
                         location_name: locationName
                     }]);
 
-                    const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-                    const itemId = String(insertedRow.id);
+                    const itemId = String(insertRes.insertedIds?.[0] ?? (Array.isArray(insertRes) ? insertRes[0]?.id : insertRes.rows?.[0]?.id));
 
                     // 개별 항목 배경 분석 트리거
                     after(() => analyzeWorkspaceItemAction(itemId).catch(err => {
@@ -329,8 +328,8 @@ export async function submitWorkspaceDataAction(formData: FormData) {
             location_name: locationName
         }]);
 
-        const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-        const itemId = String(insertedRow.id);
+        require('fs').appendFileSync('ai_debug_trace.txt', `[${new Date().toISOString()}] insertRes: ${JSON.stringify(insertRes)}\n`);
+        const itemId = String(insertRes.insertedIds?.[0] ?? (Array.isArray(insertRes) ? insertRes[0]?.id : insertRes.rows?.[0]?.id));
 
         // [핵심] 배경 분석 트리거 - after()를 사용해 응답 완료 후 실행 보장
         after(() => analyzeWorkspaceItemAction(itemId).catch(err => {
@@ -596,6 +595,9 @@ export async function confirmWorkspaceDataAction(
  * [내부 액션] 배경에서 AI 분석을 수행하고 결과를 업데이트합니다.
  */
 async function analyzeWorkspaceItemAction(itemId: string) {
+    const fsSync = require('fs');
+    fsSync.appendFileSync('ai_debug_trace.txt', `[${new Date().toISOString()}] analyzeWorkspaceItemAction called | itemId: ${itemId}\n`);
+
     const { processWorkspaceInput } = await import('@/lib/workspace-ai');
     const fs = await import('fs/promises');
     const path = await import('path');
@@ -604,6 +606,7 @@ async function analyzeWorkspaceItemAction(itemId: string) {
         // 1. 항목 및 업로더 정보 조회
         const items = await queryTable('workspace_item', { filters: { id: itemId } });
         const item = Array.isArray(items) ? items[0] : (items.rows?.[0]);
+        fsSync.appendFileSync('ai_debug_trace.txt', `[${new Date().toISOString()}] item lookup result: ${item ? `found (id=${item.id})` : 'NOT FOUND'}\n`);
         if (!item) return;
 
         const users = await queryTable('user', { filters: { id: String(item.creatorId) } });

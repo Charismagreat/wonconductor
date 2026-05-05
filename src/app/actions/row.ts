@@ -244,11 +244,15 @@ export async function updateSingleRowAction(reportId: string, rowId: string, new
 
     // 1. 가상 테이블 업데이트
     const updatedDataStr = JSON.stringify(newData);
-    await updateRows('dashboard_data', {
+    const updateRes = await updateRows('dashboard_data', {
         data: updatedDataStr,
         updatedAt: now,
         updaterId: user.id
     }, { filters: { id: String(rowId) } });
+
+    if (updateRes && typeof updateRes === 'object' && updateRes.success === false) {
+        throw new Error(`가상 테이블 업데이트 실패: ${updateRes.error}`);
+    }
 
     // 2. 이력 기록
     await HistoryService.recordHistory(rowId, row.data, updatedDataStr, 'UPDATE', user.id);
@@ -313,11 +317,16 @@ export async function bulkUpdateRowsAction(
             const updatedDataStr = JSON.stringify(rowData);
 
             // 1. 가상 테이블 업데이트
-            await updateRows('dashboard_data', {
+            const updateRes = await updateRows('dashboard_data', {
                 data: updatedDataStr,
                 updatedAt: now,
                 updaterId: user.id
             }, { filters: { id: String(rowId) } });
+
+            if (updateRes && typeof updateRes === 'object' && updateRes.success === false) {
+                console.error(`[bulkUpdateRowsAction] Failed to update virtual row ${rowId}:`, updateRes.error);
+                continue;
+            }
 
             // 2. 이력 기록
             await HistoryService.recordHistory(rowId, row.data, updatedDataStr, 'BULK_UPDATE', user.id);
@@ -420,13 +429,19 @@ export async function deleteRowsAction(reportId: string, rowIds: string[]) {
             continue;
         }
 
-        // 1. 가상 테이블 논리 삭제
-        await updateRows('dashboard_data', {
-            __is_deleted: 1,
-            contentHash: null,
-            __deleted_at: timestamp,
-            updaterId: user.id
-        }, { filters: { id: String(id) } });
+    // 1. 가상 테이블 논리 삭제
+    const updateRes = await updateRows('dashboard_data', {
+        __is_deleted: 1,
+        contentHash: null,
+        __deleted_at: timestamp,
+        updaterId: user.id
+    }, { filters: { id: String(id) } });
+
+    // [DIAGNOSTIC] Check if update failed
+    if (updateRes && typeof updateRes === 'object' && updateRes.success === false) {
+        console.error(`[deleteRowsAction] Failed to soft-delete virtual row ${id}:`, updateRes.error);
+        continue;
+    }
 
         // 2. 이력 기록
         const rowData = JSON.parse(row.data);
@@ -486,13 +501,18 @@ export async function restoreRowsAction(reportId: string, rowIds: string[]) {
         if (existing) continue;
 
         // 1. 가상 테이블 복구
-        await updateRows('dashboard_data', {
+        const updateRes = await updateRows('dashboard_data', {
             __is_deleted: 0,
             contentHash: hash,
             __deleted_at: null,
             updatedAt: timestamp,
             updaterId: user.id
         }, { filters: { id: String(id) } });
+
+        if (updateRes && typeof updateRes === 'object' && updateRes.success === false) {
+            console.error(`[restoreRowsAction] Failed to restore virtual row ${id}:`, updateRes.error);
+            continue;
+        }
 
         // 2. 이력 기록
         await HistoryService.recordHistory(id, row.data, row.data, 'RESTORE', user.id);

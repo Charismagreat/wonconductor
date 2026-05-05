@@ -91,11 +91,15 @@ export class DbSyncService {
     ): Promise<{ success: boolean; error?: string }> {
         try {
             // [Soft Delete 적용] 물리적 삭제 대신 플래그 업데이트
-            await updateRows(tableName, { 
+            const updateRes = await updateRows(tableName, { 
                 __is_deleted: 1, 
                 __deleted_at: new Date().toISOString(),
                 __modifier_id: userId
             }, { filters });
+            
+            if (updateRes && typeof updateRes === 'object' && updateRes.success === false) {
+                return { success: false, error: updateRes.error };
+            }
             
             return { success: true };
         } catch (err: any) {

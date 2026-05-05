@@ -50,7 +50,9 @@ export async function processWorkspaceInput(
     }
 
     log("Step 1: Querying Reports from DB...");
-    const reports = await queryTable('dashboard_master', { filters: { isDeleted: '0' } });
+    const reportsRaw = await queryTable('dashboard_master', { limit: 500 });
+    const allReports = Array.isArray(reportsRaw) ? reportsRaw : (reportsRaw as any)?.rows ?? [];
+    const reports = allReports.filter((r: any) => !r.isDeleted && r.isDeleted !== '1' && r.isDeleted !== 1 && !r.__is_deleted && r.__is_deleted !== '1' && r.__is_deleted !== 1);
     log(`Step 1 Result: Found ${reports?.length || 0} reports`);
 
     if (!reports || reports.length === 0) {

@@ -393,8 +393,14 @@ export async function getWorkspaceItemDataAction(itemId: string) {
 
             if (item.reportId) {
                 try {
-                    const reportRes = await queryTable('dashboard_master', { filters: { id: String(item.reportId) } });
-                    const report = Array.isArray(reportRes) ? reportRes[0] : (reportRes.rows?.[0]);
+                    const reportIdStr = String(item.reportId);
+                    let reportResRaw = await queryTable('dashboard_master', { filters: { reportId: reportIdStr } });
+                    let reportResArr = Array.isArray(reportResRaw) ? reportResRaw : (reportResRaw as any)?.rows ?? [];
+                    if (reportResArr.length === 0 && !isNaN(Number(reportIdStr))) {
+                        reportResRaw = await queryTable('dashboard_master', { filters: { id: reportIdStr } });
+                        reportResArr = Array.isArray(reportResRaw) ? reportResRaw : (reportResRaw as any)?.rows ?? [];
+                    }
+                    const report = reportResArr[0];
                     if (report) {
                         reportName = report.name;
                         columns = JSON.parse(report.columns || '[]');
@@ -445,8 +451,14 @@ export async function getWorkspaceItemDataAction(itemId: string) {
             let columns = [];
             if (row.reportId && row.reportId !== 'system-unclassified') {
                 try {
-                    const reportRes = await queryTable('dashboard_master', { filters: { id: String(row.reportId) } });
-                    const report = Array.isArray(reportRes) ? reportRes[0] : (reportRes.rows?.[0]);
+                    const rowReportIdStr = String(row.reportId);
+                    let rowReportResRaw = await queryTable('dashboard_master', { filters: { reportId: rowReportIdStr } });
+                    let rowReportResArr = Array.isArray(rowReportResRaw) ? rowReportResRaw : (rowReportResRaw as any)?.rows ?? [];
+                    if (rowReportResArr.length === 0 && !isNaN(Number(rowReportIdStr))) {
+                        rowReportResRaw = await queryTable('dashboard_master', { filters: { id: rowReportIdStr } });
+                        rowReportResArr = Array.isArray(rowReportResRaw) ? rowReportResRaw : (rowReportResRaw as any)?.rows ?? [];
+                    }
+                    const report = rowReportResArr[0];
                     if (report) {
                         reportName = report.name;
                         columns = JSON.parse(report.columns || '[]');

@@ -44,6 +44,11 @@ function findMatchingWorkflows(workflows: any[], reportId: string, dataFields: s
     const category = inferCategoryFromReportId(reportId);
     const lowerFields = dataFields.map(f => f.toLowerCase());
 
+    console.log(`[findMatchingWorkflows] reportId=${reportId}, total workflows=${workflows.length}, active=${workflows.filter((w:any)=>w.status==='active').length}`);
+    workflows.filter((w:any)=>w.status==='active').forEach((w:any) => {
+        console.log(`  [active wf] id=${w.id} triggerTable=${w.triggerTable} inputTypes=${JSON.stringify(w.inputTypes)}`);
+    });
+
     return workflows.filter(w => {
         if (w.status !== 'active') return false;
         // Priority 1: exact triggerTable match (set during AI suggestion)
@@ -369,7 +374,14 @@ ${policyContext ? `${policyContext}\n` : ''}
  * Layer 2 (신규): AI Center 워크플로우 — 스테이지 기반 재사용 템플릿 실행 또는 제안
  */
 export async function triggerWorkflow(reportId: string, rowData: any, creatorId: string) {
-    console.log(`[Workflow Engine] Triggered for Report: ${reportId}`);
+    const fsSync = require('fs');
+    const wfLog = (msg: string) => {
+        const line = `[${new Date().toISOString()}] ${msg}\n`;
+        console.log(msg);
+        fsSync.appendFileSync('workflow_trace.txt', line);
+    };
+
+    wfLog(`[Workflow Engine] Triggered for Report: ${reportId}`);
 
     // ── Layer 1: 행별 AI Steering (기존) ──────────────────────────────────────
     try {
@@ -380,31 +392,33 @@ export async function triggerWorkflow(reportId: string, rowData: any, creatorId:
             orderBy: 'createdAt',
             orderDirection: 'DESC',
         });
-        const latestRowId = rows[0]?.id;
+        const rowsArr = Array.isArray(rows) ? rows : (rows as any)?.rows ?? [];
+        const latestRowId = rowsArr[0]?.id;
         if (latestRowId) {
             await recommendWorkflowAction(reportId, latestRowId, rowData);
-            console.log(`[Layer 1] Per-row steering recommendation queued.`);
+            wfLog(`[Layer 1] Per-row steering recommendation queued.`);
         }
     } catch (err) {
-        console.error('[Layer 1] Steering error:', err);
+        wfLog(`[Layer 1] Steering error: ${err}`);
     }
 
     // ── Layer 2: AI Center 스테이지 워크플로우 ─────────────────────────────────
     try {
         const dataFields = Object.keys(rowData).filter(k => !k.startsWith('__'));
         const allWorkflows = await listWorkflows();
-        const matching = findMatchingWorkflows(allWorkflows, reportId, dataFields);
+        const wfArr = Array.isArray(allWorkflows) ? allWorkflows : (allWorkflows as any)?.workflows ?? (allWorkflows as any)?.rows ?? [];
+        const matching = findMatchingWorkflows(wfArr, reportId, dataFields);
 
         if (matching.length > 0) {
-            console.log(`[Layer 2] ${matching.length} active workflow(s) matched. Starting runs...`);
+            wfLog(`[Layer 2] ${matching.length} active workflow(s) matched. Starting runs...`);
             for (const wf of matching) {
                 await startWorkflowRun(wf, reportId, rowData);
             }
         } else {
-            console.log(`[Layer 2] No active workflows matched. Requesting AI suggestion...`);
+            wfLog(`[Layer 2] No active workflows matched. Requesting AI suggestion...`);
             await suggestWorkflowToAICenter(reportId, rowData);
         }
     } catch (err) {
-        console.error('[Layer 2] AI Center workflow error:', err);
+        wfLog(`[Layer 2] AI Center workflow error: ${err}`);
     }
 }

@@ -31,25 +31,29 @@ export async function checkReportAuthorization(reportId: string, userId: string,
     // getMasterRecords는 report.ts에서 정의한 것을 가져오거나 여기 내부 로직으로 대체
     const isNumeric = /^\d+$/.test(String(reportId));
     const filters = isNumeric ? { id: String(reportId) } : { reportId: String(reportId) };
-    const reports = await queryTable('dashboard_master', { filters });
-    const report = reports[0];
-    
+    const reportsRaw = await queryTable('dashboard_master', { filters });
+    const reportsArr = Array.isArray(reportsRaw) ? reportsRaw : (reportsRaw as any)?.rows ?? [];
+    const report = reportsArr[0];
+
     if (!report) return false;
     if (report.ownerId === userId) return true;
-    
+
     // 1. 개별 사용자 권한 확인
-    const userAccess = await queryTable('dashboard_access', { 
-        filters: { reportId: String(reportId), userId: String(userId) } 
+    const userAccessRaw = await queryTable('dashboard_access', {
+        filters: { reportId: String(reportId), userId: String(userId) }
     });
+    const userAccess = Array.isArray(userAccessRaw) ? userAccessRaw : (userAccessRaw as any)?.rows ?? [];
     if (userAccess.length > 0) return true;
 
     // 2. 부서 권한 확인
-    const users = await queryTable('user', { filters: { id: String(userId) } });
-    const user = users[0];
+    const usersRaw = await queryTable('user', { filters: { id: String(userId) } });
+    const usersArr = Array.isArray(usersRaw) ? usersRaw : (usersRaw as any)?.rows ?? [];
+    const user = usersArr[0];
     if (user && user.departmentId) {
-        const deptAccess = await queryTable('dashboard_access', {
+        const deptAccessRaw = await queryTable('dashboard_access', {
             filters: { reportId: String(reportId), departmentId: String(user.departmentId) }
         });
+        const deptAccess = Array.isArray(deptAccessRaw) ? deptAccessRaw : (deptAccessRaw as any)?.rows ?? [];
         if (deptAccess.length > 0) return true;
     }
     

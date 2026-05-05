@@ -23,9 +23,10 @@ export class GuardrailService {
      */
     static async getRulesForReport(reportId: string): Promise<GuardrailRule[]> {
         try {
-            const rules = await queryTable('input_guardrail', {
+            const rulesRaw = await queryTable('input_guardrail', {
                 filters: { reportId }
             });
+            const rules = Array.isArray(rulesRaw) ? rulesRaw : (rulesRaw as any)?.rows ?? [];
             return rules as GuardrailRule[];
         } catch (err) {
             console.error('[GuardrailService] Error fetching rules:', err);

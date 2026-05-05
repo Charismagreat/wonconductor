@@ -27,15 +27,16 @@ import { inferColumnType } from '@/lib/utils/schema';
  * dashboard_master에 없는 경우 물리 테이블 스키마를 기반으로 가상 레코드를 생성하여 반환합니다.
  */
 export async function getMasterRecords(reportId: string) {
-    let records = await queryTable('dashboard_master', { filters: { reportId: String(reportId) } });
-    if (!records || records.length === 0) {
+    const unwrap = (r: any) => Array.isArray(r) ? r : (r as any)?.rows ?? [];
+    let records = unwrap(await queryTable('dashboard_master', { filters: { reportId: String(reportId) } }));
+    if (records.length === 0) {
         if (!isNaN(Number(reportId))) {
-            records = await queryTable('dashboard_master', { filters: { id: String(reportId) } });
+            records = unwrap(await queryTable('dashboard_master', { filters: { id: String(reportId) } }));
         }
     }
 
     // dashboard_master에 없는 경우 물리 테이블 확인
-    if ((!records || records.length === 0) && isNaN(Number(reportId))) {
+    if (records.length === 0 && isNaN(Number(reportId))) {
         try {
             const schema = await getTableSchema(reportId);
             if (schema && schema.length > 0) {
@@ -61,7 +62,7 @@ export async function getMasterRecords(reportId: string) {
         }
     }
 
-    return records || [];
+    return records;
 }
 
 /**
@@ -207,8 +208,9 @@ export async function getReportAccessListAction(reportId: string) {
     if (!reportId) return { users: [], departments: [] };
     try {
         await SystemTableService.ensureTable('dashboard_access');
-        const accessList = await queryTable('dashboard_access', { filters: { reportId: String(reportId) } });
-        
+        const accessListRaw = await queryTable('dashboard_access', { filters: { reportId: String(reportId) } });
+        const accessList = Array.isArray(accessListRaw) ? accessListRaw : (accessListRaw as any)?.rows ?? [];
+
         const userIds = accessList.map((a: any) => a.userId).filter(Boolean);
         const departmentIds = accessList.map((a: any) => a.departmentId).filter(Boolean);
         

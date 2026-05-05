@@ -69,7 +69,7 @@ export async function processWorkspaceInput(
     const reportList = reports.map((r: any) => {
         try {
             return {
-                id: r.id,
+                id: r.reportId || String(r.id),
                 name: r.name,
                 description: r.description || "",
                 columns: JSON.parse(r.columns || "[]").map((c: any) => c.name)
@@ -77,7 +77,7 @@ export async function processWorkspaceInput(
         } catch (e) {
             console.error(`Failed to parse columns for report: ${r.name}`, e);
             return {
-                id: r.id,
+                id: r.reportId || String(r.id),
                 name: r.name,
                 description: r.description || "",
                 columns: []
@@ -181,7 +181,10 @@ export async function processWorkspaceInput(
         };
     }
 
-    const selectedReport = reports.find((r: any) => String(r.id) === String(classification.reportId));
+    const selectedReport = reports.find((r: any) =>
+        (r.reportId && r.reportId === classification.reportId) ||
+        String(r.id) === String(classification.reportId)
+    );
     if (!selectedReport) {
         console.error(`[AI Error] Match found but report could not be located in local list. Target ID: ${classification.reportId}`);
         return { reportId: null, reportName: null, extractedData: null, confidence: 0, message: "보고서 매칭 오류가 발생했습니다." };
@@ -238,8 +241,9 @@ export async function processWorkspaceInput(
     }
 
     return {
-        reportId: String(selectedReport.id),
+        reportId: selectedReport.reportId || String(selectedReport.id),
         reportName: selectedReport.name,
+        suggestedTitle: selectedReport.name,
         extractedData,
         confidence: classification.confidence,
         columns: columns,

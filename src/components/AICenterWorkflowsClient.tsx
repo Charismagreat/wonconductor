@@ -327,7 +327,7 @@ export function AICenterWorkflowsClient({
     suggestedWorkflows,
     activeWorkflows,
 }: AICenterWorkflowsClientProps) {
-    const [tab, setTab] = useState<'suggested' | 'active'>('suggested');
+    const [tab, setTab] = useState<'suggested' | 'active'>('active');
     const [debugResult, setDebugResult] = useState<any>(null);
     const [debugLoading, setDebugLoading] = useState(false);
 
@@ -368,19 +368,6 @@ export function AICenterWorkflowsClient({
             {/* Tab bar */}
             <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-[20px] w-fit">
                 <button
-                    onClick={() => setTab('suggested')}
-                    className={`px-6 py-3 rounded-[16px] font-black text-[11px] uppercase tracking-widest transition-all ${
-                        tab === 'suggested'
-                            ? 'bg-white text-purple-700 shadow-lg shadow-gray-200'
-                            : 'text-gray-400 hover:text-gray-600'
-                    }`}
-                >
-                    <span className="flex items-center gap-2">
-                        <Sparkles size={13} />
-                        AI 제안 ({suggestedWorkflows.length})
-                    </span>
-                </button>
-                <button
                     onClick={() => setTab('active')}
                     className={`px-6 py-3 rounded-[16px] font-black text-[11px] uppercase tracking-widest transition-all ${
                         tab === 'active'
@@ -391,6 +378,19 @@ export function AICenterWorkflowsClient({
                     <span className="flex items-center gap-2">
                         <Zap size={13} />
                         활성 워크플로우 ({activeWorkflows.length})
+                    </span>
+                </button>
+                <button
+                    onClick={() => setTab('suggested')}
+                    className={`px-6 py-3 rounded-[16px] font-black text-[11px] uppercase tracking-widest transition-all ${
+                        tab === 'suggested'
+                            ? 'bg-white text-purple-700 shadow-lg shadow-gray-200'
+                            : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                    <span className="flex items-center gap-2">
+                        <Sparkles size={13} />
+                        AI 제안 ({suggestedWorkflows.length})
                     </span>
                 </button>
             </div>

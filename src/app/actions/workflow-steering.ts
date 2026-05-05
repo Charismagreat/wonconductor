@@ -24,7 +24,8 @@ export async function recommendWorkflowAction(reportId: string, rowId: string, r
         const report = reports[0];
         if (!report) return;
 
-        const users = await queryTable('user', { filters: { isActive: 1 } });
+        const usersRaw = await queryTable('user', { filters: { isActive: 1 } });
+        const users = Array.isArray(usersRaw) ? usersRaw : (usersRaw as any)?.rows ?? [];
         const userContext = users.map((u: any) => ({
             id: u.id,
             name: u.fullName || u.username,
@@ -84,7 +85,6 @@ export async function recommendWorkflowAction(reportId: string, rowId: string, r
             createdAt: new Date().toISOString()
         }]);
 
-        revalidatePath('/workflow/steering');
     } catch (error) {
         console.error('[Workflow Steering Error]:', error);
     }

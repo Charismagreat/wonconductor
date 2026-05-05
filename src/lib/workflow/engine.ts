@@ -2,6 +2,7 @@ import {
     queryTable,
     listWorkflows,
     createWorkflow,
+    addWorkflowAction,
     getWorkflow,
     createRun,
     updateRunStatus,
@@ -63,24 +64,50 @@ function findMatchingWorkflows(workflows: any[], reportId: string, dataFields: s
     });
 }
 
+// Module-level log helper so all engine functions can write to workflow_trace.txt
+function engineLog(msg: string): void {
+    const fsSync = require('fs');
+    const line = `[${new Date().toISOString()}] ${msg}\n`;
+    console.log(msg);
+    fsSync.appendFileSync('workflow_trace.txt', line);
+}
+
 /**
  * 단일 액션(create_task, update_status)을 실행합니다.
  * approve 액션은 executeStage에서 직접 처리합니다.
  */
 async function executeAction(
-    action: { actionId: string; params?: Record<string, any>; stage: number; position: number },
+    action: { actionId: string; params?: Record<string, any>; stage: number; position: number; [key: string]: any },
     runId: string,
     workflowLabel: string,
     reportId: string,
     inputData: any,
 ): Promise<void> {
+    // Normalize actionId — listWorkflows returns the action type in 'id' (not 'actionId')
+    const actionId: string = action.actionId ?? (action as any).id ?? (action as any).type ?? (action as any).action ?? '';
     const params = action.params || {};
 
-    if (action.actionId === 'create_task') {
-        const users = await queryTable('user', { filters: { isActive: '1' } });
-        const userList = Array.isArray(users) ? users : (users as any)?.rows ?? [];
+    if (actionId === 'create_task') {
+        const [usersRes, deptsRes] = await Promise.all([
+            queryTable('user', { filters: { isActive: '1' } }),
+            queryTable('department', { limit: 200 }),
+        ]);
+        const userList = Array.isArray(usersRes) ? usersRes : (usersRes as any)?.rows ?? [];
+        const deptList: any[] = Array.isArray(deptsRes) ? deptsRes : (deptsRes as any)?.rows ?? [];
+        // Build departmentId → name map
+        const deptMap: Record<string, string> = {};
+        for (const d of deptList) {
+            if (d.id != null && d.name) deptMap[String(d.id)] = d.name;
+        }
         const assigneeRole = params.assigneeRole || 'ADMIN';
-        const assignee = userList.find((u: any) => u.role === assigneeRole);
+        // 1) exact role match, 2) department name keyword match (via deptMap), 3) fall back to first ADMIN
+        const assignee =
+            userList.find((u: any) => u.role === assigneeRole) ??
+            userList.find((u: any) => {
+                const deptName = u.departmentId ? (deptMap[String(u.departmentId)] ?? '') : '';
+                return deptName && assigneeRole.includes(deptName);
+            }) ??
+            userList.find((u: any) => u.role === 'ADMIN');
 
         let dueAt: string;
         if (params.deadline?.ref) {
@@ -91,21 +118,47 @@ async function executeAction(
             dueAt = new Date(Date.now() + dueDays * 86400000).toISOString();
         }
 
+        const taskTitle = substituteVariables(params.title || '후속 처리 필요', inputData);
+        engineLog(`[Engine:create_task] title="${taskTitle}" assigneeRole=${assigneeRole} assigneeId=${assignee?.id ?? 'null'} dueAt=${dueAt} actionId=${actionId}`);
+
         await insertRows('action_task', [{
             runId,
             reportId,
-            title: substituteVariables(params.title || '후속 처리 필요', inputData),
+            title: taskTitle,
             description: `워크플로우 "${workflowLabel}"에 의해 자동 생성됨.`,
             status: 'TODO',
             assigneeId: assignee?.id || null,
             dueAt,
             createdAt: new Date().toISOString(),
         }]);
-        console.log(`[Engine] create_task → "${params.title}" (role: ${assigneeRole}, dueAt: ${dueAt})`);
+        engineLog(`[Engine:create_task] ✅ Inserted into action_task (runId=${runId})`);
 
-    } else if (action.actionId === 'update_status') {
+        // Notify assignee + all ADMINs so the task surfaces in the workflow hub
+        const { createInAppNotification } = await import('@/lib/notifications');
+        const notifyTargets = new Set<string>();
+        if (assignee?.id) notifyTargets.add(String(assignee.id));
+        userList
+            .filter((u: any) => u.role === 'ADMIN')
+            .forEach((u: any) => notifyTargets.add(String(u.id)));
+
+        for (const uid of notifyTargets) {
+            await createInAppNotification({
+                userId: uid,
+                title: `📋 새 업무 배정: ${taskTitle}`,
+                message: `워크플로우 "${workflowLabel}"에 의해 자동 생성된 업무입니다. 마감: ${new Date(dueAt).toLocaleDateString('ko-KR')}`,
+                link: `/report/${reportId}`,
+                type: 'ALERT',
+            });
+        }
+        engineLog(`[Engine:create_task] 🔔 Notified ${notifyTargets.size} user(s)`);
+
+    } else if (actionId === 'update_status') {
         const value = params.value || '처리완료';
-        console.log(`[Engine] update_status → "${value}" (run: ${runId})`);
+        engineLog(`[Engine:update_status] value="${value}" run=${runId}`);
+    } else if (actionId === 'approve') {
+        // approve is handled at the stage level, not here
+    } else {
+        engineLog(`[Engine:executeAction] Unknown actionId="${actionId}" raw=${JSON.stringify(action)}, skipping.`);
     }
 }
 
@@ -129,22 +182,23 @@ async function executeStage(
         .sort((a, b) => a.position - b.position);
 
     if (stageActions.length === 0) {
-        console.log(`[Engine] Stage ${stageIdx} has no actions, completing run.`);
+        engineLog(`[Engine:executeStage] Stage ${stageIdx} has no actions, completing run ${runId}.`);
         await updateRunStatus(runId, '정상완료');
         return;
     }
 
-    console.log(`[Engine] Executing stage ${stageIdx} (${stageActions.length} actions)`);
+    engineLog(`[Engine:executeStage] Executing stage ${stageIdx} (${stageActions.length} actions) for run ${runId}`);
 
-    const nonApproveActions = stageActions.filter(a => a.actionId !== 'approve');
-    const approveActions = stageActions.filter(a => a.actionId === 'approve');
+    const resolveId = (a: any) => a.actionId ?? a.id ?? a.type ?? a.action ?? '';
+    const nonApproveActions = stageActions.filter(a => resolveId(a) !== 'approve');
+    const approveActions = stageActions.filter(a => resolveId(a) === 'approve');
 
     // Run non-blocking actions in parallel
     await Promise.allSettled(
         nonApproveActions.map(action =>
-            executeAction(action, runId, workflowLabel, reportId, inputData).catch(err =>
-                console.error(`[Engine] Action "${action.actionId}" (stage ${stageIdx}, pos ${action.position}) failed:`, err)
-            )
+            executeAction(action, runId, workflowLabel, reportId, inputData).catch(err => {
+                engineLog(`[Engine:executeStage] ❌ Action "${action.actionId}" (stage ${stageIdx}, pos ${action.position}) failed: ${err}`);
+            })
         )
     );
 
@@ -155,7 +209,7 @@ async function executeStage(
                 approveAction.params?.approvalChain || [{ role: 'ADMIN' }];
             // Create pending approval for the first approver in the chain
             await createApproval(runId, stageIdx, 0, approvalChain[0].role);
-            console.log(`[Engine] Approval gate created — waiting for "${approvalChain[0].role}" (stage ${stageIdx})`);
+            engineLog(`[Engine:executeStage] Approval gate created — waiting for "${approvalChain[0].role}" (stage ${stageIdx}, run ${runId})`);
         }
         // Execution pauses here; resumption via recordApprovalDecision callback
         return;
@@ -167,11 +221,11 @@ async function executeStage(
 
     if (hasNextStage) {
         await advanceRunStage(runId, nextStageIdx);
-        console.log(`[Engine] Advancing to stage ${nextStageIdx}`);
+        engineLog(`[Engine:executeStage] Advancing run ${runId} to stage ${nextStageIdx}`);
         await executeStage(allActions, runId, nextStageIdx, workflowLabel, reportId, inputData);
     } else {
         await updateRunStatus(runId, '정상완료');
-        console.log(`[Engine] Run ${runId} completed.`);
+        engineLog(`[Engine:executeStage] Run ${runId} completed ✅`);
     }
 }
 
@@ -180,26 +234,39 @@ async function executeStage(
  * getWorkflow로 전체 액션 스텝을 조회한 후 스테이지 0부터 실행합니다.
  */
 async function startWorkflowRun(workflow: any, reportId: string, rowData: any): Promise<void> {
-    console.log(`[Engine] Starting run for workflow "${workflow.label}" (${workflow.id})`);
+    engineLog(`[Engine:startRun] Starting run for workflow "${workflow.label}" (id=${workflow.id})`);
 
-    // Fetch full workflow with action steps
-    const fullWorkflow = await getWorkflow(workflow.id);
-    const allActions: Array<{ actionId: string; params?: Record<string, any>; stage: number; position: number }> =
-        fullWorkflow?.actions ?? fullWorkflow?.actionSteps ?? [];
+    // Use actions from the already-loaded workflow object (listWorkflows returns them embedded).
+    // Fall back to getWorkflow only if the passed object lacks actions.
+    let allActions: Array<{ actionId: string; params?: Record<string, any>; stage: number; position: number }> =
+        workflow?.actions ?? workflow?.actionSteps ?? workflow?.steps ?? [];
 
     if (allActions.length === 0) {
-        console.warn(`[Engine] Workflow "${workflow.label}" has no actions, skipping run.`);
+        engineLog(`[Engine:startRun] actions not on workflow object, fetching via getWorkflow...`);
+        const fullWorkflow = await getWorkflow(workflow.id);
+        engineLog(`[Engine:startRun] getWorkflow response keys: ${JSON.stringify(Object.keys(fullWorkflow ?? {}))}`);
+        const wfObj = fullWorkflow?.workflow ?? fullWorkflow;
+        allActions = wfObj?.actions ?? wfObj?.actionSteps ?? wfObj?.steps ?? [];
+    }
+
+    engineLog(`[Engine:startRun] allActions.length=${allActions.length} sample=${JSON.stringify(allActions[0] ?? null)}`);
+
+    if (allActions.length === 0) {
+        engineLog(`[Engine:startRun] ⚠️ Workflow "${workflow.label}" has no actions — skipping run.`);
         return;
     }
 
     // Create the run record
     const runResult = await createRun(workflow.id, rowData, 'dashboard_data', null);
+    engineLog(`[Engine:startRun] createRun response keys: ${JSON.stringify(Object.keys(runResult ?? {}))}`);
+
     const runId: string = runResult?.run?.id ?? runResult?.id ?? runResult?.runId;
     if (!runId) {
-        console.error('[Engine] createRun did not return a run ID:', runResult);
+        engineLog(`[Engine:startRun] ❌ createRun did not return a run ID. Full response: ${JSON.stringify(runResult)}`);
         return;
     }
 
+    engineLog(`[Engine:startRun] Run created: runId=${runId}`);
     await updateRunStatus(runId, '정상진행중');
     await executeStage(allActions, runId, 0, workflow.label, reportId, rowData);
 }
@@ -352,19 +419,30 @@ ${policyContext ? `${policyContext}\n` : ''}
         })
     );
 
-    await createWorkflow({
+    // Create workflow with empty actions array (API requires the field),
+    // then add each action step individually via addWorkflowAction so actionId is stored correctly.
+    const createdWorkflow = await createWorkflow({
         label: suggestion.label,
         inputTypes: suggestion.inputs || [],
         notify: suggestion.notify || [],
         hints: [`report:${reportId}`, `category:${category}`],
         outputTables: [reportId],
         triggerTable: reportId,
-        actions: flatActions,
+        actions: [],
         status: 'suggested',
         suggestedBy: 'ai',
     });
 
-    console.log(`[AI Center] New workflow suggested: "${suggestion.label}" (${flatActions.length} actions across ${stages.length} stage(s))`);
+    // Add each action step individually via addWorkflowAction so actionId is stored correctly
+    const workflowId: string = createdWorkflow?.id ?? createdWorkflow?.workflow?.id;
+    if (workflowId && flatActions.length > 0) {
+        for (const action of flatActions) {
+            await addWorkflowAction(workflowId, action.actionId, action.params ?? {}, action.stage, action.position);
+        }
+        console.log(`[AI Center] New workflow suggested: "${suggestion.label}" (${flatActions.length} actions across ${stages.length} stage(s))`);
+    } else {
+        console.warn(`[AI Center] Workflow created but could not add actions — workflowId=${workflowId}, actions=${flatActions.length}`);
+    }
 }
 
 /**

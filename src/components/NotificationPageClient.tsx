@@ -86,8 +86,8 @@ interface BusinessWorkflowHubProps {
 export default function BusinessWorkflowHub({ user, initialNotifications, initialAdminLogs = [], departments = [], suggestedWorkflows = [], activeWorkflows = [] }: BusinessWorkflowHubProps) {
     const [isMounted, setIsMounted] = useState(false);
     const [activeTab, setActiveTab] = useState<'execution' | 'workflows'>('execution');
-    const [notifications, setNotifications] = useState(initialNotifications);
-    const [adminLogs, setAdminLogs] = useState(initialAdminLogs);
+    const [notifications, setNotifications] = useState<any[]>(Array.isArray(initialNotifications) ? initialNotifications : (initialNotifications as any)?.rows ?? []);
+    const [adminLogs, setAdminLogs] = useState<any[]>(Array.isArray(initialAdminLogs) ? initialAdminLogs : (initialAdminLogs as any)?.rows ?? []);
     const [loading, setLoading] = useState(false);
     const [isPurgingTestData, setIsPurgingTestData] = useState(false);
     const [isPreviewingPurge, setIsPreviewingPurge] = useState(false);

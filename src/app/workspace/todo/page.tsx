@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckSquare, Plus, Loader2, AlertCircle, Clock } from 'lucide-react';
+import { ClipboardList, CheckSquare, Plus, Loader2, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TodoItem } from '@/components/workspace/TodoItem';
 import { getTodoListAction, updateTaskStatusAction, getTaskHistoryAction } from './actions';
@@ -36,6 +36,8 @@ export default function TodoPage() {
 
     useEffect(() => {
         fetchTasks();
+        const interval = setInterval(fetchTasks, 15000);
+        return () => clearInterval(interval);
     }, []);
 
     const handleTaskClick = async (task: any) => {
@@ -107,7 +109,7 @@ export default function TodoPage() {
                     onClick={fetchTasks}
                     className="w-8 h-8 mr-2 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
                 >
-                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={20} />}
+                    {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                 </motion.button>
             </div>
 

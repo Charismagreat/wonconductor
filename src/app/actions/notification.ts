@@ -110,7 +110,7 @@ export async function getAllNotificationsAction() {
             orderDirection: 'DESC',
             limit: 100
         });
-        return result || [];
+        return Array.isArray(result) ? result : (result as any)?.rows ?? [];
     } catch (err) {
         console.error('[Notification Action] Error fetching all:', err);
         return [];
@@ -165,12 +165,13 @@ export async function getAdminNotificationLogsAction(filters?: { searchTerm?: st
 
         if (uniqueReportIds.length > 0) {
             // 모든 관련 태스크 조회 (최근순)
-            const tasks = await queryTable('action_task', { 
+            const tasksRaw = await queryTable('action_task', {
                 orderBy: 'createdAt',
                 orderDirection: 'DESC',
                 limit: 500
             });
-            
+            const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw as any)?.rows ?? [];
+
             // { userId_reportId: status } 맵 생성
             taskMap = tasks.reduce((acc: any, t: any) => {
                 const key = `${t.assigneeId}_${t.reportId}`;

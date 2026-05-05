@@ -41,10 +41,11 @@ export default async function WorkflowDetailPage({
     const template = tplRes[0];
 
     // 3. Fetch Related Tasks
-    const tasks = await queryTable('action_task', { 
+    const tasksRaw = await queryTable('action_task', {
         filters: { instanceId: id },
         orderBy: 'createdAt'
     });
+    const tasks = Array.isArray(tasksRaw) ? tasksRaw : (tasksRaw as any)?.rows ?? [];
 
     return (
         <div className="flex-1 overflow-y-auto bg-slate-50/50">

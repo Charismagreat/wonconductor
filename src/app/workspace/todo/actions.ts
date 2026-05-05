@@ -106,7 +106,7 @@ export async function getTaskHistoryAction(taskId: string) {
             orderDirection: 'DESC'
         });
 
-        const historyList = Array.isArray(histories) ? histories : [];
+        const historyList = Array.isArray(histories) ? histories : (histories as any)?.rows ?? [];
         if (historyList.length === 0) return [];
 
         // 대상을 알기 위해 유저 정보도 매칭 (필요시)

@@ -52,11 +52,12 @@ export default async function DepartmentWorkspacePage({
     // 2. Fetch Department Tasks
     // Note: In real scenarios, tasks would be linked via deptId or managerId. 
     // Here we'll simulate by filtering tasks (Lee Team Leader's tasks for PoC)
-    const allTasks = await queryTable('action_task', { 
+    const allTasksRaw = await queryTable('action_task', {
         limit: 100,
         orderBy: 'dueAt',
         orderDirection: 'ASC'
     });
+    const allTasks = Array.isArray(allTasksRaw) ? allTasksRaw : (allTasksRaw as any)?.rows ?? [];
 
     // 3. Simulated Department Insights (AI generated vibe)
     const stats = {

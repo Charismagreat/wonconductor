@@ -145,3 +145,51 @@
 [2026-05-05T10:38:36.251Z] [Engine:executeStage] Advancing run fa7a534f-03a6-43bc-a2ef-109004ab49e5 to stage 1
 [2026-05-05T10:38:36.251Z] [Engine:executeStage] Executing stage 1 (1 actions) for run fa7a534f-03a6-43bc-a2ef-109004ab49e5
 [2026-05-05T10:38:36.254Z] [Engine:executeStage] Approval gate created — waiting for "경영지원팀 과장" (stage 1, run fa7a534f-03a6-43bc-a2ef-109004ab49e5)
+[2026-05-05T10:51:08.048Z] [Workflow Engine] Triggered for Report: rep-1777978267952-doc8z
+[2026-05-05T10:51:43.887Z] [Layer 1] Per-row steering recommendation queued.
+[2026-05-05T10:51:43.897Z] [Layer 2] 1 active workflow(s) matched. Starting runs...
+[2026-05-05T10:51:43.900Z] [Engine:startRun] Starting run for workflow "법인차량 유류비 정산 및 증빙 검토 워크플로우" (id=d49ca0ec-db9e-4802-9cb4-7580f1f13eac)
+[2026-05-05T10:51:43.901Z] [Engine:startRun] allActions.length=5 sample={"rowId":"a76d3418-1391-4eb5-bc64-37a010d311bf","id":"update_status","params":{"value":"검토중"},"stage":0,"position":0}
+[2026-05-05T10:51:43.905Z] [Engine:startRun] createRun response keys: ["id","workflowId","inputData","status","currentStage","sourceTable","sourceRowId","createdAt","updatedAt"]
+[2026-05-05T10:51:43.906Z] [Engine:startRun] Run created: runId=3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f
+[2026-05-05T10:51:43.908Z] [Engine:executeStage] Executing stage 0 (2 actions) for run 3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f
+[2026-05-05T10:51:43.909Z] [Engine:update_status] value="검토중" run=3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f
+[2026-05-05T10:51:43.926Z] [Engine:create_task] title="유류비 증빙 대조 및 주행 기록부 확인" assigneeRole=경영지원팀 사원 assigneeId=11 dueAt=2026-05-07T10:51:43.925Z actionId=create_task
+[2026-05-05T10:51:43.937Z] [Engine:create_task] ✅ Inserted into action_task (runId=3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f)
+[2026-05-05T10:51:43.972Z] [Engine:create_task] 🔔 Notified 3 user(s)
+[2026-05-05T10:51:43.974Z] [Engine:executeStage] Advancing run 3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f to stage 1
+[2026-05-05T10:51:43.975Z] [Engine:executeStage] Executing stage 1 (1 actions) for run 3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f
+[2026-05-05T10:51:43.977Z] [Engine:executeStage] Approval gate created — waiting for "경영지원팀 과장" (stage 1, run 3f8844d6-8eab-4d88-a2d5-b91a9a8cbc8f)
+[2026-05-05T10:53:55.551Z] [Workflow Engine] Triggered for Report: rep-1777978435488-mmvqt
+[2026-05-05T10:54:05.310Z] [Layer 1] Per-row steering recommendation queued.
+[2026-05-05T10:54:05.319Z] [Layer 2] 1 active workflow(s) matched. Starting runs...
+[2026-05-05T10:54:05.322Z] [Engine:startRun] Starting run for workflow "법인차량 유류비 정산 및 증빙 검토 워크플로우" (id=d49ca0ec-db9e-4802-9cb4-7580f1f13eac)
+[2026-05-05T10:54:05.322Z] [Engine:startRun] allActions.length=5 sample={"rowId":"a76d3418-1391-4eb5-bc64-37a010d311bf","id":"update_status","params":{"value":"검토중"},"stage":0,"position":0}
+[2026-05-05T10:54:05.325Z] [Engine:startRun] createRun response keys: ["id","workflowId","inputData","status","currentStage","sourceTable","sourceRowId","createdAt","updatedAt"]
+[2026-05-05T10:54:05.325Z] [Engine:startRun] Run created: runId=19543e16-9a3a-4926-b0da-4fd8b6b01696
+[2026-05-05T10:54:05.326Z] [Engine:executeStage] Executing stage 0 (2 actions) for run 19543e16-9a3a-4926-b0da-4fd8b6b01696
+[2026-05-05T10:54:05.327Z] [Engine:update_status] value="검토중" run=19543e16-9a3a-4926-b0da-4fd8b6b01696
+[2026-05-05T10:54:05.343Z] [Engine:create_task] title="유류비 증빙 대조 및 주행 기록부 확인" assigneeRole=경영지원팀 사원 assigneeId=11 dueAt=2026-05-07T10:54:05.343Z actionId=create_task
+[2026-05-05T10:54:05.353Z] [Engine:create_task] ✅ Inserted into action_task (runId=19543e16-9a3a-4926-b0da-4fd8b6b01696)
+[2026-05-05T10:54:05.382Z] [Engine:create_task] 🔔 Notified 3 user(s)
+[2026-05-05T10:54:05.384Z] [Engine:executeStage] Advancing run 19543e16-9a3a-4926-b0da-4fd8b6b01696 to stage 1
+[2026-05-05T10:54:05.384Z] [Engine:executeStage] Executing stage 1 (1 actions) for run 19543e16-9a3a-4926-b0da-4fd8b6b01696
+[2026-05-05T10:54:05.387Z] [Engine:executeStage] Approval gate created — waiting for "경영지원팀 과장" (stage 1, run 19543e16-9a3a-4926-b0da-4fd8b6b01696)
+[2026-05-05T10:59:18.689Z] [Workflow Engine] Triggered for Report: rep-1777978758629-1rvan
+[2026-05-05T10:59:19.348Z] [Layer 1] Per-row steering recommendation queued.
+[2026-05-05T10:59:19.366Z] [Layer 2] No active workflows matched. Requesting AI suggestion...
+[2026-05-05T11:01:41.156Z] [Workflow Engine] Triggered for Report: rep-1777978758629-1rvan
+[2026-05-05T11:01:41.771Z] [Layer 1] Per-row steering recommendation queued.
+[2026-05-05T11:01:41.779Z] [Layer 2] 1 active workflow(s) matched. Starting runs...
+[2026-05-05T11:01:41.780Z] [Engine:startRun] Starting run for workflow "법인차량 과태료 고지 및 자진납부 처리 워크플로우" (id=508905a7-08a9-49c9-b5f2-43105969a77b)
+[2026-05-05T11:01:41.780Z] [Engine:startRun] allActions.length=5 sample={"rowId":"b1c6707e-67c2-430a-ac31-298574e7dd16","id":"update_status","params":{"value":"검토중"},"stage":0,"position":0}
+[2026-05-05T11:01:41.784Z] [Engine:startRun] createRun response keys: ["id","workflowId","inputData","status","currentStage","sourceTable","sourceRowId","createdAt","updatedAt"]
+[2026-05-05T11:01:41.784Z] [Engine:startRun] Run created: runId=01ca3504-541a-44db-9ec0-995a89215b65
+[2026-05-05T11:01:41.788Z] [Engine:executeStage] Executing stage 0 (2 actions) for run 01ca3504-541a-44db-9ec0-995a89215b65
+[2026-05-05T11:01:41.790Z] [Engine:update_status] value="검토중" run=01ca3504-541a-44db-9ec0-995a89215b65
+[2026-05-05T11:01:41.811Z] [Engine:create_task] title="과태료 위반 사실 확인 및 실제 운전자 식별" assigneeRole=사원 assigneeId=1 dueAt=2026-05-23T00:00:00.000Z actionId=create_task
+[2026-05-05T11:01:41.823Z] [Engine:create_task] ✅ Inserted into action_task (runId=01ca3504-541a-44db-9ec0-995a89215b65)
+[2026-05-05T11:01:41.847Z] [Engine:create_task] 🔔 Notified 2 user(s)
+[2026-05-05T11:01:41.850Z] [Engine:executeStage] Advancing run 01ca3504-541a-44db-9ec0-995a89215b65 to stage 1
+[2026-05-05T11:01:41.851Z] [Engine:executeStage] Executing stage 1 (1 actions) for run 01ca3504-541a-44db-9ec0-995a89215b65
+[2026-05-05T11:01:41.856Z] [Engine:executeStage] Approval gate created — waiting for "과장" (stage 1, run 01ca3504-541a-44db-9ec0-995a89215b65)

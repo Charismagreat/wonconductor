@@ -53,8 +53,9 @@ function findMatchingWorkflows(workflows: any[], reportId: string, dataFields: s
     return workflows.filter(w => {
         if (w.status !== 'active') return false;
         // Priority 1: exact triggerTable match (set during AI suggestion)
-        if (w.triggerTable && w.triggerTable === reportId) return true;
-        // Priority 2: fallback fuzzy inputTypes match (legacy / manually created workflows)
+        // If a workflow has triggerTable bound, ONLY fire for that exact table — no fuzzy fallback.
+        if (w.triggerTable) return w.triggerTable === reportId;
+        // Priority 2: fuzzy inputTypes match — only for workflows with no triggerTable binding
         const inputTypes: string[] = w.inputTypes || [];
         return inputTypes.some(t =>
             t === category ||

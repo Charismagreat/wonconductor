@@ -5,6 +5,9 @@ import {
     listWorkflows,
     updateWorkflowStatus,
     updateWorkflow,
+    addWorkflowAction,
+    removeWorkflowAction,
+    setWorkflowNotifyRoles,
     listBusinessIdentitySnapshots,
     listKnowledgeDocuments,
 } from '@/egdesk-helpers';
@@ -82,5 +85,52 @@ export async function editWorkflowAction(
         throw new Error('Unauthorized');
     }
     await updateWorkflow(id, data);
+    revalidatePath('/workflow/ai-center');
+}
+
+/** Full workflow edit: update metadata + notify roles + rebuild action steps */
+export async function updateWorkflowFullAction(
+    id: string,
+    data: {
+        label?: string;
+        inputTypes?: string[];
+        triggerTable?: string | null;
+        notify?: string[];
+        actionsToRemove?: string[];
+        actionsToAdd?: Array<{
+            actionId: string;
+            params: Record<string, any>;
+            stage: number;
+            position: number;
+        }>;
+    }
+) {
+    const session = await getSessionAction();
+    if (!session || (session.role !== 'ADMIN' && session.role !== 'EDITOR')) {
+        throw new Error('Unauthorized');
+    }
+
+    const { label, inputTypes, triggerTable, notify, actionsToRemove = [], actionsToAdd = [] } = data;
+
+    if (label !== undefined || inputTypes !== undefined || triggerTable !== undefined) {
+        await updateWorkflow(id, {
+            ...(label !== undefined && { label }),
+            ...(inputTypes !== undefined && { inputTypes }),
+            ...(triggerTable !== undefined && { triggerTable }),
+        });
+    }
+
+    if (notify !== undefined) {
+        await setWorkflowNotifyRoles(id, notify);
+    }
+
+    for (const rowId of actionsToRemove) {
+        await removeWorkflowAction(rowId);
+    }
+
+    for (const action of actionsToAdd) {
+        await addWorkflowAction(id, action.actionId, action.params, action.stage, action.position);
+    }
+
     revalidatePath('/workflow/ai-center');
 }

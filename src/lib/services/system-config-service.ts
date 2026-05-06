@@ -109,8 +109,9 @@ export class SystemConfigService {
                 console.log(`[SystemConfigService] Table '${table.tableName}' already exists.`);
                 // [Self-Healing] 컬럼 누락 체크 (특히 report 테이블의 id 컬럼)
                 try {
-                    const schema = await getTableSchema(table.tableName).catch(() => []);
-                    const hasId = schema.some((c: any) => c.name.toLowerCase() === 'id');
+                    const schemaRes = await getTableSchema(table.tableName).catch(() => []);
+                    const schema = Array.isArray(schemaRes) ? schemaRes : (schemaRes as any)?.columns || (schemaRes as any)?.schema || [];
+                    const hasId = schema.some((c: any) => (c.name || c.id || "").toLowerCase() === 'id');
                     
                     if (!hasId && table.tableName === 'dashboard_master') {
                         console.log(`[SystemConfigService] Migrating 'dashboard_master' table to include 'id' column...`);

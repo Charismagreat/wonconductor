@@ -34,8 +34,23 @@ export async function POST(request: Request) {
         // Initialize All System Tables
         await SystemConfigService.ensureSystemTables();
 
-        // Check if admin user exists (if username changed, it won't find it)
-        const adminResult = await queryTable('user', { filters: { username: adminUsername } });
+        // 3단계: 관리자 계정 생성 (테이블 생성 직후이므로 약간의 지연시간을 두고 재시도 로직 추가)
+        let adminResult;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount < maxRetries) {
+            try {
+                adminResult = await queryTable('user', { filters: { username: adminUsername } });
+                break; // 성공 시 루프 탈출
+            } catch (e: any) {
+                console.warn(`[InitializeAPI] user 테이블 조회 시도 ${retryCount + 1}/${maxRetries} 실패: ${e.message}`);
+                retryCount++;
+                if (retryCount >= maxRetries) throw e; // 마지막 시도도 실패하면 에러 투척
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기 후 재시도
+            }
+        }
+
         const adminRows = Array.isArray(adminResult) ? adminResult : (adminResult?.rows || []);
 
         if (adminRows.length === 0) {
@@ -59,7 +74,6 @@ export async function POST(request: Request) {
             }, { filters: { username: adminUsername } });
             console.log(`[InitializeAPI] Updated existing admin user: ${adminUsername}`);
         }
-
 
         return NextResponse.json({ success: true, message: 'System initialized successfully' });
 

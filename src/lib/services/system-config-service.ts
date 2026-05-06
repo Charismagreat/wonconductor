@@ -68,9 +68,13 @@ export class SystemConfigService {
         }
 
         const currentTables = Array.isArray(result) ? result : (result?.tables || []);
+        console.log(`[SystemConfigService] Discovered ${currentTables.length} tables in DB.`);
+        
         const tableNames = new Set(currentTables.map((t: any) => 
-            (typeof t === 'string' ? t : (t.tableName || t.name))?.toLowerCase()
+            (typeof t === 'string' ? t : (t.tableName || t.name || t.id))?.toLowerCase()
         ));
+        
+        console.log(`[SystemConfigService] Existing tables:`, Array.from(tableNames));
 
         // 1. Ensure system_settings table exists
         if (!tableNames.has('system_settings')) {
@@ -92,7 +96,9 @@ export class SystemConfigService {
 
         // 2. Ensure all other SYSTEM_TABLES exist
         for (const table of SYSTEM_TABLES) {
-            if (!tableNames.has(table.tableName.toLowerCase())) {
+            const tNameLower = table.tableName.toLowerCase();
+            if (!tableNames.has(tNameLower)) {
+                console.log(`[SystemConfigService] Table '${table.tableName}' missing, creating...`);
                 try {
                     await createTable(table.displayName, table.schema, { tableName: table.tableName });
                     console.log(`[SystemConfigService] Created table: ${table.tableName}`);
@@ -100,6 +106,7 @@ export class SystemConfigService {
                     console.warn(`[SystemConfigService] Failed to create table ${table.tableName}:`, e.message);
                 }
             } else {
+                console.log(`[SystemConfigService] Table '${table.tableName}' already exists.`);
                 // [Self-Healing] 컬럼 누락 체크 (특히 report 테이블의 id 컬럼)
                 try {
                     const schema = await getTableSchema(table.tableName).catch(() => []);

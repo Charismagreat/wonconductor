@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { loginAction, logoutAction } from '@/app/actions/auth';
+import { checkSetupRequiredAction } from '@/app/actions/setup';
 import { LayoutDashboard, LogIn, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -13,6 +14,15 @@ export default function LoginPage() {
   const router = useRouter();
 
   React.useEffect(() => {
+    // 시스템 설정 필요 여부 체크
+    const checkSetup = async () => {
+        const isRequired = await checkSetupRequiredAction();
+        if (isRequired) {
+            router.push('/setup');
+        }
+    };
+    checkSetup();
+
     // 세션 킬 스위치: 로그인 페이지에 진입하면 무조건 이전 세션을 파기
     const killSession = async () => {
       console.log('[CLIENT DEBUG] LoginPage mounted: executing session kill switch...');

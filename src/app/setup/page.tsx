@@ -13,11 +13,21 @@ import {
     ChevronRight,
     Loader2
 } from 'lucide-react';
-import { createScaffoldTableAction } from '@/app/actions/setup';
+import { createScaffoldTableAction, checkSetupRequiredAction } from '@/app/actions/setup';
 
 export default function SetupPage() {
     const router = useRouter();
     const [step, setStep] = useState(1);
+    
+    React.useEffect(() => {
+        const checkSetup = async () => {
+            const isRequired = await checkSetupRequiredAction();
+            if (!isRequired) {
+                router.push('/');
+            }
+        };
+        checkSetup();
+    }, []);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     
@@ -25,7 +35,9 @@ export default function SetupPage() {
         companyName: '',
         logoUrl: '',
         themeColor: '#2563eb',
-        businessContext: ''
+        businessContext: '',
+        adminUsername: '',
+        adminPassword: ''
     });
 
     const [aiSchema, setAiSchema] = useState<any>(null);
@@ -267,28 +279,51 @@ export default function SetupPage() {
                     {step === 3 && (
                         <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
                             <div className="space-y-2">
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tight">준비가 완료되었습니다!</h2>
-                                <p className="text-sm text-slate-400 font-medium leading-relaxed">환영합니다. 당신만을 위한 비즈니스 허브가 준비되었습니다.</p>
+                                <h2 className="text-2xl font-black text-slate-900 tracking-tight">마지막 단계: 관리자 계정 생성</h2>
+                                <p className="text-sm text-slate-400 font-medium leading-relaxed">시스템을 관리할 첫 번째 마스터 계정을 생성해 주세요.</p>
                             </div>
 
-                            <div className="bg-slate-50 p-8 rounded-[32px] border border-dashed space-y-4">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-primary tracking-widest pl-1">ADMIN USERNAME</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="아이디 (예: admin)"
+                                        className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary font-bold placeholder:text-slate-300 transition-all"
+                                        value={formData.adminUsername}
+                                        onChange={(e) => setFormData({...formData, adminUsername: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-primary tracking-widest pl-1">ADMIN PASSWORD</label>
+                                    <input 
+                                        type="password"
+                                        placeholder="비밀번호"
+                                        className="w-full p-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary font-bold placeholder:text-slate-300 transition-all"
+                                        value={formData.adminPassword}
+                                        onChange={(e) => setFormData({...formData, adminPassword: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 p-6 rounded-[32px] border border-dashed space-y-4">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm border">
-                                        <Building2 size={24} />
+                                    <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm border">
+                                        <Building2 size={20} />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">COMPANY</p>
-                                        <p className="text-xl font-black text-slate-900 uppercase tracking-tight">{formData.companyName}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">COMPANY</p>
+                                        <p className="text-md font-black text-slate-900 uppercase tracking-tight">{formData.companyName}</p>
                                     </div>
                                 </div>
                                 {tableCreated && (
                                     <div className="flex items-center gap-4 pt-4 border-t border-slate-200">
-                                        <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500">
-                                            <CheckCircle2 size={24} />
+                                        <div className="w-10 h-10 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500">
+                                            <CheckCircle2 size={20} />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">DATA ASSET</p>
-                                            <p className="text-sm font-bold text-slate-700">지능형 테이블 구축이 완료되었습니다.</p>
+                                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest leading-none mb-1">DATA ASSET</p>
+                                            <p className="text-xs font-bold text-slate-700">지능형 테이블 구축 완료</p>
                                         </div>
                                     </div>
                                 )}
@@ -298,7 +333,7 @@ export default function SetupPage() {
 
                             <button 
                                 onClick={handleInitialize}
-                                disabled={loading}
+                                disabled={loading || !formData.adminUsername || !formData.adminPassword}
                                 className="w-full py-6 bg-slate-900 text-white rounded-[40px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] shadow-xl shadow-slate-900/30 transition-all active:scale-95 disabled:opacity-50"
                             >
                                 {loading ? 'Launching...' : 'LAUNCH DASHBOARD'} <LayoutDashboard size={24} />

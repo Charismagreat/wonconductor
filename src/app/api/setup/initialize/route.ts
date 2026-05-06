@@ -9,10 +9,14 @@ import { hashPassword, SYSTEM_TABLES } from '@/app/actions/shared';
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { companyName, logoUrl, themeColor, businessContext } = body;
+        const { companyName, logoUrl, themeColor, businessContext, adminUsername, adminPassword } = body;
 
         if (!companyName) {
             return NextResponse.json({ error: 'Company Name is required' }, { status: 400 });
+        }
+
+        if (!adminUsername || !adminPassword) {
+            return NextResponse.json({ error: 'Admin Username and Password are required' }, { status: 400 });
         }
 
         const success = await SystemConfigService.updateSettings({
@@ -30,30 +34,30 @@ export async function POST(request: Request) {
         // Initialize All System Tables
         await SystemConfigService.ensureSystemTables();
 
-        // Check if admin user exists
-        let adminResult;
-        try {
-            adminResult = await queryTable('user', { filters: { username: 'admin' } });
-        } catch (e: any) {
-            throw new Error(`queryTable(user) failed at route: ${e.message}`);
-        }
-
+        // Check if admin user exists (if username changed, it won't find it)
+        const adminResult = await queryTable('user', { filters: { username: adminUsername } });
         const adminRows = Array.isArray(adminResult) ? adminResult : (adminResult?.rows || []);
+
         if (adminRows.length === 0) {
-            const adminPassword = hashPassword('admin123');
-            try {
+            const hashed = hashPassword(adminPassword);
             await insertRows('user', [{
-                username: 'admin',
-                password: adminPassword,
+                username: adminUsername,
+                password: hashed,
                 role: 'ADMIN',
                 fullName: 'System Administrator',
                 isActive: 1,
                 createdAt: new Date().toISOString()
             }]);
-            } catch (e: any) {
-                throw new Error(`insertRows(user) failed at route: ${e.message}`);
-            }
-            console.log('[InitializeAPI] Created default admin user');
+            console.log(`[InitializeAPI] Created admin user: ${adminUsername}`);
+        } else {
+            // Update existing admin if it exists
+            const hashed = hashPassword(adminPassword);
+            await updateRows('user', { 
+                password: hashed,
+                role: 'ADMIN',
+                isActive: 1
+            }, { filters: { username: adminUsername } });
+            console.log(`[InitializeAPI] Updated existing admin user: ${adminUsername}`);
         }
 
 

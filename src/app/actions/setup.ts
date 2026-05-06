@@ -35,3 +35,11 @@ export async function createScaffoldTableAction(tableName: string, schema: any[]
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Checks if the system needs initial setup.
+ */
+export async function checkSetupRequiredAction() {
+    return await SystemConfigService.isSystemSetupRequired();
+}
+

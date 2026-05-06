@@ -8,6 +8,13 @@ import { DashboardSummary } from '@/components/workspace/DashboardSummary';
 import { Suspense } from 'react';
 
 export default async function WorkspacePage() {
+    // 시스템 초기화 여부 체크 (신규 설치 시 /setup으로 유도)
+    const { SystemConfigService } = await import('@/lib/services/system-config-service');
+    const isSetupRequired = await SystemConfigService.isSystemSetupRequired();
+    if (isSetupRequired) {
+        redirect('/setup');
+    }
+
     // 세션 확인
     const session = await getSessionAction();
     if (!session) {

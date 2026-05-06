@@ -225,5 +225,26 @@ export class SystemConfigService {
             return false;
         }
     }
+
+    /**
+     * Checks if the system needs initial setup.
+     * Required if system_settings table doesn't exist, isInitialized is false, OR no active admin user exists.
+     */
+    static async isSystemSetupRequired(): Promise<boolean> {
+        try {
+            const settings = await this.getSettings();
+            if (!settings || !settings.isInitialized) {
+                return true;
+            }
+
+            // Also check if at least one active admin user exists
+            const result = await queryTable('user', { filters: { role: 'ADMIN', isActive: 1 }, limit: 1 });
+            const admins = Array.isArray(result) ? result : (result?.rows || []);
+            return admins.length === 0;
+        } catch (error) {
+            // If user table doesn't exist, queryTable will throw, which means setup is required
+            return true;
+        }
+    }
 }
 

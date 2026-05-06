@@ -28,6 +28,13 @@ import { DashboardHubClient } from './DashboardHubClient';
 import { getCalendarEvents } from '@/lib/services/calendar-service';
 
 export default async function DashboardPage() {
+  // 시스템 초기화 여부 체크 (신규 설치 시 /setup으로 유도)
+  const { SystemConfigService } = await import('@/lib/services/system-config-service');
+  const isSetupRequired = await SystemConfigService.isSystemSetupRequired();
+  if (isSetupRequired) {
+    redirect('/setup');
+  }
+
   // 실제 세션 사용자 정보 가져오기
   const user = await getSessionAction();
 

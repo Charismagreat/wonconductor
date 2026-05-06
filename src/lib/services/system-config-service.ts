@@ -98,7 +98,7 @@ export class SystemConfigService {
         for (const table of SYSTEM_TABLES) {
             const tNameLower = table.tableName.toLowerCase();
             if (!tableNames.has(tNameLower)) {
-                console.log(`[SystemConfigService] Table '${table.tableName}' missing, creating...`);
+                console.log(`[SystemConfigService] Table '${table.tableName}' missing, creating with schema:`, JSON.stringify(table.schema, null, 2));
                 try {
                     await createTable(table.displayName, table.schema, { tableName: table.tableName });
                     console.log(`[SystemConfigService] Created table: ${table.tableName}`);

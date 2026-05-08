@@ -59,6 +59,14 @@ export default async function DashboardPage() {
     console.error('Failed to fetch system data:', err);
   }
 
+  // 개별 금융 상품 테이블 목록 수집 (나중에 reports에 추가)
+  let productTables: any[] = [];
+  try {
+    const { listBankProductTables } = await import('@/egdesk-helpers');
+    const productTablesRes = await listBankProductTables().catch(() => ({ tables: [] }));
+    productTables = Array.isArray(productTablesRes) ? productTablesRes : (productTablesRes?.tables || []);
+  } catch (err) {}
+
   // 2. 권한에 따른 보고서 필터링 (가상 테이블)
   const rawAllReports = await queryTable('dashboard_master', {
     limit: 1000,
@@ -230,16 +238,21 @@ export default async function DashboardPage() {
       isReadOnly: true,
       category: 'Finance'
     });
-    reports.push({
-      id: 'promissory_notes',
-      name: '전자어음 내역',
-      tableName: 'promissory_notes',
-      _count: { rows: getCountById('promissory_notes') },
-      isFinanceTable: true,
-      isSystemTable: true,
-      isReadOnly: true,
-      category: 'Finance'
+    // 개별 금융 상품 테이블 동적 추가
+    productTables.forEach((t: any) => {
+      reports.push({
+        id: t.slug,
+        name: t.displayName || t.slug,
+        tableName: t.slug,
+        _count: { rows: t.rowCount || 0 },
+        isFinanceTable: true,
+        isSystemTable: true,
+        isReadOnly: true,
+        category: 'Finance'
+      });
     });
+    
+    // 구형 전자어음 메뉴는 개별 상품 테이블 노출로 대체됨
   }
 
   // 1. 물리적 시스템 테이블 목록 가져오기 및 2. 가상 리포트 필터링 로직이 위쪽에 있습니다.

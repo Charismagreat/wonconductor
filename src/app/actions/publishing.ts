@@ -567,10 +567,14 @@ export async function listMicroAppsAction() {
     const { ensureProjectTable } = await import('./micro-app');
     await ensureProjectTable();
     
-    const projects = await queryTable('micro_app_projects', {
+    let projects = await queryTable('micro_app_projects', {
       orderBy: 'updatedAt',
       orderDirection: 'DESC'
     });
+
+    if (!Array.isArray(projects)) {
+      projects = [];
+    }
 
     // 상태가 PUBLISHED인 것만 필터링 (클라이언트에서 필터링하거나 직접 필터)
     const publishedProjects = Array.isArray(projects) ? projects.filter((p: any) => p.status === 'PUBLISHED') : [];

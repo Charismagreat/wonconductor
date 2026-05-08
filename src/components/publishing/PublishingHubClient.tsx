@@ -47,13 +47,13 @@ export function PublishingHubClient({ initialApps, initialProjects, user }: Publ
     setIsMounted(true);
   }, []);
 
-  const filteredApps = initialApps.filter(app => 
+  const filteredApps = Array.isArray(initialApps) ? initialApps.filter(app => 
     (app.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
-  const filteredProjects = initialProjects.filter(p => 
+  const filteredProjects = Array.isArray(initialProjects) ? initialProjects.filter(p => 
     p.status !== 'PUBLISHED' && (p.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
   const handleCreateProject = async () => {
     const name = window.prompt('새 마이크로 앱의 이름을 입력하세요:', '새 마이크로 앱');

@@ -36,12 +36,17 @@ export async function getKnowledgeListAction(query?: string) {
     console.log('[DEBUG] dashboard_master result type:', typeof tableViews, 'isArray:', Array.isArray(tableViews));
     console.log('[DEBUG] View count:', tableViews?.length || 0);
 
+    // 4. 안전한 배열 처리
+    const safeKnowledge = Array.isArray(knowledge) ? knowledge : [];
+    const safePhysical = Array.isArray(physicalTables) ? physicalTables : [];
+    const safeViews = Array.isArray(tableViews) ? tableViews : [];
+
     const result = { 
       success: true, 
       data: {
-        knowledge: knowledge || [],
-        physical: (physicalTables || []).map((t: any) => {
-          const isProtected = (knowledge || []).some((k: any) => k.target_id === t.tableName && k.target_type === 'PHYSICAL' && k.is_current === 1);
+        knowledge: safeKnowledge,
+        physical: safePhysical.map((t: any) => {
+          const isProtected = safeKnowledge.some((k: any) => k.target_id === t.tableName && k.target_type === 'PHYSICAL' && k.is_current === 1);
           return { 
             id: t.tableName, 
             name: t.displayName || t.tableName, 
@@ -50,8 +55,8 @@ export async function getKnowledgeListAction(query?: string) {
             physicalTableName: t.tableName 
           };
         }),
-        view: (tableViews || []).map((t: any) => {
-          const isProtected = (knowledge || []).some((k: any) => k.target_id === t.reportId && k.target_type === 'VIRTUAL' && k.is_current === 1);
+        view: safeViews.map((t: any) => {
+          const isProtected = safeKnowledge.some((k: any) => k.target_id === t.reportId && k.target_type === 'VIRTUAL' && k.is_current === 1);
           return { 
             id: t.reportId, 
             name: t.name || t.reportId, 

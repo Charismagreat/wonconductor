@@ -19,24 +19,36 @@ export default async function DataAnalysisStudioPage() {
   }
 
   // 1. 데이터 가져오기
-  const [tablesRes, statsRes, hometaxRes, rawAllReports] = await Promise.all([
+  const allResults = await Promise.all([
     listTables().catch(() => ({ tables: [] })),
     getOverallStats().catch(() => null),
     listHometaxConnections().catch(() => null),
-    queryTable('dashboard_master', { limit: 1000, orderBy: 'createdAt', orderDirection: 'DESC' }).catch(() => [])
+    queryTable('dashboard_master', { limit: 1000, orderBy: 'createdAt', orderDirection: 'DESC' }).catch(() => []),
+    (async () => {
+      const { listBankProductTables } = await import('@/egdesk-helpers');
+      const res = await listBankProductTables();
+      return Array.isArray(res) ? res : (res?.tables || []);
+    })().catch(() => [])
   ]);
+
+  const tablesRes = allResults[0] as any;
+  const statsRes = allResults[1] as any;
+  const hometaxRes = allResults[2] as any;
+  const rawAllReports = allResults[3] as any;
+  const rawBankProductTables = (allResults[4] as any[]) || [];
 
   const systemTables = tablesRes?.tables || [];
   const isAdminOrEditor = user.role === 'ADMIN' || user.role === 'EDITOR';
 
   // 2. 리포트 목록 구성
-  let allReports = rawAllReports.filter((r: any) => String(r.isDeleted) === '0');
+  const safeReports = Array.isArray(rawAllReports) ? rawAllReports : [];
+  let allReports = safeReports.filter((r: any) => String(r.isDeleted) === '0');
   
   const processedReports = await Promise.all(allReports.map(async (r: any) => {
     let rowCount = 0;
     try {
       const aggr = await aggregateTable(r.tableName || 'dashboard_data', 'id', 'COUNT', 
-        r.tableName ? {} : { filters: { reportId: String(r.id), isDeleted: '0' } }
+        r.tableName ? { filters: { __is_deleted: '0' } } : { filters: { reportId: String(r.id), isDeleted: '0' } }
       );
       rowCount = Number(aggr?.value ?? aggr) || 0;
     } catch (e) {}
@@ -65,7 +77,17 @@ export default async function DataAnalysisStudioPage() {
         isSystemTable: true,
         isReadOnly: t.tableName !== 'user'
       }));
-    finalTables = [...finalTables, ...sysTables];
+    const bankProductTablesMapped = rawBankProductTables.map((t: any) => ({
+      id: t.slug,
+      tableName: t.slug,
+      physicalTableName: t.slug,
+      name: t.displayName || t.slug,
+      _count: { rows: t.rowCount || 0 },
+      isSystemTable: true,
+      isReadOnly: true,
+      isBankProduct: true // 금융 상품 테이블임을 표시
+    }));
+    finalTables = [...finalTables, ...sysTables, ...bankProductTablesMapped];
   }
 
   return (

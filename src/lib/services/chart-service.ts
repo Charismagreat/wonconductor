@@ -119,11 +119,15 @@ export async function mapRefreshedDataAction(rawData: any, mapping: any): Promis
 export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
     try {
         // 1. DB에서 조회 시도 (__is_deleted = 0 필터 추가)
-        const rows = await queryTable('dashboard_chart', { 
+        let rows = await queryTable('dashboard_chart', { 
             filters: { __is_deleted: '0' },
             orderBy: 'createdAt', 
             orderDirection: 'DESC' 
         });
+
+        if (!Array.isArray(rows)) {
+            rows = [];
+        }
         
         // 2. DB가 비어있다면 마이그레이션 시도
         if (rows.length === 0) {
@@ -159,7 +163,7 @@ export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
                         // 파일 삭제 (안전하게 마이그레이션 확인 후)
                         await fs.unlink(PINNED_CHARTS_PATH).catch(() => {});
                         
-                        return migratedRows.map(mapRowToChartConfig);
+                        return Array.isArray(migratedRows) ? migratedRows.map(mapRowToChartConfig) : [];
                     }
                 }
             } catch (e) {
@@ -199,7 +203,10 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
     try {
         let lastNewId: number | string | undefined;
         // 기존 활성 차트 조회
-        const existing = await queryTable('dashboard_chart', { filters: { __is_deleted: '0' } });
+        let existing = await queryTable('dashboard_chart', { filters: { __is_deleted: '0' } });
+        if (!Array.isArray(existing)) {
+            existing = [];
+        }
         const existingIds = new Set(existing.map((e: any) => String(e.id)));
         const newIds = new Set(charts.map(c => String(c.id)));
         
@@ -233,8 +240,10 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
                     ...chartData,
                     createdAt: c.createdAt || new Date().toISOString()
                 }]);
-                const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes.rows?.[0] || insertRes);
-                lastNewId = insertedRow.id;
+                const insertedRow = Array.isArray(insertRes) ? insertRes[0] : (insertRes?.rows?.[0] || insertRes);
+                if (insertedRow?.id) {
+                    lastNewId = insertedRow.id;
+                }
             }
         }
         return { success: true, newId: lastNewId };

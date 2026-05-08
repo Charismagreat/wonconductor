@@ -238,7 +238,7 @@ export async function listMicroAppProjectsAction() {
       orderBy: 'updatedAt',
       orderDirection: 'DESC'
     });
-    return rows || [];
+    return Array.isArray(rows) ? rows : [];
   } catch (error) {
     console.error('Failed to list micro app projects:', error);
     return [];

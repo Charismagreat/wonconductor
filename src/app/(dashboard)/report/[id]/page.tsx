@@ -49,40 +49,108 @@ export default async function ReportDetailPage({
   if (id === 'test-report-id') {
     // 테스트용 목업
     report = { id: 'test-report-id', name: 'Test Database', sheetName: 'Main', columns: '[]', ownerId: 'system' };
-  } else if (id.startsWith('hometax_') || id === 'promissory_notes' || id === 'bank_transactions' || id === 'card_approvals') {
+  } else if (id.startsWith('hometax_') || id === 'bank_transactions' || id === 'card_approvals' || id.includes('_transactions') || id.includes('_ebill_') || id.includes('_notes') || id.includes('_receivables') || id.includes('_executions')) {
     // 금융/홈택스 특수 뷰
     const { 
         queryTaxInvoices,
         queryTaxExemptInvoices,
         queryCashReceipts,
-        queryPromissoryNotes
+        listBankProductTables,
+        queryBankProductTable
     } = await import('@/egdesk-helpers');
 
     let allFetched: any[] = [];
     const limit = 1000;
     let offset = 0;
+    let reportName = id; // 기본값은 ID
     
-    // [보완] 금융 데이터는 기본적으로 삭제 개념이 없거나 외부 API이므로 그대로 노출
-    while (true) {
-        let batchData: any = null;
-        if (id.includes('tax')) batchData = await queryTaxInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
-        else if (id.includes('invoice')) batchData = await queryTaxExemptInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
-        else if (id === 'hometax_cash_receipts') batchData = await queryCashReceipts({ limit, offset });
-        else if (id === 'promissory_notes') batchData = await queryPromissoryNotes({ limit, offset });
-        else if (id === 'bank_transactions') batchData = await queryTable('bank_transactions', { limit, offset });
-        else if (id === 'card_approvals') batchData = await queryCardTransactions({ limit, offset });
+    // [개선] 모든 계좌를 순회하며 데이터를 누락 없이 수집
+    if (id === 'bank_transactions') {
+        const { listAccounts } = await import('@/egdesk-helpers');
+        const accounts = await listAccounts();
+        const safeAccounts = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+        const transactionMap = new Map();
+        
+        for (const acc of safeAccounts) {
+            let accOffset = 0;
+            const targetId = acc.id || acc.accountId;
+            while (true) {
+                const batchData = await queryBankTransactions({ accountId: targetId, limit, offset: accOffset });
+                const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || batchData?.transactions || []);
+                if (rawBatch.length === 0) break;
+                
+                // 계좌 정보 보강 및 중복 제거 (삭제된 데이터 제외)
+                for (const d of rawBatch) {
+                    if (String(d.__is_deleted) === '1') continue;
+                    
+                    if (!transactionMap.has(d.id)) {
+                        transactionMap.set(d.id, {
+                            ...d,
+                            bankId: acc.bankId,
+                            bankName: acc.bankName || acc._bankName,
+                            accountId: targetId,
+                            accountNumber: acc.accountNumber,
+                            accountName: acc.accountName || acc.name
+                        });
+                    }
+                }
+                if (rawBatch.length < limit) break;
+                accOffset += limit;
+            }
+        }
+        allFetched = Array.from(transactionMap.values());
+        reportName = '은행거래내역';
+    } else {
+        // 기존 루프 방식 (기타 금융 데이터)
+        while (true) {
+            let batchData: any = null;
+            if (id.includes('tax')) batchData = await queryTaxInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
+            else if (id.includes('invoice')) batchData = await queryTaxExemptInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
+            else if (id === 'hometax_cash_receipts') batchData = await queryCashReceipts({ limit, offset });
+            else if (id === 'card_approvals') batchData = await queryCardTransactions({ limit, offset });
+            else {
+                const productTables = await listBankProductTables();
+                const safeTables = Array.isArray(productTables) ? productTables : (productTables?.tables || []);
+                const targetTable = safeTables.find((t: any) => t.slug === id);
+                
+                if (targetTable) {
+                    reportName = targetTable.displayName || id;
+                    let prodOffset = 0;
+                    while (true) {
+                        const batchData = await queryBankProductTable({ tableSlug: targetTable.slug, limit, offset: prodOffset });
+                        const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || []);
+                        const filteredBatch = rawBatch.filter((d: any) => String(d.__is_deleted) !== '1');
+                        allFetched.push(...filteredBatch);
+                        if (rawBatch.length < limit) break;
+                        prodOffset += limit;
+                    }
+                }
+            }
 
-        const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || batchData?.transactions || batchData?.invoices || batchData?.receipts || batchData?.notes || []);
-        if (rawBatch.length === 0) break;
-        allFetched.push(...rawBatch);
-        if (rawBatch.length < limit) break;
-        offset += limit;
+            const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || batchData?.transactions || batchData?.invoices || batchData?.receipts || batchData?.notes || []);
+            if (rawBatch.length === 0) break;
+            const filteredBatch = rawBatch.filter((d: any) => String(d.__is_deleted) !== '1');
+            allFetched.push(...filteredBatch);
+            if (rawBatch.length < limit) break;
+            offset += limit;
+        }
     }
 
-    const mockDataForSchema = allFetched.length > 0 ? allFetched : [{}];
-    const pKeys = Object.keys(mockDataForSchema[0] || {});
-    columns = pKeys.map(k => ({ name: k, type: inferColumnType(k) }));
-    report = { id, name: id, sheetName: id, columns: JSON.stringify(columns), ownerId: 'system', isReadOnly: true };
+    // [개선] 데이터 기반 스키마 생성
+    const allKeys = new Set<string>();
+    
+    allFetched.forEach(item => {
+        Object.keys(item).forEach(key => {
+            if (!key.startsWith('_')) allKeys.add(key); // 시스템 내부 필드 제외
+        });
+    });
+
+    const pKeys = Array.from(allKeys);
+    columns = pKeys.map(k => ({ 
+        name: k, 
+        type: inferColumnType(k) 
+    }));
+    report = { id, name: reportName, sheetName: reportName, columns: JSON.stringify(columns), ownerId: 'system', isReadOnly: true };
     rows = allFetched.map(d => ({ ...d, isDeleted: false }));
   } else {
     const { getTableByName } = await import('@/egdesk.config');

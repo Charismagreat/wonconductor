@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
+const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 /**
@@ -57,7 +57,7 @@ export async function analyzeCompanyWebsiteAction(url: string) {
 
     // 3. Gemini AI로 요약 요청
     if (!apiKey) {
-      throw new Error('GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.');
+      throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
     }
 
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });

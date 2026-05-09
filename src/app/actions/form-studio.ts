@@ -246,7 +246,7 @@ export async function analyzeFormMappingAction(imageData: string, sourceTable: s
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     
     // API 키는 환경 변수에서 가져옵니다.
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
     // Base64 데이터에서 헤더 제거 및 바이너리 변환
@@ -348,7 +348,7 @@ export async function optimizeHtmlForMappingAction(htmlContent: string, columns:
     console.log(`[FormStudio] Stripped ${assetCount} assets. Reduced length: ${strippedHtml.length}`);
 
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     // Using standard project model as per AGENTS.md
     const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 

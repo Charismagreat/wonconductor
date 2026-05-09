@@ -262,7 +262,7 @@ export async function getPublishingAIAdjustmentAction(
   if (!user) throw new Error('인증이 필요합니다.');
 
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
   const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
   // 1. 가용한 모든 테이블 정보 수집 (지식 아카이브 활용)
@@ -401,7 +401,7 @@ export async function getAISuggestedProjectSetupAction(appId: string) {
       : '제공된 데이터 소스의 특성을 분석하여 최적의 앱 디자인을 추천하세요.';
 
     // 4. AI 분석 요청
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     console.log(`[AI 추천 엔진] 4. AI 호출 준비 중 (API Key 존재 여부: ${!!apiKey})`);
     if (!apiKey) throw new Error('Gemini API 키가 설정되지 않았습니다. (.env.local 확인 필요)');
 
@@ -627,7 +627,7 @@ export async function profileAllTablesAction() {
   });
 
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
   const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
   for (const table of sortedTables) {
@@ -871,7 +871,7 @@ export async function getAIDesignRefreshAction(appId: string) {
     const project = await getMicroAppProjectAction(appId);
     if (!project) throw new Error('프로젝트를 찾을 수 없습니다.');
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('Gemini API 키가 설정되지 않았습니다.');
 
     const { GoogleGenerativeAI } = await import("@google/generative-ai");

@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { queryTable } from "@/egdesk-helpers";
 import { runAITool } from "@/lib/ai-tools";
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
+const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // 도구(Tools) 정의
@@ -198,7 +198,7 @@ export async function getVisualizationRecommendation(
 ): Promise<AIResponse> {
 
   if (!apiKey) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
   }
 
   const contexts = await getInitialContext(tableIds);

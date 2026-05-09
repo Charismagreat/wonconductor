@@ -4,7 +4,7 @@ import { queryTable } from '@/egdesk-helpers';
 import { addRowAction } from '@/app/actions/row';
 import { getSessionAction } from '@/app/actions/auth';
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
+const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 

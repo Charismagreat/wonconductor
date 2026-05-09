@@ -115,7 +115,7 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
     }
 
     // 2. Gemini를 통한 분석
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || "");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
     const prompt = `

@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "";
+const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // 사용자의 요청에 따라 최신 모델인 gemini-3-flash-preview 사용 (v1 API 유지)
@@ -39,7 +39,7 @@ export interface ComplexDocumentResponse {
  */
 export async function recommendSchemaFromSample(currentColumns: any[], sampleRows: any[]): Promise<RecommendationResponse> {
   if (!apiKey) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
   }
 
   const prompt = `
@@ -108,7 +108,7 @@ export async function recommendSchemaFromSample(currentColumns: any[], sampleRow
  */
 export async function analyzeExcelImage(imageBase64: string, mimeType: string): Promise<RecommendationResponse> {
   if (!apiKey) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
   }
 
   const prompt = `
@@ -179,7 +179,7 @@ export async function analyzeExcelImage(imageBase64: string, mimeType: string): 
  */
 export async function extractDataFromImage(imageBase64: string, mimeType: string, columns: any[], aiRulesPrompt: string = ''): Promise<any> {
   if (!apiKey) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
   }
 
   // [방어 로직] columns가 배열인지 확인
@@ -267,7 +267,7 @@ export async function extractDataFromImage(imageBase64: string, mimeType: string
  */
 export async function analyzeComplexDocument(base64: string, mimeType: string): Promise<ComplexDocumentResponse> {
   if (!apiKey) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
   }
 
   const prompt = `

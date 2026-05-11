@@ -96,10 +96,11 @@ export async function analyzeImageAndExtractDataAction(formData: FormData, colum
         // 가드레일 설정 조회 (가드레일 세팅 페이지에서 정의된 정보만 적용)
         const SELF_NAMES: string[] = [];
         try {
-            const blacklistRecords = await queryTable('system_registration_blacklist', { 
+            const blacklistRecordsRaw = await queryTable('system_registration_blacklist', { 
                 filters: { __is_deleted: '0' },
                 limit: 200 
             });
+            const blacklistRecords = Array.isArray(blacklistRecordsRaw) ? blacklistRecordsRaw : (blacklistRecordsRaw as any)?.rows || [];
             if (blacklistRecords && Array.isArray(blacklistRecords)) {
                 blacklistRecords.forEach((r: any) => {
                     if (r.keyword) SELF_NAMES.push(String(r.keyword).trim());
@@ -264,7 +265,8 @@ export async function saveAIStudioSessionAction(data: any) {
             { name: '__deleted_at', type: 'TEXT' }
         ], { tableName, uniqueKeyColumns: ['userId'], duplicateAction: 'update' });
 
-        const existing = await queryTable(tableName, { filters: { userId: userIdStr, __is_deleted: '0' } });
+        const existingRaw = await queryTable(tableName, { filters: { userId: userIdStr, __is_deleted: '0' } });
+        const existing = Array.isArray(existingRaw) ? existingRaw : (existingRaw as any)?.rows || [];
         if (existing && existing.length > 0) {
             await updateRows(tableName, { data: sessionData.data, updatedAt: sessionData.updatedAt }, { filters: { userId: userIdStr } });
         } else {
@@ -278,7 +280,8 @@ export async function getAIStudioSessionAction() {
     const user = await getSessionAction();
     if (!user) return null;
     try {
-        const results = await queryTable('ai_studio_sessions', { filters: { userId: String(user.id), __is_deleted: '0' } });
+        const resultsRaw = await queryTable('ai_studio_sessions', { filters: { userId: String(user.id), __is_deleted: '0' } });
+        const results = Array.isArray(resultsRaw) ? resultsRaw : (resultsRaw as any)?.rows || [];
         if (results && results.length > 0) return JSON.parse(results[0].data);
     } catch (e) {}
     return null;

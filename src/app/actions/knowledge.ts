@@ -8,6 +8,9 @@ import { getSessionAction } from './auth';
  */
 export async function getKnowledgeListAction(query?: string) {
   try {
+    const { SystemConfigService } = await import('@/lib/services/system-config-service');
+    await SystemConfigService.ensureSystemTables();
+    
     const { queryTable } = await import('@/egdesk-helpers');
     
     console.log('[DEBUG] getKnowledgeListAction started');
@@ -37,9 +40,9 @@ export async function getKnowledgeListAction(query?: string) {
     console.log('[DEBUG] View count:', tableViews?.length || 0);
 
     // 4. 안전한 배열 처리
-    const safeKnowledge = Array.isArray(knowledge) ? knowledge : [];
-    const safePhysical = Array.isArray(physicalTables) ? physicalTables : [];
-    const safeViews = Array.isArray(tableViews) ? tableViews : [];
+    const safeKnowledge = Array.isArray(knowledge) ? knowledge : (knowledge as any)?.rows || [];
+    const safePhysical = Array.isArray(physicalTables) ? physicalTables : (physicalTables as any)?.rows || [];
+    const safeViews = Array.isArray(tableViews) ? tableViews : (tableViews as any)?.rows || [];
 
     const result = { 
       success: true, 
@@ -100,12 +103,14 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
       schema = schemaRes.schema || [];
       
       // table_master에서 displayName 가져오기
-      const masterRes = await queryTable('table_master', { filters: { tableName: targetId } });
-      if (masterRes && masterRes[0]) displayName = masterRes[0].displayName || targetId;
+      const masterResRaw = await queryTable('table_master', { filters: { tableName: targetId } });
+      const masterRes = Array.isArray(masterResRaw) ? masterResRaw : (masterResRaw as any)?.rows || [];
+      if (masterRes[0]) displayName = masterRes[0].displayName || targetId;
       console.log(`[DEBUG] Physical schema found: ${schema.length} columns, display: ${displayName}`);
     } else {
       // 가상 테이블 (Report) 정보 가져오기
-      const reportRes = await queryTable('dashboard_master', { filters: { reportId: targetId } });
+      const reportResRaw = await queryTable('dashboard_master', { filters: { reportId: targetId } });
+      const reportRes = Array.isArray(reportResRaw) ? reportResRaw : (reportResRaw as any)?.rows || [];
       if (!reportRes[0]) throw new Error('가상 테이블 정보를 찾을 수 없습니다.');
       
       displayName = reportRes[0].name;
@@ -181,15 +186,17 @@ export async function proposeAIKnowledgeAction(targetId: string, targetType: 'PH
 export async function approveKnowledgeAction(proposalId: number, mergedData: any) {
   try {
     // 1. 제안 정보 확인
-    const proposals = await queryTable('table_knowledge', { filters: { id: String(proposalId) } });
+    const proposalsRaw = await queryTable('table_knowledge', { filters: { id: String(proposalId) } });
+    const proposals = Array.isArray(proposalsRaw) ? proposalsRaw : (proposalsRaw as any)?.rows || [];
     if (!proposals[0]) throw new Error('제안 정보를 찾을 수 없습니다.');
     
     const { target_id, target_type } = proposals[0];
 
     // 2. 현재 활성 버전 찾기 (버전 번호 산출용)
-    const currentOnes = await queryTable('table_knowledge', { 
+    const currentOnesRaw = await queryTable('table_knowledge', { 
       filters: { target_id, target_type, is_current: 1 } 
     });
+    const currentOnes = Array.isArray(currentOnesRaw) ? currentOnesRaw : (currentOnesRaw as any)?.rows || [];
     
     let nextVersion = 1;
     if (currentOnes.length > 0) {

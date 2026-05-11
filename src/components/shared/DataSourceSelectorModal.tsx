@@ -67,7 +67,7 @@ export function DataSourceSelectorModal({
       }
     };
     loadSources();
-  }, [initialSelectedIds]);
+  }, [JSON.stringify(initialSelectedIds)]);
 
   const filteredSources = sources.filter(s => {
     const matchesSearch = s.tableName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -259,7 +259,7 @@ export function DataSourceSelectorModal({
             <div className="flex items-center gap-4">
               <div className="flex -space-x-3 overflow-hidden">
                 {selectedSources.slice(0, 5).map((s, i) => (
-                  <div key={s.id} className="inline-block h-10 w-10 rounded-full ring-4 ring-white bg-blue-100 border border-blue-200 flex items-center justify-center text-[10px] font-black text-blue-600">
+                  <div key={`${s.id}-${i}`} className="inline-block h-10 w-10 rounded-full ring-4 ring-white bg-blue-100 border border-blue-200 flex items-center justify-center text-[10px] font-black text-blue-600">
                     {s.name.substring(0, 1)}
                   </div>
                 ))}

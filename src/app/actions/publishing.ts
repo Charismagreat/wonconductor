@@ -9,7 +9,8 @@ import {
   listTables,
   getTableSchema,
   listBanks,
-  listHometaxConnections
+  listHometaxConnections,
+  listBankProductTables
 } from '@/egdesk-helpers';
 import { getSessionAction } from './auth';
 import { getUnifiedTableSchema, getUnifiedTableName } from './schema-registry';
@@ -19,22 +20,36 @@ import { getUnifiedTableSchema, getUnifiedTableName } from './schema-registry';
  * 이 액션은 Chart Studio, App Studio, Form Studio 등 모든 메뉴에서 데이터 선택 시 공통으로 사용됩니다.
  */
 export async function getUnifiedDataSourcesAction() {
-  revalidatePath('/publishing', 'layout');
   const user = await getSessionAction();
   if (!user) throw new Error('인증이 필요합니다.');
 
   try {
-    const { listTables, queryTable, listBankProductTables } = await import('@/egdesk-helpers');
-    const { tables } = await listTables();
+    // 모든 소스를 병렬로 가져오기 (성능 최적화)
+    const [tablesRes, bankProductsRes, reportsRes, tableMasterRes] = await Promise.all([
+      listTables().catch(e => { console.warn('Failed to fetch tables:', e); return { tables: [] }; }),
+      listBankProductTables().catch(e => { console.warn('Failed to fetch bank product tables:', e); return []; }),
+      queryTable('dashboard_master', { limit: 100 }).catch(e => { console.warn('Failed to fetch reports:', e); return []; }),
+      queryTable('table_master', { limit: 500 }).catch(() => [])
+    ]);
+
+    const tables = Array.isArray(tablesRes) ? tablesRes : (tablesRes as any)?.tables || [];
+    const products = Array.isArray(bankProductsRes) ? bankProductsRes : (bankProductsRes as any)?.tables || (bankProductsRes as any)?.products || [];
+    const reports = Array.isArray(reportsRes) ? reportsRes : (reportsRes as any)?.rows || [];
+    const masterEntries = Array.isArray(tableMasterRes) ? tableMasterRes : (tableMasterRes as any)?.rows || [];
+    
+    // table_master 맵 생성 (빠른 조회를 위해)
+    const masterMap = new Map(masterEntries.map((m: any) => [m.tableName, m]));
+
     const suggestions: any[] = [];
 
-    // 1. 시스템 금융 소스 (FinanceHub / HomeTax)
+    // 1. 시스템 금융 소스 (Fixed - 국세청 5종 + 금융 3종)
     const systemSources = [
       { id: 'bank_transactions', name: '은행거래내역', reason: '실시간 은행 입출금 내역 기반 자금 관리가 가능합니다.' },
       { id: 'card_approvals', name: '신용카드 거래 내역', reason: '법인/개인 카드 지출 내역을 기반으로 비용 분석이 가능합니다.' },
-      { id: 'promissory_notes', name: '전자어음 내역', reason: '어음 만기 및 수취 현황을 추적할 수 있습니다.' },
       { id: 'hometax_sales_tax_invoices', name: '매출세금계산서', reason: '국세청 연동 매출 증빙 데이터를 분석합니다.' },
+      { id: 'hometax_sales_exempt_invoices', name: '매출계산서(면세)', reason: '국세청 연동 면세 매출 증빙 데이터를 분석합니다.' },
       { id: 'hometax_purchase_tax_invoices', name: '매입세금계산서', reason: '국세청 연동 매입 증빙 데이터를 분석합니다.' },
+      { id: 'hometax_purchase_exempt_invoices', name: '매입계산서(면세)', reason: '국세청 연동 면세 매입 증빙 데이터를 분석합니다.' },
       { id: 'hometax_cash_receipts', name: '현금영수증 내역', reason: '현금 결제 증빙 내역을 추적합니다.' }
     ];
 
@@ -51,59 +66,61 @@ export async function getUnifiedDataSourcesAction() {
     }
 
     // 2. 은행 상품 테이블 (Loans, Bills, etc.)
-    try {
-      const bankProducts = await listBankProductTables();
-      const products = Array.isArray(bankProducts) ? bankProducts : (bankProducts as any)?.tables || [];
-      for (const p of products) {
-        suggestions.push({
-          tableId: p.tableSlug || p.tableName,
-          tableName: p.displayName || p.tableName,
-          physicalTableName: p.tableSlug || p.tableName,
-          type: 'bank-product',
-          templateId: 'custom-app',
-          reason: `은행 포털에서 수집된 ${p.displayName} 정보입니다. (${p.rowCount || 0}건)`,
-          priority: 'high'
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to fetch bank product tables:', e);
-    }
+    // 2. 은행 상품 테이블 (Loans, Bills, etc.)
+    products.forEach((p: any, idx: number) => {
+      const slug = p.slug;
+      if (!slug) return;
+      
+      // UI에서 개별 선택이 가능하도록 고유 ID 배정 (은행ID + 슬러그 + 인덱스)
+      const bankId = p.bankId || 'unknown';
+      const uniqueId = `bank-product:${bankId}:${slug}:${idx}`;
+      
+      suggestions.push({
+        tableId: uniqueId,
+        tableName: p.displayName || slug,
+        physicalTableName: slug, 
+        type: 'bank-product',
+        templateId: 'custom-app',
+        reason: `${bankId.toUpperCase()} 포털에서 수집된 ${p.displayName || '은행 상품'} 정보입니다. (${p.rowCount || 0}건)`,
+        priority: 'high'
+      });
+    });
 
     // 3. 사용자가 생성한 리포트 (dashboard_master 테이블)
-    try {
-      const reportsRes = await queryTable('dashboard_master', { limit: 100 });
-      const reports = Array.isArray(reportsRes) ? reportsRes : (reportsRes as any)?.rows || [];
-      for (const r of reports) {
-        const reportKey = r.reportId || String(r.id);
-        if (suggestions.some(s => s.tableId === reportKey)) continue;
-        
-        suggestions.push({
-          tableId: reportKey,
-          tableName: r.name,
-          physicalTableName: r.tableName || reportKey,
-          type: 'report',
-          templateId: 'custom-app',
-          reason: r.description || `사용자 정의 리포트: ${r.sheetName || 'MY DB'}`,
-          priority: 'medium'
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to fetch reports for suggestions:', e);
+    for (const r of reports) {
+      const reportKey = r.reportId || String(r.id);
+      if (suggestions.some(s => s.tableId === reportKey)) continue;
+      
+      suggestions.push({
+        tableId: reportKey,
+        tableName: r.name,
+        physicalTableName: r.tableName || reportKey,
+        type: 'report',
+        templateId: 'custom-app',
+        reason: r.description || `사용자 정의 리포트: ${r.sheetName || 'MY DB'}`,
+        priority: 'medium'
+      });
     }
 
     // 4. 물리 테이블 (전체 포함)
     for (const table of tables) {
-      const name = table.displayName || table.tableName;
       const tableId = table.tableName;
-      if (!tableId || suggestions.some(s => s.tableId === tableId || s.tableName === name || s.physicalTableName === tableId)) continue;
+      const masterInfo = masterMap.get(tableId);
+      
+      const name = masterInfo?.displayName || table.displayName || table.tableName;
+      const category = masterInfo?.category || (tableId.startsWith('tb_') ? 'EXCEL' : tableId.startsWith('tpl_') ? 'INDUSTRY' : 'SYSTEM');
+      const rowCount = masterInfo?.rowCount ?? table.rowCount ?? 0;
+
+      // 이미 등록된 ID가 아니면 추가
+      if (!tableId || suggestions.some(s => s.tableId === tableId)) continue;
 
       suggestions.push({
-        tableId: tableId,
+        tableId,
         tableName: name,
         physicalTableName: tableId,
         type: 'table',
         templateId: 'custom-app',
-        reason: `'${name}' 테이블의 원시 데이터를 활용합니다.`,
+        reason: `${category} 카테고리에 속한 물리 데이터 테이블입니다. (${rowCount}건)`,
         priority: 'low'
       });
     }
@@ -193,14 +210,17 @@ export async function getSourceViewSettingsAction(sourceId: string) {
  * 프로젝트에 연결된 모든 소스 테이블의 스키마 정보를 가져옵니다.
  */
 export async function getProjectSourceSchemasAction(sourceIds: string[]) {
-  const { getTableSchema, queryTable } = await import('@/egdesk-helpers');
   try {
-    const schemas = await Promise.all(sourceIds.map(async (id) => {
+    const schemas = await Promise.all(sourceIds.map(async (rawId) => {
+      const id = rawId.trim();
+      console.log(`>>> [Publishing] Fetching schema for source: "${id}"`);
+      
       // 1. 해당 소스의 저장된 뷰 설정 가져오기
       const viewSettingsRes = await getSourceViewSettingsAction(id);
       const savedConfig = viewSettingsRes.success && viewSettingsRes.data ? viewSettingsRes.data.view_config : null;
 
       let columns: any[] = await getUnifiedTableSchema(id);
+      console.log(`>>> [Publishing] Columns found for "${id}":`, columns.length);
 
       // 3. 저장된 설정(savedConfig)이 있으면 이름과 순서 덮어쓰기
       if (savedConfig && savedConfig.columns) {
@@ -228,6 +248,7 @@ export async function getProjectSourceSchemasAction(sourceIds: string[]) {
     }));
     return { success: true, schemas };
   } catch (error: any) {
+    console.error('[Publishing] getProjectSourceSchemasAction error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -297,8 +318,8 @@ export async function getPublishingAIAdjustmentAction(
   const knowledgeRes = await queryTable('table_knowledge', { limit: 50 });
   const knowledge = Array.isArray(knowledgeRes) ? knowledgeRes : (knowledgeRes as any)?.rows || [];
   const tableContext = knowledge.map((k: any) => ({
-    id: k.table_name,
-    name: k.description || k.table_name,
+    id: k.target_id,
+    name: k.description || k.target_id,
     category: k.category,
     insight: k.insight,
     columns: JSON.parse(k.schema_info || '[]').map((c: any) => c.name || c.displayName)
@@ -730,7 +751,7 @@ export async function profileAllTablesAction() {
       });
 
       await insertRows('table_knowledge', [{
-        table_name: table.name,
+        target_id: table.name,
         description: analysis.description,
         category: analysis.category,
         insight: analysis.insight,

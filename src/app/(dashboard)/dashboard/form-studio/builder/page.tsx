@@ -5,6 +5,8 @@ import { listTables, queryTable } from '@/egdesk-helpers';
 import PageHeader from '@/components/PageHeader';
 import { LayoutTemplate } from 'lucide-react';
 
+import { getUnifiedTableSchema } from '@/app/actions/schema-registry';
+
 export const dynamic = 'force-dynamic';
 
 export default async function FormStudioBuilderPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
@@ -19,64 +21,58 @@ export default async function FormStudioBuilderPage({ searchParams }: { searchPa
     }
   }
 
-  // 1. 물리 테이블 목록 가져오기
-  const tablesRaw = await listTables();
-  const tablesArray = Array.isArray(tablesRaw) ? tablesRaw : (tablesRaw?.tables || []);
+  // 1. 모든 통합 데이터 소스 가져오기 (물리 테이블 + 리포트 + 시스템 소스 + 은행 상품)
+  const { getUnifiedDataSourcesAction } = await import('@/app/actions/publishing');
+  const allSources = await getUnifiedDataSourcesAction().catch(() => []);
+  const safeTables = allSources.map((s: any) => ({
+    id: s.tableId,
+    name: s.tableName,
+    physicalTableName: s.physicalTableName
+  }));
   
-  // 2. 가상 리포트 목록 가져오기
-  const reportsRaw = await queryTable('dashboard_master', { limit: 100 }).catch(() => []);
-  const reportsArray = Array.isArray(reportsRaw) ? reportsRaw : (reportsRaw?.rows || []);
-
-  // 통합 소스 목록 생성 및 중복 제거
-  const sourceMap = new Map<string, any>();
-
-  // 1. 물리 테이블 추가
-  tablesArray.forEach((t: any) => {
-    const id = t.tableName || t.name || t;
-    sourceMap.set(id, {
-      id,
-      name: t.displayName || t.tableName || t.name || String(t),
-      physicalTableName: t.tableName || t.name || t
-    });
-  });
-
-  // 2. 가상 리포트 추가 (이미 있는 ID면 리포트 설정으로 덮어쓰거나 유지 - 여기서는 리포트 우선순위로 업데이트)
-  reportsArray.forEach((r: any) => {
-    const id = r.reportId || String(r.id);
-    sourceMap.set(id, {
-      id,
-      name: r.name,
-      physicalTableName: r.tableName || r.reportId || String(r.id)
-    });
-  });
-
-  const safeTables = Array.from(sourceMap.values());
-  
-  // 테이블들의 스키마(컬럼 목록) 정보를 미리 수집
+  // 테이블들의 스키마(컬럼 목록) 정보를 수집
   const tableSchemas: Record<string, string[]> = {};
+  console.log(`>>> [FormStudioPage] Starting schema discovery for ${safeTables.length} tables...`);
+
   for (const table of safeTables) {
     try {
-      // 1건만 조회하여 컬럼명 추출
-      const result = await queryTable(table.physicalTableName || table.id, { limit: 1 });
-      const rows = Array.isArray(result) ? result : (result?.rows || result?.data || []);
+      // 1단계: 통일된 스키마 레지스트리 조회
+      let columnsRaw = await getUnifiedTableSchema(table.id);
       
-      if (rows.length > 0) {
-        const baseColumns = Object.keys(rows[0]);
-        const virtualColumns: string[] = [...baseColumns];
-        
-        // 반복 데이터(품목 등)를 위한 가상 컬럼 추가 (_1 ~ _10)
-        for (let i = 1; i <= 10; i++) {
-          baseColumns.forEach(col => {
-            virtualColumns.push(`${col}_${i}`);
-          });
+      // 2단계: 실패 시 직접 데이터 샘플링을 통한 컬럼 추출 (가장 강력한 수단)
+      if (!columnsRaw || columnsRaw.length === 0) {
+        console.log(`>>> [FormStudioPage] registry failed for ${table.id}, trying direct sampling...`);
+        try {
+          const sample = await queryTable(table.physicalTableName || table.id, { limit: 1 });
+          const rows = Array.isArray(sample) ? sample : (sample?.rows || sample?.data || []);
+          if (rows.length > 0) {
+            columnsRaw = Object.keys(rows[0]).map(k => ({ name: k }));
+          }
+        } catch (sampleErr) {
+          console.warn(`>>> [FormStudioPage] sampling also failed for ${table.id}`);
         }
-        
-        tableSchemas[table.id] = virtualColumns;
-      } else {
-        tableSchemas[table.id] = []; 
       }
-    } catch (e) {
-      tableSchemas[table.id] = [];
+
+      if (columnsRaw && columnsRaw.length > 0) {
+        const baseColumns = columnsRaw.map((c: any) => c.name);
+        // 가상 컬럼 추가 대신 실제 컬럼들만 사용
+        tableSchemas[table.id] = baseColumns;
+      } else {
+        // 3단계: 특정 시스템 테이블에 대한 하드코딩 폴백 (금융 등)
+        if (table.id === 'bank_transactions' || table.id === 'finance-hub-bank-table') {
+          tableSchemas[table.id] = [
+            'id', 'date', 'time', '_bankName', '_accountName', 'accountNumber', 
+            'description', 'withdrawal', 'deposit', 'balance', 
+            'counterpart', 'category', 'memo', 'branchName'
+          ];
+        } else {
+          // 최후의 수단: 기본 시스템 컬럼이라도 표시
+          tableSchemas[table.id] = ['id', 'name', '__created_at', '__updated_at'];
+        }
+      }
+    } catch (e: any) {
+      console.error(`>>> [FormStudioPage] Fatal error for table ${table.id}:`, e.message);
+      tableSchemas[table.id] = ['id', 'name']; 
     }
   }
 

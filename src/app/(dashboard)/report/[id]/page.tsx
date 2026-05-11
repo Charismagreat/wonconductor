@@ -104,9 +104,9 @@ export default async function ReportDetailPage({
         // 기존 루프 방식 (기타 금융 데이터)
         while (true) {
             let batchData: any = null;
-            if (id.includes('tax')) batchData = await queryTaxInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
-            else if (id.includes('invoice')) batchData = await queryTaxExemptInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
-            else if (id === 'hometax_cash_receipts') batchData = await queryCashReceipts({ limit, offset });
+            if (id.includes('_tax_invoices')) batchData = await queryTaxInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
+            else if (id.includes('_exempt_invoices')) batchData = await queryTaxExemptInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
+            else if (id.includes('cash_receipts')) batchData = await queryCashReceipts({ type: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
             else if (id === 'card_approvals') batchData = await queryCardTransactions({ limit, offset });
             else {
                 const productTables = await listBankProductTables();
@@ -150,6 +150,20 @@ export default async function ReportDetailPage({
         name: k, 
         type: inferColumnType(k) 
     }));
+
+    // [개선] 데이터가 0건일 때도 최소한의 스키마(헤더)를 보장
+    if (columns.length === 0 && id.startsWith('hometax_')) {
+        const hometaxDefaultFields = [
+            '작성일자', '공급자상호', '공급받는자상호', '합계금액', '공급가액', '세액', '승인번호', '비고'
+        ];
+        columns = hometaxDefaultFields.map(f => ({ name: f, type: inferColumnType(f) }));
+    } else if (columns.length === 0 && (id === 'bank_transactions' || id === 'card_approvals')) {
+        const financeDefaultFields = id === 'bank_transactions' 
+            ? ['date', 'bankName', 'accountNumber', 'description', 'withdrawal', 'deposit', 'balance']
+            : ['date', 'cardName', 'cardNumber', 'merchantName', 'amount', 'category'];
+        columns = financeDefaultFields.map(f => ({ name: f, type: inferColumnType(f) }));
+    }
+
     report = { id, name: reportName, sheetName: reportName, columns: JSON.stringify(columns), ownerId: 'system', isReadOnly: true };
     rows = allFetched.map(d => ({ ...d, isDeleted: false }));
   } else {

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveFormTemplateAction, analyzeFormMappingAction, optimizeHtmlForMappingAction } from '@/app/actions/form-studio';
+import { getProjectSourceSchemasAction } from '@/app/actions/publishing';
 import { 
   Plus, Save, Trash2, Upload, Database, Image as ImageIcon, Sparkles, Wand2, Zap, Loader2, 
   ChevronLeft, ChevronRight, Settings, Maximize, MousePointer2, AlignLeft, AlignRight, 
@@ -37,6 +38,8 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   const [mappings, setMappings] = useState<MappingItem[]>(
     initialTemplate?.mappingConfig ? JSON.parse(initialTemplate.mappingConfig) : []
   );
+  const [localTableSchemas, setLocalTableSchemas] = useState<Record<string, string[]>>(tableSchemas);
+  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
   
   const [isSaving, setIsSaving] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -119,6 +122,42 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   useEffect(() => {
     setNewFormName(name);
   }, [name]);
+
+  // 디버그 로깅 및 동적 스키마 페칭
+  useEffect(() => {
+    console.log(`[FormBuilderClient] Total schemas in state: ${Object.keys(localTableSchemas).length}`);
+    
+    if (sourceTable && !localTableSchemas[sourceTable]) {
+      console.log(`[FormBuilderClient] Missing schema for "${sourceTable}". Fetching dynamically...`);
+      const fetchSchema = async () => {
+        setIsLoadingSchema(true);
+        try {
+          const res = await getProjectSourceSchemasAction([sourceTable]);
+          if (res.success && res.schemas && res.schemas.length > 0) {
+            const schemaData = res.schemas[0];
+            const columns = schemaData.columns.map((c: any) => c.name);
+            
+            // 가상 컬럼 추가 (_1 ~ _10)
+            const virtualColumns = [...columns];
+            for (let i = 1; i <= 10; i++) {
+              columns.forEach(col => virtualColumns.push(`${col}_${i}`));
+            }
+
+            setLocalTableSchemas(prev => ({
+              ...prev,
+              [sourceTable]: virtualColumns
+            }));
+            console.log(`[FormBuilderClient] Dynamically loaded ${virtualColumns.length} columns for ${sourceTable}`);
+          }
+        } catch (err) {
+          console.error('[FormBuilderClient] Failed to fetch schema dynamically:', err);
+        } finally {
+          setIsLoadingSchema(false);
+        }
+      };
+      fetchSchema();
+    }
+  }, [sourceTable, localTableSchemas]);
   const [draggingMappingId, setDraggingMappingId] = useState<string | null>(null);
   const [selectedMappingIds, setSelectedMappingIds] = useState<string[]>([]);
   const [movingMappingIds, setMovingMappingIds] = useState<string[]>([]);
@@ -191,7 +230,29 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   }, []);
 
   // 현재 선택된 테이블의 컬럼 목록
-  const columns = sourceTable ? tableSchemas[sourceTable] || [] : [];
+  let columns = sourceTable ? localTableSchemas[sourceTable] || [] : [];
+  
+  // [강제 폴백] 서버에서 스키마를 가져오지 못한 경우 클라이언트 단에서 보정 (핵심 금융/세무 테이블)
+  if (columns.length === 0 && sourceTable) {
+    if (sourceTable === 'bank_transactions' || sourceTable === 'finance-hub-bank-table') {
+      console.log('[FormBuilderClient] Applying Expanded Client-side Force Fallback for bank sources');
+      columns = [
+        'id', 'date', 'time', '_bankName', '_accountName', 'accountNumber', 
+        'description', 'withdrawal', 'deposit', 'balance', 
+        'counterpart', 'category', 'memo', 'branchName'
+      ];
+    } else if (sourceTable === 'card_approvals' || sourceTable === 'finance-hub-card-table') {
+      columns = [
+        'id', 'approveDate', 'approveTime', 'approveNumber', '_cardName', 'cardNumber',
+        'merchantName', 'merchantRegNumber', 'amount', 'status', 'category', 'memo'
+      ];
+    } else if (sourceTable.startsWith('hometax_')) {
+      columns = [
+        'id', 'issueDate', 'supplierName', 'supplierRegNumber', 'contractorName', 'contractorRegNumber',
+        'totalAmount', 'supplyAmount', 'taxAmount', 'itemName', 'itemSpec', 'itemQuantity', 'itemUnitPrice'
+      ];
+    }
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -493,7 +554,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
       return;
     }
 
-    const availableFields = tableSchemas[sourceTable] || [];
+    const availableFields = localTableSchemas[sourceTable] || [];
     if (availableFields.length === 0) {
       alert('사용 가능한 필드가 없습니다.');
       return;
@@ -552,7 +613,7 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
   };
 
   const proceedWithHtmlMapping = async () => {
-    const availableFields = tableSchemas[sourceTable] || [];
+    const availableFields = localTableSchemas[sourceTable] || [];
     if (availableFields.length === 0) {
       alert('사용 가능한 필드가 없습니다.');
       return;
@@ -706,7 +767,11 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
                   disabled={isAnalyzing}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[11px] font-black hover:bg-indigo-100 active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {isAnalyzing ? (
+                  {isLoadingSchema ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" /> 스키마 로딩 중...
+                    </>
+                  ) : isAnalyzing ? (
                     <>
                       <Loader2 size={12} className="animate-spin" /> 분석 중...
                     </>

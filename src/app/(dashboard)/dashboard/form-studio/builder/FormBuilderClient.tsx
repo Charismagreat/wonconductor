@@ -10,7 +10,7 @@ import {
   Pencil, Play, X, GripVertical, Code, Eye, Terminal, FileUp, AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
-import { SourceSelectionModal } from '@/components/dashboard/SourceSelectionModal';
+import { DataSourceSelectorModal } from '@/components/shared/DataSourceSelectorModal';
 
 interface MappingItem {
   id: string;
@@ -1394,15 +1394,22 @@ export default function FormBuilderClient({ initialTemplate, tables, tableSchema
         </div>
       )}
 
-      <SourceSelectionModal 
-        isOpen={isSourceModalOpen}
-        onClose={() => setIsSourceModalOpen(false)}
-        allTables={tables}
-        selectedIds={sourceTable ? [sourceTable] : []}
-        toggleTable={(id) => setSourceTable(prev => prev === id ? '' : id)}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-      />
+      {isSourceModalOpen && (
+        <DataSourceSelectorModal 
+          onClose={() => setIsSourceModalOpen(false)}
+          onSelect={(sources) => {
+            const tableId = sources[0]?.id;
+            if (tableId) {
+                setSourceTable(tableId);
+            }
+            setIsSourceModalOpen(false);
+          }}
+          mode="single"
+          initialSelectedIds={sourceTable ? [sourceTable] : []}
+          title="저장 대상 테이블 선택"
+          description="폼을 통해 입력받은 데이터가 저장될 대상 테이블을 선택하세요."
+        />
+      )}
     </div>
   );
 }

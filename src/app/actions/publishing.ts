@@ -15,19 +15,20 @@ import { getSessionAction } from './auth';
 import { getUnifiedTableSchema, getUnifiedTableName } from './schema-registry';
 
 /**
- * AI가 워크스페이스 테이블을 스캔하여 발행 가능한 마이크로 앱을 추천합니다.
- * 사용자 요청에 따라 MY DB의 모든 테이블과 리포트를 포함하도록 확장되었습니다.
+ * 프로젝트 내의 모든 가용 데이터 소스(물리 테이블, 리포트, 금융/홈택스 시스템 테이블, 은행 상품 테이블)를 통합하여 가져옵니다.
+ * 이 액션은 Chart Studio, App Studio, Form Studio 등 모든 메뉴에서 데이터 선택 시 공통으로 사용됩니다.
  */
-export async function getProactivePublishingSuggestionsAction() {
+export async function getUnifiedDataSourcesAction() {
   revalidatePath('/publishing', 'layout');
   const user = await getSessionAction();
   if (!user) throw new Error('인증이 필요합니다.');
 
   try {
+    const { listTables, queryTable, listBankProductTables } = await import('@/egdesk-helpers');
     const { tables } = await listTables();
     const suggestions: any[] = [];
 
-    // 1. 시스템 금융 소스 (FinanceHub / HomeTax) - MY DB의 고정 메뉴들과 일치시킴
+    // 1. 시스템 금융 소스 (FinanceHub / HomeTax)
     const systemSources = [
       { id: 'bank_transactions', name: '은행거래내역', reason: '실시간 은행 입출금 내역 기반 자금 관리가 가능합니다.' },
       { id: 'card_approvals', name: '신용카드 거래 내역', reason: '법인/개인 카드 지출 내역을 기반으로 비용 분석이 가능합니다.' },
@@ -41,26 +42,46 @@ export async function getProactivePublishingSuggestionsAction() {
       suggestions.push({
         tableId: sys.id,
         tableName: sys.name,
-        physicalTableName: sys.id, // 시스템 소스는 ID 자체가 물리적 식별자
+        physicalTableName: sys.id,
+        type: 'system',
         templateId: 'cash-report',
         reason: sys.reason,
         priority: 'high'
       });
     }
 
-    // 2. 사용자가 생성한 리포트 (dashboard_master 테이블)
+    // 2. 은행 상품 테이블 (Loans, Bills, etc.)
+    try {
+      const bankProducts = await listBankProductTables();
+      const products = Array.isArray(bankProducts) ? bankProducts : (bankProducts as any)?.tables || [];
+      for (const p of products) {
+        suggestions.push({
+          tableId: p.tableSlug || p.tableName,
+          tableName: p.displayName || p.tableName,
+          physicalTableName: p.tableSlug || p.tableName,
+          type: 'bank-product',
+          templateId: 'custom-app',
+          reason: `은행 포털에서 수집된 ${p.displayName} 정보입니다. (${p.rowCount || 0}건)`,
+          priority: 'high'
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to fetch bank product tables:', e);
+    }
+
+    // 3. 사용자가 생성한 리포트 (dashboard_master 테이블)
     try {
       const reportsRes = await queryTable('dashboard_master', { limit: 100 });
       const reports = Array.isArray(reportsRes) ? reportsRes : (reportsRes as any)?.rows || [];
       for (const r of reports) {
         const reportKey = r.reportId || String(r.id);
-        // 이미 추가된 시스템 소스와 중복 방지
         if (suggestions.some(s => s.tableId === reportKey)) continue;
         
         suggestions.push({
           tableId: reportKey,
           tableName: r.name,
           physicalTableName: r.tableName || reportKey,
+          type: 'report',
           templateId: 'custom-app',
           reason: r.description || `사용자 정의 리포트: ${r.sheetName || 'MY DB'}`,
           priority: 'medium'
@@ -70,31 +91,38 @@ export async function getProactivePublishingSuggestionsAction() {
       console.warn('Failed to fetch reports for suggestions:', e);
     }
 
-    // 3. 물리 테이블 (전체 포함)
+    // 4. 물리 테이블 (전체 포함)
     for (const table of tables) {
       const name = table.displayName || table.tableName;
       const tableId = table.tableName;
-      // 이미 리포트나 시스템 소스로 추가된 경우 스킵
       if (!tableId || suggestions.some(s => s.tableId === tableId || s.tableName === name || s.physicalTableName === tableId)) continue;
 
       suggestions.push({
         tableId: tableId,
         tableName: name,
         physicalTableName: tableId,
+        type: 'table',
         templateId: 'custom-app',
-        reason: `'${name}' 테이블의 원시 데이터를 활용하여 앱을 빌드합니다.`,
+        reason: `'${name}' 테이블의 원시 데이터를 활용합니다.`,
         priority: 'low'
       });
     }
 
-    // 우선순위 정렬 (High -> Medium -> Low)
     const priorityMap: any = { high: 0, medium: 1, low: 2 };
     return suggestions.sort((a, b) => (priorityMap[a.priority] || 2) - (priorityMap[b.priority] || 2));
     
   } catch (error) {
-    console.error('Failed to get publishing suggestions:', error);
+    console.error('Failed to get unified data sources:', error);
     return [];
   }
+}
+
+/**
+ * AI가 워크스페이스 테이블을 스캔하여 발행 가능한 마이크로 앱을 추천합니다.
+ * (getUnifiedDataSourcesAction의 별칭으로 유지하여 하위 호환성 보장)
+ */
+export async function getProactivePublishingSuggestionsAction() {
+  return getUnifiedDataSourcesAction();
 }
 
 /**
@@ -573,7 +601,7 @@ export async function listMicroAppsAction() {
     });
 
     if (!Array.isArray(projects)) {
-      projects = [];
+      projects = (projects as any)?.rows || [];
     }
 
     // 상태가 PUBLISHED인 것만 필터링 (클라이언트에서 필터링하거나 직접 필터)

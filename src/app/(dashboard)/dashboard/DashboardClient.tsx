@@ -25,7 +25,7 @@ import {
   clearAIStudioSessionAction
 } from '@/app/actions/ai';
 import { SmartChart } from '@/components/SmartChart';
-import { SourceSelectionModal } from '@/components/dashboard/SourceSelectionModal';
+import { DataSourceSelectorModal } from '@/components/shared/DataSourceSelectorModal';
 import { Plus, Rocket, Compass, Loader2 } from 'lucide-react';
 import { QuickAppBuilderModal } from '@/components/dashboard/QuickAppBuilderModal';
 import PageHeader from '@/components/PageHeader';
@@ -681,15 +681,19 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
         </div>
       )}
       {/* 4. Source Selection Modal */}
-      <SourceSelectionModal 
-        isOpen={isSourceModalOpen}
-        onClose={() => setIsSourceModalOpen(false)}
-        allTables={allTables}
-        selectedIds={selectedIds}
-        toggleTable={toggleTable}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-      />
+      {isSourceModalOpen && (
+        <DataSourceSelectorModal 
+          onClose={() => setIsSourceModalOpen(false)}
+          onSelect={(sources) => {
+            const ids = sources.map(s => s.id);
+            setSelectedIds(ids);
+            setIsSourceModalOpen(false);
+          }}
+          initialSelectedIds={selectedIds}
+          title="분석 데이터 소스 선택"
+          description="차트로 분석하고 시각화할 테이블이나 리포트를 선택하세요."
+        />
+      )}
 
       {/* 5. Micro-App Quick Builder Modal */}
       {isAppBuilderModalOpen && (

@@ -39,7 +39,7 @@ import {
   updateMicroAppProjectAction
 } from '@/app/actions/micro-app';
 import { getAISuggestedProjectSetupAction } from '@/app/actions/publishing';
-import { SourceSelectorModal } from './SourceSelectorModal';
+import { DataSourceSelectorModal } from '@/components/shared/DataSourceSelectorModal';
 import { TemplateRenderer } from './TemplateRenderer';
 
 interface MicroAppStudioProps {
@@ -905,9 +905,14 @@ export function MicroAppStudio({ project, user }: MicroAppStudioProps) {
       </footer>
 
       {isModalOpen && (
-        <SourceSelectorModal
+        <DataSourceSelectorModal
           onClose={() => setIsModalOpen(false)}
-          onSelect={handleAddSources}
+          onSelect={(selected) => {
+            handleAddSources(selected);
+            setIsModalOpen(false);
+          }}
+          title="앱 데이터 소스 선택"
+          description="마이크로 앱의 기반이 될 데이터를 선택하세요. AI가 최적의 소스를 추천합니다."
         />
       )}
 

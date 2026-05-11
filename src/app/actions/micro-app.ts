@@ -1,6 +1,6 @@
 'use server'
 
-import { executeSQL, insertRows, queryTable, createTable } from '@/egdesk-helpers';
+import { executeSQL, insertRows, queryTable, createTable, updateRows, deleteRows } from '@/egdesk-helpers';
 import { revalidatePath } from 'next/cache';
 import crypto from 'crypto';
 
@@ -238,7 +238,7 @@ export async function listMicroAppProjectsAction() {
       orderBy: 'updatedAt',
       orderDirection: 'DESC'
     });
-    return Array.isArray(rows) ? rows : [];
+    return Array.isArray(rows) ? rows : (rows as any)?.rows || [];
   } catch (error) {
     console.error('Failed to list micro app projects:', error);
     return [];
@@ -330,16 +330,18 @@ export async function getMicroApp(projectId: string) {
       limit: 1
     });
     
-    if (!rows || rows.length === 0) return null;
-    const app = rows[0];
+    const data = Array.isArray(rows) ? rows : (rows as any)?.rows || [];
+    
+    if (!data || data.length === 0) return null;
+    const app = data[0];
     
     return {
       ...app,
-      widgets: app.widgets ? JSON.parse(app.widgets) : [],
-      sources: app.sources ? JSON.parse(app.sources) : [],
-      mappingConfig: app.mappingConfig ? JSON.parse(app.mappingConfig) : [],
-      uiSettings: app.uiSettings ? JSON.parse(app.uiSettings) : {},
-      tags: app.tags ? JSON.parse(app.tags) : []
+      widgets: app.widgets ? (typeof app.widgets === 'string' ? JSON.parse(app.widgets) : app.widgets) : [],
+      sources: app.sources ? (typeof app.sources === 'string' ? JSON.parse(app.sources) : app.sources) : [],
+      mappingConfig: app.mappingConfig ? (typeof app.mappingConfig === 'string' ? JSON.parse(app.mappingConfig) : app.mappingConfig) : [],
+      uiSettings: app.uiSettings ? (typeof app.uiSettings === 'string' ? JSON.parse(app.uiSettings) : app.uiSettings) : {},
+      tags: app.tags ? (typeof app.tags === 'string' ? JSON.parse(app.tags) : app.tags) : []
     };
   } catch (error) {
     console.error('Failed to get micro app:', error);

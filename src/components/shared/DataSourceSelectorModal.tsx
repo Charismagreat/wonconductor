@@ -8,57 +8,86 @@ import {
   Check, 
   Layers,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  TrendingUp,
+  FileText
 } from 'lucide-react';
-import { getProactivePublishingSuggestionsAction } from '@/app/actions/publishing';
+import { getUnifiedDataSourcesAction } from '@/app/actions/publishing';
 
-interface SourceSelectorModalProps {
-  onClose: () => void;
-  onSelect: (sources: Array<{ id: string, name: string }>) => void;
+interface DataSource {
+  tableId: string;
+  tableName: string;
+  physicalTableName: string;
+  type: 'system' | 'report' | 'table' | 'bank-product';
+  templateId?: string;
+  reason?: string;
+  priority?: 'high' | 'medium' | 'low';
 }
 
-export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalProps) {
-  const [sources, setSources] = useState<any[]>([]);
+interface DataSourceSelectorModalProps {
+  onClose: () => void;
+  onSelect: (selected: Array<{ id: string, name: string }>) => void;
+  mode?: 'single' | 'multiple';
+  initialSelectedIds?: string[];
+  title?: string;
+  description?: string;
+}
+
+export function DataSourceSelectorModal({ 
+  onClose, 
+  onSelect, 
+  mode = 'multiple', 
+  initialSelectedIds = [],
+  title = "데이터 소스 탐색",
+  description = "분석하거나 앱으로 발행할 데이터 소스를 선택하세요."
+}: DataSourceSelectorModalProps) {
+  const [sources, setSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'financial'>('all');
+  const [filter, setFilter] = useState<'all' | 'financial' | 'reports'>('all');
   const [selectedSources, setSelectedSources] = useState<Array<{ id: string, name: string }>>([]);
 
   useEffect(() => {
     const loadSources = async () => {
-      const data = await getProactivePublishingSuggestionsAction();
-      setSources(data);
-      setLoading(false);
+      try {
+        const data = await getUnifiedDataSourcesAction();
+        setSources(data);
+        
+        // 초기 선택값 설정
+        if (initialSelectedIds.length > 0 && data.length > 0) {
+          const initial = data
+            .filter(s => initialSelectedIds.includes(s.tableId))
+            .map(s => ({ id: s.tableId, name: s.tableName }));
+          setSelectedSources(initial);
+        }
+      } catch (error) {
+        console.error("Failed to load data sources:", error);
+      } finally {
+        setLoading(false);
+      }
     };
     loadSources();
-  }, []);
-
-  const LocalBadge = ({ children, color = 'blue', scale = 1.0 }: { children: React.ReactNode, color?: string, scale?: number }) => {
-    const colors: Record<string, string> = {
-      blue: 'bg-blue-50 text-blue-600 border-blue-100',
-      indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-      slate: 'bg-slate-100 text-slate-500 border-slate-200',
-      amber: 'bg-amber-50 text-amber-600 border-amber-100',
-      rose: 'bg-rose-50 text-rose-600 border-rose-100',
-    };
-  
-    return (
-      <span 
-        className={`px-1.5 py-0.5 rounded text-[9px] font-black border uppercase tracking-tight inline-flex items-center gap-1 ${colors[color] || colors.blue}`}
-        style={{ transform: `scale(${scale})`, transformOrigin: 'left center' }}
-      >
-        {children}
-      </span>
-    );
-  };
+  }, [initialSelectedIds]);
 
   const filteredSources = sources.filter(s => {
-    const matchesSearch = s.tableName?.toLowerCase().includes(searchQuery.toLowerCase());
-    if (filter === 'financial') return matchesSearch && (s.templateId === 'cash-report' || s.tableId?.includes('finance'));
+    const matchesSearch = s.tableName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         s.tableId?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (filter === 'financial') {
+        return matchesSearch && (s.type === 'system' || s.type === 'bank-product');
+    }
+    if (filter === 'reports') {
+        return matchesSearch && s.type === 'report';
+    }
     return matchesSearch;
   });
 
   const toggleSource = (id: string, name: string) => {
+    if (mode === 'single') {
+      setSelectedSources([{ id, name }]);
+      return;
+    }
+
     setSelectedSources(prev => {
       const isSelected = prev.some(s => s.id === id);
       if (isSelected) {
@@ -74,6 +103,15 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
     onSelect(selectedSources);
   };
 
+  const getTypeBadge = (type: string) => {
+    switch(type) {
+        case 'system': return { label: 'System', color: 'bg-indigo-50 text-indigo-600 border-indigo-100' };
+        case 'bank-product': return { label: 'Bank Product', color: 'bg-amber-50 text-amber-600 border-amber-100' };
+        case 'report': return { label: 'Report', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' };
+        default: return { label: 'Table', color: 'bg-slate-100 text-slate-500 border-slate-200' };
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" onClick={onClose} />
@@ -87,8 +125,8 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
               <Database size={28} strokeWidth={2.5} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">데이터 소스 탐색</h2>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">Select analytical source tables</p>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{title}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 opacity-70">{description}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-3 text-slate-300 hover:text-slate-600 hover:bg-slate-50 rounded-2xl transition-all active:scale-90">
@@ -103,7 +141,7 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
             <input 
               autoFocus
               type="text" 
-              placeholder="테이블 이름 또는 키워드로 검색..."
+              placeholder="테이블 이름, ID 또는 키워드로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-16 pr-8 py-5 bg-white border-2 border-transparent rounded-[24px] text-base font-bold focus:border-blue-500 focus:ring-8 focus:ring-blue-500/5 transition-all outline-none shadow-sm"
@@ -112,25 +150,27 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 p-1.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
-              <button 
-                onClick={() => setFilter('all')}
-                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  filter === 'all' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                전체 소스
-              </button>
-              <button 
-                onClick={() => setFilter('financial')}
-                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  filter === 'financial' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
-                }`}
-              >
-                금융/자금 특화
-              </button>
+              {[
+                { id: 'all', label: '전체 소스', icon: <Database size={14} /> },
+                { id: 'financial', label: '금융/자금', icon: <TrendingUp size={14} /> },
+                { id: 'reports', label: '마이 리포트', icon: <FileText size={14} /> }
+              ].map(t => (
+                <button 
+                  key={t.id}
+                  onClick={() => setFilter(t.id as any)}
+                  className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    filter === t.id 
+                    ? 'bg-slate-900 text-white shadow-lg' 
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {t.icon}
+                  {t.label}
+                </button>
+              ))}
             </div>
             
-            {selectedSources.length > 0 && (
+            {selectedSources.length > 0 && mode === 'multiple' && (
               <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
                 <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{selectedSources.length} items selected</span>
                 <button 
@@ -145,13 +185,13 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
         </div>
 
         {/* List Content */}
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
           {loading ? (
             <div className="py-32 flex flex-col items-center justify-center gap-6 animate-pulse">
               <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200">
                 <Sparkles size={32} />
               </div>
-              <p className="font-black text-slate-400 uppercase tracking-widest text-xs">AI 데이터 엔진 분석 중...</p>
+              <p className="font-black text-slate-400 uppercase tracking-widest text-xs">데이터 엔진 동기화 중...</p>
             </div>
           ) : filteredSources.length === 0 ? (
             <div className="py-32 flex flex-col items-center justify-center text-center opacity-50">
@@ -162,6 +202,8 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
             <div className="grid grid-cols-1 gap-3 pb-12">
               {filteredSources.map((source, index) => {
                 const isSelected = selectedSources.some(s => s.id === source.tableId);
+                const badge = getTypeBadge(source.type);
+                
                 return (
                   <button 
                     key={`${source.tableId}-${index}`}
@@ -176,22 +218,18 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 ${
                         isSelected 
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
-                        : (source.templateId === 'cash-report' ? 'bg-indigo-50 text-indigo-600 shadow-inner' : 'bg-blue-50 text-blue-600 shadow-inner')
+                        : 'bg-blue-50 text-blue-600 shadow-inner'
                       }`}>
-                        {isSelected ? <Check size={24} strokeWidth={3} /> : (source.templateId === 'cash-report' ? <Layers size={24} /> : <Database size={24} />)}
+                        {isSelected ? <Check size={24} strokeWidth={3} /> : (source.type === 'report' ? <Layers size={24} /> : <Database size={24} />)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${
-                            isSelected
-                            ? 'bg-blue-100 text-blue-700 border-blue-200'
-                            : (source.templateId === 'cash-report' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-blue-50 text-blue-600 border-blue-100')
-                          }`}>
-                            {source.templateId === 'cash-report' ? 'Financial' : 'General'}
+                          <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${badge.color}`}>
+                            {badge.label}
                           </span>
-                          <LocalBadge color="slate" scale={0.9}>
-                            SOURCE: {source.physicalTableName || source.tableId || 'N/A'}
-                          </LocalBadge>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black border border-slate-200 text-slate-500 uppercase tracking-tight">
+                            ID: {source.tableId}
+                          </span>
                         </div>
                         <h4 className={`text-base font-black tracking-tight transition-colors ${isSelected ? 'text-blue-900' : 'text-slate-900 group-hover:text-blue-600'}`}>{source.tableName}</h4>
                         {source.reason && (
@@ -217,7 +255,7 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
 
         {/* Footer Action Bar */}
         {selectedSources.length > 0 && (
-          <div className="p-8 bg-white border-t border-slate-100 flex items-center justify-between animate-in slide-in-from-bottom-full duration-500">
+          <div className="p-8 bg-white border-t border-slate-100 flex items-center justify-between animate-in slide-in-from-bottom-full duration-500 sticky bottom-0">
             <div className="flex items-center gap-4">
               <div className="flex -space-x-3 overflow-hidden">
                 {selectedSources.slice(0, 5).map((s, i) => (
@@ -235,13 +273,21 @@ export function SourceSelectorModal({ onClose, onSelect }: SourceSelectorModalPr
                 <span className="text-blue-600">{selectedSources.length}개</span>의 소스가 선택되었습니다.
               </p>
             </div>
-            <button 
-              onClick={handleConfirm}
-              className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-[24px] font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 group"
-            >
-              선택한 소스 추가하기
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="flex gap-4">
+                <button 
+                onClick={onClose}
+                className="px-8 py-4 bg-white text-slate-400 border border-slate-100 rounded-[24px] font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                Cancel
+                </button>
+                <button 
+                onClick={handleConfirm}
+                className="flex items-center gap-3 px-10 py-4 bg-blue-600 text-white rounded-[24px] font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 group"
+                >
+                선택 완료
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </button>
+            </div>
           </div>
         )}
       </div>

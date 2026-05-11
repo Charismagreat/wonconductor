@@ -144,31 +144,8 @@ export async function duplicateAndPublishProjectAction(projectId: string) {
  */
 export async function ensureProjectTable() {
   try {
-    const { listTables, createTable } = await import('@/egdesk-helpers');
-    const result = await listTables();
-    const currentTables = Array.isArray(result) ? result : (result?.tables || []);
-    const tableNames = new Set(currentTables.map((t: any) => 
-        (typeof t === 'string' ? t : (t.tableName || t.name))?.toLowerCase()
-    ));
-
-    if (!tableNames.has('micro_app_projects')) {
-      console.log('[Micro-App] 프로젝트 테이블이 없어 생성합니다...');
-      await createTable('Micro App Project', [
-        { name: 'projectId', type: 'TEXT', notNull: true },
-        { name: 'name', type: 'TEXT', notNull: true },
-        { name: 'description', type: 'TEXT' },
-        { name: 'templateId', type: 'TEXT' },
-        { name: 'status', type: 'TEXT', notNull: true }, // 'DRAFT' | 'PUBLISHED'
-        { name: 'widgets', type: 'TEXT' }, // JSON
-        { name: 'sources', type: 'TEXT' }, // JSON
-        { name: 'mappingConfig', type: 'TEXT' }, // JSON
-        { name: 'uiSettings', type: 'TEXT' }, // JSON
-        { name: 'tags', type: 'TEXT' }, // JSON (추가됨)
-        { name: 'themeColor', type: 'TEXT' },
-        { name: 'createdAt', type: 'TEXT' },
-        { name: 'updatedAt', type: 'TEXT' }
-      ], { tableName: 'micro_app_projects', uniqueKeyColumns: ['projectId'], duplicateAction: 'update' });
-    }
+    const { SystemConfigService } = await import('@/lib/services/system-config-service');
+    await SystemConfigService.ensureSystemTables();
   } catch (error) {
     console.error('Failed to ensure micro_app_projects table:', error);
   }

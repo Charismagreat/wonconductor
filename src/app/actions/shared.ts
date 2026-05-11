@@ -258,6 +258,23 @@ export const SYSTEM_TABLES = [
         ] as any[]
     },
     {
+        tableName: 'micro_app_projects', displayName: 'Micro App Projects', schema: [
+            { name: 'projectId', type: 'TEXT', notNull: true },
+            { name: 'name', type: 'TEXT', notNull: true },
+            { name: 'description', type: 'TEXT' },
+            { name: 'templateId', type: 'TEXT' },
+            { name: 'status', type: 'TEXT', notNull: true, defaultValue: 'DRAFT' }, // 'DRAFT' | 'PUBLISHED'
+            { name: 'widgets', type: 'TEXT' }, // JSON
+            { name: 'sources', type: 'TEXT' }, // JSON
+            { name: 'mappingConfig', type: 'TEXT' }, // JSON
+            { name: 'uiSettings', type: 'TEXT' }, // JSON
+            { name: 'tags', type: 'TEXT' }, // JSON
+            { name: 'themeColor', type: 'TEXT', defaultValue: '#2563eb' },
+            { name: 'createdAt', type: 'TEXT', notNull: true },
+            { name: 'updatedAt', type: 'TEXT' }
+        ] as any[]
+    },
+    {
         tableName: 'micro_app_config', displayName: 'Micro App Configurations', schema: [
             { name: 'projectId', type: 'TEXT', notNull: true },
             { name: 'templateId', type: 'TEXT', notNull: true },

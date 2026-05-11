@@ -53,6 +53,14 @@ async function restoreFixedTableNames() {
       try {
         // Ensure destination doesn't exist (unless it's the same name)
         if (currentName !== originalName) {
+            // CRITICAL SAFETY: Never delete a system table to restore a suffixed one
+            const { SYSTEM_TABLES } = await import('./app/actions/shared');
+            const isSystemTable = SYSTEM_TABLES.some(st => st.tableName === originalName);
+            if (isSystemTable) {
+                console.warn(`  CRITICAL: Target table ${originalName} is a system table. Skipping destructive restoration to prevent data loss.`);
+                continue;
+            }
+
             const backupPath = path.join(process.cwd(), `${originalName}_backup.json`);
             if (fs.existsSync(backupPath)) {
                 try {

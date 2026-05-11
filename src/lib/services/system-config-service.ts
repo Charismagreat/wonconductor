@@ -1,5 +1,7 @@
 import { queryTable, updateRows, listTables, createTable, insertRows, getTableSchema, executeSQL, deleteTable } from '@/egdesk-helpers';
 import { SYSTEM_TABLES } from '@/app/actions/shared';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface SystemSettings {
     id: string;
@@ -114,49 +116,54 @@ export class SystemConfigService {
                     const hasId = schema.some((c: any) => (c.name || c.id || "").toLowerCase() === 'id');
                     
                     if (!hasId && table.tableName === 'dashboard_master') {
-                        console.log(`[SystemConfigService] Migrating 'dashboard_master' table to include 'id' column...`);
+                        const backupPath = path.join(process.cwd(), 'dashboard_master_backup.json');
+                        const backupExists = fs.existsSync(backupPath);
                         
-                        // 1. 기존 데이터 백업
-                        const oldRows = await queryTable('dashboard_master', { limit: 10000 }).catch(() => []);
-                        
-                        // 2. 기존 테이블 삭제
-                        await deleteTable('dashboard_master').catch(() => {});
-                        
-                        // 3. 신규 테이블 생성 (id 포함)
-                        await createTable(table.displayName, table.schema, { tableName: table.tableName });
-                        
-                        // 4. 데이터 복구
-                        if (oldRows.length > 0) {
-                            await insertRows('dashboard_master', oldRows);
+                        if (backupExists) {
+                            console.log(`[SystemConfigService] Migrating 'dashboard_master' table to include 'id' column using backup file...`);
+                            
+                            // 1. 기존 테이블 삭제
+                            await deleteTable('dashboard_master').catch(() => {});
+                            
+                            // 2. 신규 테이블 생성 (id 포함)
+                            await createTable(table.displayName, table.schema, { tableName: table.tableName });
+                            
+                            // 3. 백업 파일에서 데이터 복구
+                            const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+                            if (Array.isArray(backupData) && backupData.length > 0) {
+                                await insertRows('dashboard_master', backupData);
+                            }
+                            console.log(`[SystemConfigService] Migration of 'dashboard_master' table completed successfully from backup file.`);
+                        } else {
+                            console.warn(`[SystemConfigService] WARNING: 'dashboard_master' schema mismatch but no backup file found. Skipping destructive migration to prevent data loss.`);
                         }
-                        console.log(`[SystemConfigService] Migration of 'dashboard_master' table completed successfully.`);
                     }
 
                     // [Self-Healing] dashboard_data 테이블의 contentHash 컬럼 누락 체크
-                    const hasContentHash = schema.some((c: any) => c.name.toLowerCase() === 'contenthash');
+                    const hasContentHash = schema.some((c: any) => (c.name || "").toLowerCase() === 'contenthash');
                     if (!hasContentHash && table.tableName === 'dashboard_data') {
-                        console.log(`[SystemConfigService] Migrating 'dashboard_data' table to include 'contentHash' column...`);
-                        
-                        // 1. 기존 데이터 백업
-                        const oldRows = await queryTable('dashboard_data', { limit: 50000 }).catch(() => []);
-                        
-                        // 2. 기존 테이블 삭제
-                        await deleteTable('dashboard_data').catch(() => {});
-                        
-                        // 3. 신규 테이블 생성 (필수 컬럼 포함)
-                        const schemaWithoutId = table.schema.filter((c: any) => c.name.toLowerCase() !== 'id');
-                        await createTable(table.displayName, schemaWithoutId, { tableName: table.tableName });
-                        
-                        // 4. 데이터 복구 (기존에 데이터가 있었다면 다시 삽입)
-                        if (oldRows.length > 0) {
-                            // contentHash가 없는 데이터들이므로, RowService를 통해 복구하는 로직은 별도 스크립트로 실행하거나 
-                            // 여기서는 기본값 null로 삽입 (이후 등록되는 데이터부터 정상 작동)
-                            await insertRows('dashboard_data', oldRows.map((r: any) => ({
-                                ...r,
-                                contentHash: r.contentHash || null
-                            })));
+                        const backupPath = path.join(process.cwd(), 'dashboard_data_backup.json');
+                        const backupExists = fs.existsSync(backupPath);
+
+                        if (backupExists) {
+                            console.log(`[SystemConfigService] Migrating 'dashboard_data' table to include 'contentHash' column using backup file...`);
+                            
+                            // 1. 기존 테이블 삭제
+                            await deleteTable('dashboard_data').catch(() => {});
+                            
+                            // 2. 신규 테이블 생성 (필수 컬럼 포함)
+                            const schemaWithoutId = table.schema.filter((c: any) => c.name.toLowerCase() !== 'id');
+                            await createTable(table.displayName, schemaWithoutId, { tableName: table.tableName });
+                            
+                            // 3. 백업 파일에서 데이터 복구
+                            const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+                            if (Array.isArray(backupData) && backupData.length > 0) {
+                                await insertRows('dashboard_data', backupData);
+                            }
+                            console.log(`[SystemConfigService] Migration of 'dashboard_data' table completed successfully from backup file.`);
+                        } else {
+                            console.warn(`[SystemConfigService] WARNING: 'dashboard_data' schema mismatch but no backup file found. Skipping destructive migration.`);
                         }
-                        console.log(`[SystemConfigService] Migration of 'dashboard_data' table completed successfully.`);
                     }
                 } catch (err: any) {
                     console.warn(`[SystemConfigService] Schema check failed for ${table.tableName}:`, err.message);

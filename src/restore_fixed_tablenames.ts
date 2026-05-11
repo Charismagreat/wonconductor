@@ -1,10 +1,14 @@
 import { queryTable, getTableSchema, updateRows, deleteTable, createTable, insertRows, listTables } from './egdesk-helpers';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function restoreFixedTableNames() {
   console.log('Restoring fixed system table names...');
 
   const tables = await queryTable('table_master', { limit: 1000 });
-  const physicalTables = await listTables().then(res => res.tables.map(t => t.tableName));
+  const result = await listTables();
+  const currentTables = Array.isArray(result) ? result : (result?.tables || []);
+  const physicalTables = currentTables.map((t: any) => (typeof t === 'string' ? t : (t.tableName || t.name)));
   
   const nameMapping: Record<string, string> = {
     '은행 계좌 거래 내역 (FinanceHub)': 'bank_transactions',
@@ -49,9 +53,19 @@ async function restoreFixedTableNames() {
       try {
         // Ensure destination doesn't exist (unless it's the same name)
         if (currentName !== originalName) {
-            try {
-                await deleteTable(originalName);
-            } catch (e) {}
+            const backupPath = path.join(process.cwd(), `${originalName}_backup.json`);
+            if (fs.existsSync(backupPath)) {
+                try {
+                    await deleteTable(originalName);
+                } catch (e) {}
+            } else {
+                console.warn(`  Skipping deletion of ${originalName}: No backup file found for safety.`);
+                // If it exists physically, we might want to skip or merge instead of creating new
+                if (physicalTables.includes(originalName)) {
+                    console.log(`  Target table ${originalName} already exists. Skipping recreation.`);
+                    continue;
+                }
+            }
         }
 
         const physicalSchema = await getTableSchema(currentName);

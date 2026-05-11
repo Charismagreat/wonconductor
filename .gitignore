@@ -52,3 +52,27 @@ pinned_charts.json
 # egdesk
 egdesk.config.ts
 egdesk-helpers.ts
+
+# Data backups and sensitive logs
+*_backup.json
+backup_*.json
+request_*.json
+request.json
+finance_*.json
+*_full.json
+detailed_stats.json
+workspace_items.json
+report_id_map.json
+batch_schemas.json
+all_fh_tools.json
+financehub_tools.json
+*.egdesk-backup
+*.log
+*.txt
+!EGDESK-README.md
+!README.md
+!AGENTS.md
+!CLAUDE.md
+!KNOWLEDGE.md
+!DATA_PRINCIPLES.md
+!EGDesk_PhotoImport_Conversation.md

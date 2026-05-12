@@ -66,12 +66,10 @@ export async function getUnifiedDataSourcesAction() {
     }
 
     // 2. 은행 상품 테이블 (Loans, Bills, etc.)
-    // 2. 은행 상품 테이블 (Loans, Bills, etc.)
     products.forEach((p: any, idx: number) => {
       const slug = p.slug;
       if (!slug) return;
       
-      // UI에서 개별 선택이 가능하도록 고유 ID 배정 (은행ID + 슬러그 + 인덱스)
       const bankId = p.bankId || 'unknown';
       const uniqueId = `bank-product:${bankId}:${slug}:${idx}`;
       
@@ -82,7 +80,8 @@ export async function getUnifiedDataSourcesAction() {
         type: 'bank-product',
         templateId: 'custom-app',
         reason: `${bankId.toUpperCase()} 포털에서 수집된 ${p.displayName || '은행 상품'} 정보입니다. (${p.rowCount || 0}건)`,
-        priority: 'high'
+        priority: 'high',
+        schema: p.columns || [] // 서버에서 반환된 스키마 정보 포함
       });
     });
 
@@ -111,7 +110,6 @@ export async function getUnifiedDataSourcesAction() {
       const category = masterInfo?.category || (tableId.startsWith('tb_') ? 'EXCEL' : tableId.startsWith('tpl_') ? 'INDUSTRY' : 'SYSTEM');
       const rowCount = masterInfo?.rowCount ?? table.rowCount ?? 0;
 
-      // 이미 등록된 ID가 아니면 추가
       if (!tableId || suggestions.some(s => s.tableId === tableId)) continue;
 
       suggestions.push({
@@ -121,7 +119,8 @@ export async function getUnifiedDataSourcesAction() {
         type: 'table',
         templateId: 'custom-app',
         reason: `${category} 카테고리에 속한 물리 데이터 테이블입니다. (${rowCount}건)`,
-        priority: 'low'
+        priority: 'low',
+        schema: table.schema || table.columns || [] // 서버 리스팅 정보에 있으면 포함
       });
     }
 

@@ -22,6 +22,7 @@ interface DataSource {
   templateId?: string;
   reason?: string;
   priority?: 'high' | 'medium' | 'low';
+  schema?: any[];
 }
 
 interface DataSourceSelectorModalProps {
@@ -230,6 +231,11 @@ export function DataSourceSelectorModal({
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-black border border-slate-200 text-slate-500 uppercase tracking-tight">
                             ID: {source.tableId}
                           </span>
+                          {source.schema && source.schema.length > 0 && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-500 text-white uppercase tracking-tight shadow-sm shadow-blue-500/20">
+                              {source.schema.length} Fields
+                            </span>
+                          )}
                         </div>
                         <h4 className={`text-base font-black tracking-tight transition-colors ${isSelected ? 'text-blue-900' : 'text-slate-900 group-hover:text-blue-600'}`}>{source.tableName}</h4>
                         {source.reason && (

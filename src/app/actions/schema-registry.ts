@@ -56,7 +56,7 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
       } catch (err) {}
     }
 
-    // 1. FinanceHub / HomeTax / Bank Products 특수 처리 (공통 유틸리티 사용)
+    // 1. FinanceHub / HomeTax / Bank Products 특수 처리
     if (
       tableId === 'bank_transactions' || 
       tableId === 'card_approvals' || 
@@ -70,17 +70,6 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
       try {
         const { getFinanceSourceSchema } = await import('@/lib/utils/finance-source-utils');
         const metadataCols = await getFinanceSourceSchema(tableId);
-
-        // [핵심] 데이터가 없더라도 저장된 설정이 있다면 이를 기반으로 스키마 복구
-        if (metadataCols.length === 0 && savedConfig?.columns) {
-          const recoveredCols = savedConfig.columns.map((sc: any) => ({
-            name: sc.name,
-            displayName: sc.displayName || sc.name,
-            type: sc.type || 'string'
-          }));
-          const enriched = recoveredCols.map(c => enrichColumnMetadata(c));
-          return applyViewSettings(enriched, savedConfig.columns);
-        }
 
         if (metadataCols.length > 0) {
           const enriched = metadataCols.map(c => enrichColumnMetadata(c));
@@ -113,7 +102,17 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
       return applyViewSettings(mapped, savedConfig?.columns);
     }
 
-    // 3. 마지막 수단: table_knowledge
+    // 3. 마지막 수단: table_knowledge 또는 savedConfig 복구
+    if (savedConfig?.columns) {
+        const recoveredCols = savedConfig.columns.map((sc: any) => ({
+          name: sc.name,
+          displayName: sc.displayName || sc.name,
+          type: sc.type || 'string'
+        }));
+        const enriched = recoveredCols.map(c => enrichColumnMetadata(c));
+        return applyViewSettings(enriched, savedConfig.columns);
+    }
+
     const knowledgeRes = await queryTable('table_knowledge', { filters: { target_id: tableId }, limit: 1 }).catch(() => null);
     const kRows = Array.isArray(knowledgeRes) ? knowledgeRes : (knowledgeRes?.rows || []);
     if (kRows.length > 0 && kRows[0].schema_info) {

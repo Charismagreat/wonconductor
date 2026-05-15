@@ -210,6 +210,31 @@ export class SystemConfigService {
                             console.warn(`[SystemConfigService] WARNING: 'dashboard_data' schema mismatch but no backup file found. Skipping destructive migration.`);
                         }
                     }
+                    // [Self-Healing] dashboard_chart 테이블의 __is_deleted 컬럼 누락 체크 (강화된 감지)
+                    const hasIsDeleted = schema.some((c: any) => (c.name || c.id || "").toLowerCase() === '__is_deleted');
+                    if (!hasIsDeleted && table.tableName === 'dashboard_chart') {
+                        console.log(`[SystemConfigService] 🚨 CRITICAL: 'dashboard_chart' table is missing deletion columns. Starting emergency migration...`);
+                        
+                        // 1. 기존 데이터 백업
+                        const queryResult: any = await queryTable('dashboard_chart').catch(() => []);
+                        const rows = Array.isArray(queryResult) ? queryResult : (queryResult?.rows || []);
+                        
+                        console.log(`[SystemConfigService] Backing up ${rows.length} rows from dashboard_chart.`);
+                        
+                        // 2. 기존 테이블 삭제
+                        await deleteTable('dashboard_chart').catch(() => {});
+                        
+                        // 3. 신규 테이블 생성
+                        await createTable(table.displayName, table.schema, { tableName: table.tableName });
+                        
+                        // 4. 데이터 복구
+                        if (rows.length > 0) {
+                            await insertRows('dashboard_chart', rows);
+                            console.log(`[SystemConfigService] ✅ Successfully migrated and restored ${rows.length} rows to dashboard_chart.`);
+                        } else {
+                            console.log(`[SystemConfigService] ✅ Recreated empty dashboard_chart table with correct schema.`);
+                        }
+                    }
                 } catch (err: any) {
                     console.warn(`[SystemConfigService] Schema check failed for ${table.tableName}:`, err.message);
                 }

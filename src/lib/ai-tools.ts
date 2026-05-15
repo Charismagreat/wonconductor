@@ -1,6 +1,6 @@
 import { 
   queryTable, executeSQL, listAccounts, queryBankTransactions, getOverallStats,
-  queryTaxInvoices, queryTaxExemptInvoices, queryCashReceipts 
+  queryTaxInvoices, queryTaxExemptInvoices, queryCashReceipts, listTables, listHometaxConnections
 } from "@/egdesk-helpers";
 import { queryCardTransactions, getMonthlySummary, getTransactionStats as getStatistics } from "@/egdesk-helpers";
 
@@ -58,6 +58,35 @@ export async function runAITool(name: string, args: any) {
   let result: any;
 
   switch (name) {
+    case "list_available_tables": {
+      // 1. Userdata Tables (Physical tables uploaded by user)
+      const userTablesRes = await listTables().catch(() => []);
+      const userTables = Array.isArray(userTablesRes) ? userTablesRes : [];
+      
+      // 2. FinanceHub Virtual Tables (Master and Transactions)
+      const financeTables = [
+        { id: 'bank_accounts', name: '은행/카드 계좌 마스터', description: '현재 모든 연결된 계좌의 잔액, 은행명, 계좌번호 정보' },
+        { id: 'bank_transactions', name: '은행 거래 내역', description: '입금, 출금, 잔액 등 은행 입출금 거래 히스토리' },
+        { id: 'card_accounts', name: '신용카드 마스터', description: '등록된 카드 목록 및 한도 정보' },
+        { id: 'card_transactions', name: '카드 승인 내역', description: '카드 결제 일자, 가맹점, 금액 정보' }
+      ];
+
+      // 3. Hometax Tables
+      const hometaxTables = [
+        { id: 'hometax_connections', name: '홈택스 연결 정보', description: '사업자별 홈택스 인증 및 연결 상태' },
+        { id: 'tax_invoices', name: '세금계산서', description: '홈택스에서 수집된 매출/매입 세금계산서(과세)' },
+        { id: 'tax_exempt_invoices', name: '계산서', description: '홈택스에서 수집된 매출/매입 계산서(면세)' },
+        { id: 'cash_receipts', name: '현금영수증', description: '홈택스에서 수집된 현금영수증 내역' }
+      ];
+
+      return {
+        userdata: userTables.map((t: any) => ({ id: t.id || t.name, name: t.displayName || t.name, description: t.description || '사용자 업로드 테이블' })),
+        finance: financeTables,
+        hometax: hometaxTables,
+        _totalCount: userTables.length + financeTables.length + hometaxTables.length,
+        _instruction: "위 테이블 ID를 'run_studio_data_query'의 tableId 인자로 사용하여 데이터를 쿼리하십시오."
+      };
+    }
     case "get_finance_dashboard_summary": {
       const integratedRows = await runAITool('list_bank_accounts', {});
       const stats = {
@@ -102,30 +131,75 @@ export async function runAITool(name: string, args: any) {
       return stats;
     }
     case "list_bank_accounts": {
-      const accounts = await listAccounts();
+      const [accRes, txRes] = await Promise.all([
+        listAccounts(),
+        queryBankTransactions({ limit: 10000 })
+      ]);
+      
+      const accounts = Array.isArray(accRes) ? accRes : (accRes?.accounts || []);
+      const transactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+      
+      // 거래 내역에서 계좌별 건수 및 최신 잔액 직접 집계
+      const txStats: Record<string, { count: number, balance: number, date: string }> = {};
+      transactions.forEach((tx: any) => {
+        const id = tx.accountId;
+        if (!txStats[id]) {
+            txStats[id] = { count: 0, balance: 0, date: '' };
+        }
+        txStats[id].count++;
+        if (!txStats[id].date || tx.date >= txStats[id].date) {
+            txStats[id].date = tx.date;
+            txStats[id].balance = tx.balance;
+        }
+      });
+
       const validAccounts = accounts.filter((acc: any) => {
         const bId = String(acc.bankId || '').toLowerCase();
         const aName = String(acc.accountName || '').toLowerCase();
         return !bId.includes('card') && !aName.includes('카드');
       });
-      const integratedRows = await Promise.all(validAccounts.map(async (acc: any) => {
-        const txs = await queryTable('bank_transactions', {
-          filters: { accountNumber: acc.accountNumber },
-          limit: 1,
-          orderBy: 'date',
-          orderDir: 'DESC'
-        });
-        const latestTx = txs[0] || {};
+
+      const integratedRows = validAccounts.map((acc: any) => {
+        const stat = txStats[acc.accountId] || txStats[acc.id];
         return {
-          _bankName: acc.bankName || acc.bankId,
-          accountNumber: acc.accountNumber,
-          accountName: acc.accountName,
-          balance: latestTx.balance || 0,
-          date: latestTx.date || '거래없음'
+            id: acc.id || acc.accountId,
+            일자: stat?.date || '기록없음',
+            은행명: acc.bankName || acc.bankId,
+            계좌번호: acc.accountNumber,
+            계좌명: acc.accountName || '일반계좌',
+            잔액: stat?.balance || acc.balance || 0,
+            거래건수: stat?.count || 0,
+            _bankName: acc.bankName || acc.bankId,
+            _accountNumber: acc.accountNumber
         };
-      }));
-      result = integratedRows.sort((a, b) => b.balance - a.balance);
+      });
+
+      // 거래가 1건이라도 있는 '활성 계좌'만 반환
+      result = integratedRows
+        .filter((acc: any) => acc.거래건수 > 0)
+        .sort((a: any, b: any) => (b.잔액 as number) - (a.잔액 as number));
+
       return await applyGuardrails('bank_accounts', result);
+    }
+    case "list_card_accounts": {
+      const accRes = await listAccounts();
+      const accounts = Array.isArray(accRes) ? accRes : (accRes?.accounts || []);
+      const validCards = accounts.filter((acc: any) => {
+        const bId = String(acc.bankId || '').toLowerCase();
+        const aName = String(acc.accountName || '').toLowerCase();
+        return bId.includes('card') || aName.includes('카드');
+      });
+      result = validCards.map((acc: any) => ({
+        id: acc.id || acc.accountId,
+        카드사: acc.bankName || acc.bankId,
+        카드번호: acc.accountNumber || acc.cardNumber,
+        카드명: acc.accountName,
+        한도: acc.limit || 0,
+        _bankName: acc.bankName || acc.bankId,
+        _accountNumber: acc.accountNumber || acc.cardNumber,
+        _accountName: acc.accountName
+      }));
+      return await applyGuardrails('card_accounts', result);
     }
     case "query_bank_transactions": {
       const [res, accounts] = await Promise.all([
@@ -141,12 +215,13 @@ export async function runAITool(name: string, args: any) {
       const rawRows = Array.isArray(res) ? res : (res?.transactions || []);
       const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
       const rows = rawRows.map((tx: any) => {
-        const acc = accList.find((a: any) => a.accountId === tx.accountId || a.accountNumber === tx.accountNumber);
+        const acc = accList.find((a: any) => a.accountId === tx.accountId || a.accountNumber === tx.accountNumber || a.id === tx.accountId);
         return {
           ...tx,
-          _bankName: acc?.bankName || acc?.bankId || tx.bankId,
-          _accountNumber: acc?.accountNumber || tx.accountNumber,
-          _accountName: acc?.accountName || '일반계좌'
+          _bankName: acc?.bankName || acc?.bankId || tx.bankId || '-',
+          _accountNumber: acc?.accountNumber || acc?.cardNumber || tx.accountNumber || '-',
+          _accountName: acc?.accountName || acc?.name || '일반계좌',
+          _productName: acc?.productName || '-'
         };
       });
       return await applyGuardrails('bank_transactions', rows);
@@ -165,12 +240,13 @@ export async function runAITool(name: string, args: any) {
       const rawRows = Array.isArray(res) ? res : (res?.transactions || []);
       const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
       const rows = rawRows.map((tx: any) => {
-        const acc = accList.find((a: any) => a.accountId === tx.accountId || a.cardNumber === tx.cardNumber);
+        const acc = accList.find((a: any) => a.accountId === tx.accountId || a.cardNumber === tx.cardNumber || a.id === tx.accountId);
         return {
           ...tx,
-          _bankName: acc?.bankName || acc?.cardCompanyId || tx.cardCompanyId,
-          _accountNumber: acc?.accountNumber || acc?.cardNumber || tx.cardNumber,
-          _accountName: acc?.accountName || acc?.cardName || '카드'
+          _bankName: acc?.bankName || acc?.cardCompanyId || tx.cardCompanyId || '-',
+          _accountNumber: acc?.accountNumber || acc?.cardNumber || tx.cardNumber || '-',
+          _accountName: acc?.accountName || acc?.cardName || '카드',
+          _productName: acc?.productName || '-'
         };
       });
       return await applyGuardrails('card_transactions', rows);
@@ -313,6 +389,12 @@ export async function runAITool(name: string, args: any) {
 
       if (isFinance) {
         // 금융 데이터 분기
+        if (idStr === 'bank_accounts') {
+          return await runAITool('list_bank_accounts', { limit });
+        } else if (idStr === 'card_accounts') {
+          return await runAITool('list_card_accounts', { limit });
+        }
+        
         if (intent === 'summary' || intent === 'statistics') {
           return await runAITool('get_finance_statistics', { startDate, endDate });
         } else if (intent === 'monthly') {

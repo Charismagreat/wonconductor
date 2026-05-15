@@ -78,7 +78,23 @@ export const SYSTEM_SCHEMAS: Record<string, SystemColumn[]> = {
         { name: 'status', displayName: '상태', type: 'string' },
         { name: 'memo', displayName: '메모', type: 'textarea' }
     ],
-    // 3. 홈택스 공통 (세금계산서, 계산서, 면세 등 모든 변종에 적용)
+    // 3. 은행/카드 계좌 마스터 (금융 요약)
+    'bank_accounts': [
+        { name: '일자', displayName: '최신 거래일', type: 'date' },
+        { name: '은행명', displayName: '은행명', type: 'string' },
+        { name: '계좌번호', displayName: '계좌번호', type: 'string' },
+        { name: '계좌명', displayName: '계좌명', type: 'string' },
+        { name: '잔액', displayName: '현재 잔액', type: 'currency' },
+        { name: '거래건수', displayName: '거래건수', type: 'number' }
+    ],
+    'card_accounts': [
+        { name: '카드사', displayName: '카드사', type: 'string' },
+        { name: '카드번호', displayName: '카드번호', type: 'string' },
+        { name: '카드명', displayName: '카드명', type: 'string' },
+        { name: '결제일', displayName: '결제일', type: 'string' },
+        { name: '이용한도', displayName: '이용한도', type: 'currency' }
+    ],
+    // 4. 홈택스 공통 (세금계산서, 계산서, 면세 등 모든 변종에 적용)
     'hometax_invoices': HOMETAX_INVOICE_MASTER_SCHEMA
 };
 

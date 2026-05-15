@@ -253,6 +253,8 @@ export const SYSTEM_TABLES = [
             { name: 'config', type: 'TEXT', notNull: true }, // JSON content
             { name: 'layout', type: 'TEXT' }, // JSON content
             { name: 'isSample', type: 'INTEGER', defaultValue: 0 },
+            { name: '__is_deleted', type: 'INTEGER', defaultValue: 0 },
+            { name: '__deleted_at', type: 'TEXT' },
             { name: 'createdAt', type: 'TEXT', notNull: true },
             { name: 'updatedAt', type: 'TEXT' }
         ] as any[]

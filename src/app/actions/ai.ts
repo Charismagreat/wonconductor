@@ -193,11 +193,16 @@ export async function savePinnedChartAction(chartId: string, config: any) {
     }
     
     const result = await saveAllPinnedChartsAction(pinned);
-    revalidatePath('/dashboard');
+    // [개선] 대시보드 하위의 모든 페이지(갤러리 등)에서 변경 사항이 즉시 반영되도록 레이아웃 단위 재검증
+    revalidatePath('/dashboard', 'layout');
+    revalidatePath('/', 'layout');
     return { success: true, id: result?.newId || chartId };
 }
 
 export async function getPinnedChartsAction() {
+    // [Self-Healing] 차트 로딩 전 시스템 테이블 구조 보장
+    await SystemConfigService.ensureSystemTables().catch(e => console.warn('[getPinnedChartsAction] Schema check failed:', e));
+    
     const user = await getSessionAction();
     if (!user) return [];
     const { charts } = await refreshUserChartsAction(user.id);
@@ -217,7 +222,8 @@ export async function deletePinnedChartAction(chartId: string) {
         await HistoryService.recordHistory(String(chartId), targetChart, { __is_deleted: 1 }, 'DELETE', user.id);
     }
     
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard', 'layout');
+    revalidatePath('/', 'layout');
     return { success: true };
 }
 
@@ -231,7 +237,8 @@ export async function refreshIndividualChartAction(chartId: string) {
     if (updatedItem.refreshedAt) {
         pinned[chartIndex] = updatedItem;
         await saveAllPinnedChartsAction(pinned);
-        revalidatePath('/dashboard');
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/', 'layout');
     }
     return { success: true, item: updatedItem };
 }
@@ -245,7 +252,8 @@ export async function updateChartLayoutAction(chartId: string, layout: any) {
     pinned[chartIndex].layout = layout;
     pinned[chartIndex].updatedAt = new Date().toISOString();
     await saveAllPinnedChartsAction(pinned);
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard', 'layout');
+    revalidatePath('/', 'layout');
     return { success: true };
 }
 
@@ -253,7 +261,8 @@ export async function reorderPinnedChartsAction(reorderedCharts: any[]) {
     const user = await getSessionAction();
     if (!user) throw new Error('인증 필요');
     await saveAllPinnedChartsAction(reorderedCharts);
-    revalidatePath('/dashboard');
+    revalidatePath('/dashboard', 'layout');
+    revalidatePath('/', 'layout');
     return { success: true };
 }
 

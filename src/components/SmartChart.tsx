@@ -117,7 +117,18 @@ export function SmartChart({
   isBuildSelected = false,
   onBuildSelect
 }: SmartChartProps) {
-  const { type, data, xAxis, series = [], title, showLabels = true, sourceDescription } = config;
+  // [고도화] 타입 추론 Fallback: AI가 타입을 누락한 경우 데이터 구조를 보고 판단
+  let effectiveType = config.type;
+  if (!effectiveType) {
+    if (config.layout?.span === 'full' || (!config.xAxis && !config.series)) {
+      effectiveType = 'table';
+    } else {
+      effectiveType = 'bar';
+    }
+  }
+
+  const { data, xAxis, series = [], title, showLabels = true, sourceDescription } = config;
+  const type = effectiveType;
   const [showInfo, setShowInfo] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);

@@ -125,8 +125,9 @@ export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
             orderDirection: 'DESC' 
         });
 
+        // [버그 수정] queryTable 결과가 { rows, total } 형태인 경우를 고려하여 배열 추출
         if (!Array.isArray(rows)) {
-            rows = [];
+            rows = (rows as any)?.rows || [];
         }
         
         // 2. DB가 비어있다면 마이그레이션 시도
@@ -203,9 +204,10 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
     try {
         let lastNewId: number | string | undefined;
         // 기존 활성 차트 조회
+        // [버그 수정] queryTable 결과가 { rows, total } 형태인 경우를 고려하여 배열 추출
         let existing = await queryTable('dashboard_chart', { filters: { __is_deleted: '0' } });
         if (!Array.isArray(existing)) {
-            existing = [];
+            existing = (existing as any)?.rows || [];
         }
         const existingIds = new Set(existing.map((e: any) => String(e.id)));
         const newIds = new Set(charts.map(c => String(c.id)));
@@ -214,11 +216,16 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
         const toDelete = existing.filter((e: any) => !newIds.has(String(e.id)));
         if (toDelete.length > 0) {
             for (const item of toDelete) {
-                console.log(`[Soft Delete] Marking chart ${item.id} as deleted.`);
-                await updateRows('dashboard_chart', { 
-                    __is_deleted: 1, 
-                    __deleted_at: new Date().toISOString() 
-                }, { filters: { id: String(item.id) } });
+                try {
+                    console.log(`[Soft Delete] Marking chart ${item.id} as deleted.`);
+                    await updateRows('dashboard_chart', { 
+                        __is_deleted: 1, 
+                        __deleted_at: new Date().toISOString() 
+                    }, { filters: { id: String(item.id) } });
+                } catch (e) {
+                    console.error(`[ChartService] Failed to soft-delete chart ${item.id}:`, e);
+                    // 대시보드 로딩 자체를 막지 않기 위해 에러를 삼키거나 로깅만 합니다.
+                }
             }
         }
         

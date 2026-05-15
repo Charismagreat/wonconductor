@@ -58,6 +58,8 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
 
     // 1. FinanceHub / HomeTax / Bank Products 특수 처리
     if (
+      tableId === 'bank_accounts' ||
+      tableId === 'card_accounts' ||
       tableId === 'bank_transactions' || 
       tableId === 'card_approvals' || 
       tableId.startsWith('hometax_') || 
@@ -177,6 +179,8 @@ export async function getUnifiedTableName(id: string): Promise<string> {
     if (rRows.length > 0 && rRows[0].name) return rRows[0].name;
 
     const friendlyNames: Record<string, string> = {
+      'bank_accounts': '은행 계좌 통합 현황',
+      'card_accounts': '카드 계좌 통합 현황',
       'bank_transactions': '은행 계좌 거래 내역',
       'card_approvals': '신용카드 거래 내역',
       'hometax_sales_tax_invoices': '홈택스 매출 세금계산서',

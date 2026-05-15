@@ -840,7 +840,17 @@ async function fetchSingleSourceData(sourceTableId: string, options: any = {}) {
 
   while (allRows.length < targetLimit) {
     const fetchLimit = Math.min(CHUNK_SIZE, targetLimit - allRows.length);
-    const rowsChunkRaw = await queryTable(sourceTableId, { ...options, limit: fetchLimit, offset: currentOffset });
+    let rowsChunkRaw;
+
+    // [고도화] 가상 테이블 ID 인터셉트 - AI 스튜디오와 동일한 고품질 데이터 소스 연결
+    if (sourceTableId === 'bank_accounts' || sourceTableId === 'card_accounts') {
+      const { runAITool } = await import('@/lib/ai-tools');
+      const toolName = sourceTableId === 'bank_accounts' ? 'list_bank_accounts' : 'list_card_accounts';
+      rowsChunkRaw = await runAITool(toolName as any, { limit: fetchLimit });
+    } else {
+      rowsChunkRaw = await queryTable(sourceTableId, { ...options, limit: fetchLimit, offset: currentOffset });
+    }
+
     const rowsChunk = Array.isArray(rowsChunkRaw) ? rowsChunkRaw : (rowsChunkRaw as any)?.rows || [];
     
     if (!rowsChunk || rowsChunk.length === 0) break;
@@ -848,7 +858,6 @@ async function fetchSingleSourceData(sourceTableId: string, options: any = {}) {
     allRows = allRows.concat(rowsChunk);
     currentOffset += rowsChunk.length;
     
-    // 서버 응답 건수가 요청 건수보다 작으면 마지막 페이지 도달로 간주
     if (rowsChunk.length < fetchLimit) break;
   }
   

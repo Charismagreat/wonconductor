@@ -65,17 +65,30 @@ export default async function ReportDetailPage({
     let reportName = id; // 기본값은 ID
     
     // [개선] 모든 계좌를 순회하며 데이터를 누락 없이 수집
-    if (id === 'bank_transactions') {
+    if (id === 'bank_transactions' || id === 'card_approvals') {
         const { listAccounts } = await import('@/egdesk-helpers');
         const accounts = await listAccounts();
         const safeAccounts = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
         const transactionMap = new Map();
         
         for (const acc of safeAccounts) {
+            // 계좌 유형 판별 (credit 타입이거나 bankId에 card가 포함된 경우 카드로 간주)
+            const isCardAccount = acc.accountType === 'credit' || (acc.bankId && acc.bankId.toLowerCase().includes('card'));
+            
+            if (id === 'bank_transactions' && isCardAccount) continue;
+            if (id === 'card_approvals' && !isCardAccount) continue;
+
             let accOffset = 0;
             const targetId = acc.id || acc.accountId;
+            
             while (true) {
-                const batchData = await queryBankTransactions({ accountId: targetId, limit, offset: accOffset });
+                let batchData: any = null;
+                if (id === 'bank_transactions') {
+                    batchData = await queryBankTransactions({ accountId: targetId, limit, offset: accOffset });
+                } else {
+                    batchData = await queryCardTransactions({ accountId: targetId, limit, offset: accOffset });
+                }
+                
                 const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || batchData?.transactions || []);
                 if (rawBatch.length === 0) break;
                 
@@ -84,14 +97,50 @@ export default async function ReportDetailPage({
                     if (String(d.__is_deleted) === '1') continue;
                     
                     if (!transactionMap.has(d.id)) {
-                        transactionMap.set(d.id, {
+                        // 유효한 이름을 찾기 위한 헬퍼 (0이나 숫자는 제외)
+                        const getValidName = (...args: any[]) => {
+                            for (const arg of args) {
+                                if (arg && typeof arg === 'string' && arg !== '0') return arg;
+                            }
+                            return null;
+                        };
+
+                        const bName = getValidName(acc.bankName, acc.cardCompanyId, acc.bankId, d.bankName, d.cardName) || '-';
+                        const accNo = acc.accountNumber || acc.cardNumber || d.accountNumber || d.cardNumber;
+                        const aName = getValidName(acc.accountName, acc.productName, acc.name, acc.cardName) || '일반계좌/카드';
+                        const bId = getValidName(acc.bankId, acc.cardCompanyId, d.bankId, d.cardCompanyId) || '-';
+                        
+                        // 공통 필드
+                        const mappedData: any = {
                             ...d,
-                            bankId: acc.bankId,
-                            bankName: acc.bankName || acc._bankName,
+                            bankId: bId,
+                            bankid: bId,
+                            BANKID: bId,
                             accountId: targetId,
-                            accountNumber: acc.accountNumber,
-                            accountName: acc.accountName || acc.name
-                        });
+                            // 대소문자 호환성을 위해 여러 버전으로 매핑
+                            accountName: aName,
+                            accountname: aName,
+                            ACCOUNTNAME: aName
+                        };
+
+                        // 테이블 타입에 따라 필드 분리 매핑 (중복 방지 및 대소문자 대응)
+                        if (id === 'bank_transactions') {
+                            mappedData.bankName = bName;
+                            mappedData.bankname = bName;
+                            mappedData.BANKNAME = bName;
+                            mappedData.accountNumber = accNo;
+                            mappedData.accountnumber = accNo;
+                            mappedData.ACCOUNTNUMBER = accNo;
+                        } else {
+                            mappedData.cardName = bName;
+                            mappedData.cardname = bName;
+                            mappedData.CARDNAME = bName;
+                            mappedData.cardNumber = accNo;
+                            mappedData.cardnumber = accNo;
+                            mappedData.CARDNUMBER = accNo;
+                        }
+
+                        transactionMap.set(d.id, mappedData);
                     }
                 }
                 if (rawBatch.length < limit) break;
@@ -99,15 +148,14 @@ export default async function ReportDetailPage({
             }
         }
         allFetched = Array.from(transactionMap.values());
-        reportName = '은행거래내역';
+        reportName = id === 'bank_transactions' ? '은행거래내역' : '신용카드 거래 내역';
     } else {
-        // 기존 루프 방식 (기타 금융 데이터)
+        // 기존 루프 방식 (홈택스 등 기타 데이터)
         while (true) {
             let batchData: any = null;
             if (id.includes('_tax_invoices')) batchData = await queryTaxInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
             else if (id.includes('_exempt_invoices')) batchData = await queryTaxExemptInvoices({ invoiceType: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
             else if (id.includes('cash_receipts')) batchData = await queryCashReceipts({ type: id.includes('sales') ? 'sales' : 'purchase', limit, offset });
-            else if (id === 'card_approvals') batchData = await queryCardTransactions({ limit, offset });
             else {
                 const productTables = await listBankProductTables();
                 const safeTables = Array.isArray(productTables) ? productTables : (productTables?.tables || []);
@@ -127,6 +175,8 @@ export default async function ReportDetailPage({
                 }
             }
 
+            if (!batchData) break; // 루프 종료 조건 추가
+
             const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || batchData?.transactions || batchData?.invoices || batchData?.receipts || batchData?.notes || []);
             if (rawBatch.length === 0) break;
             const filteredBatch = rawBatch.filter((d: any) => String(d.__is_deleted) !== '1');
@@ -136,9 +186,8 @@ export default async function ReportDetailPage({
         }
     }
 
-    // [개선] 데이터 기반 스키마 생성
+    // [개선] 데이터 기반 스키마 생성 및 중복 제거 (대소문자 무시)
     const allKeys = new Set<string>();
-    
     allFetched.forEach(item => {
         Object.keys(item).forEach(key => {
             if (!key.startsWith('_')) allKeys.add(key); // 시스템 내부 필드 제외
@@ -146,10 +195,26 @@ export default async function ReportDetailPage({
     });
 
     const pKeys = Array.from(allKeys);
-    columns = pKeys.map(k => ({ 
-        name: k, 
-        type: inferColumnType(k) 
-    }));
+    const uniqueColumnMap = new Map<string, any>();
+    
+    pKeys.forEach(k => {
+        const lowerK = k.toLowerCase();
+        if (uniqueColumnMap.has(lowerK)) return; // 이미 동일한 이름(대소문자 무시)의 컬럼이 있으면 패스
+
+        // 이름, 번호, ID 관련 필드는 무조건 TEXT 타입으로 강제 (숫자 변환 방지)
+        const isTextField = 
+            lowerK.includes('name') || 
+            lowerK.includes('number') || 
+            lowerK.includes('id') || 
+            lowerK.includes('merchant') || 
+            lowerK.includes('description');
+        uniqueColumnMap.set(lowerK, { 
+            name: k, 
+            type: isTextField ? 'TEXT' : inferColumnType(k) 
+        });
+    });
+
+    columns = Array.from(uniqueColumnMap.values());
 
     // [개선] 데이터가 0건일 때도 최소한의 스키마(헤더)를 보장
     if (columns.length === 0 && id.startsWith('hometax_')) {

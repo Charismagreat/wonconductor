@@ -9,6 +9,7 @@ export interface SystemSettings {
     logoUrl: string;
     themeColor: string;
     businessContext: string;
+    geminiApiKey?: string;
     isInitialized: boolean;
     updatedAt: string;
 }
@@ -87,6 +88,7 @@ export class SystemConfigService {
                 { name: 'logoUrl', type: 'TEXT' },
                 { name: 'themeColor', type: 'TEXT' },
                 { name: 'businessContext', type: 'TEXT' },
+                { name: 'geminiApiKey', type: 'TEXT' },
                 { name: 'isInitialized', type: 'INTEGER', defaultValue: 0 },
                 { name: 'backupScheduleEnabled', type: 'INTEGER', defaultValue: 0 },
                 { name: 'backupScheduleDays', type: 'TEXT', defaultValue: '1,2,3,4,5,6' },
@@ -94,6 +96,49 @@ export class SystemConfigService {
                 { name: 'backupRetentionCount', type: 'INTEGER', defaultValue: 10 },
                 { name: 'updatedAt', type: 'TEXT' }
             ], { tableName: 'system_settings' });
+        } else {
+            // [Self-Healing] geminiApiKey 컬럼 누락 체크 및 마이그레이션
+            try {
+                const schemaRes = await getTableSchema('system_settings').catch(() => []);
+                const schema = Array.isArray(schemaRes) ? schemaRes : (schemaRes as any)?.columns || (schemaRes as any)?.schema || [];
+                const hasGeminiKey = schema.some((c: any) => (c.name || "").toLowerCase() === 'geminiapikey');
+                
+                if (!hasGeminiKey) {
+                    console.log('[SystemConfigService] geminiApiKey column missing. Migrating system_settings table...');
+                    
+                    // 1. 기존 데이터 백업
+                    const queryResult: any = await queryTable('system_settings').catch(() => []);
+                    const rows = Array.isArray(queryResult) ? queryResult : (queryResult?.rows || []);
+                    
+                    // 2. 기존 테이블 삭제
+                    await deleteTable('system_settings').catch(() => {});
+                    
+                    // 3. 신규 스키마로 테이블 생성
+                    await createTable('System Settings', [
+                        { name: 'legacyId', type: 'TEXT' },
+                        { name: 'companyName', type: 'TEXT' },
+                        { name: 'logoUrl', type: 'TEXT' },
+                        { name: 'themeColor', type: 'TEXT' },
+                        { name: 'businessContext', type: 'TEXT' },
+                        { name: 'geminiApiKey', type: 'TEXT' },
+                        { name: 'isInitialized', type: 'INTEGER', defaultValue: 0 },
+                        { name: 'backupScheduleEnabled', type: 'INTEGER', defaultValue: 0 },
+                        { name: 'backupScheduleDays', type: 'TEXT', defaultValue: '1,2,3,4,5,6' },
+                        { name: 'backupScheduleTime', type: 'TEXT', defaultValue: '03:00' },
+                        { name: 'backupRetentionCount', type: 'INTEGER', defaultValue: 10 },
+                        { name: 'updatedAt', type: 'TEXT' }
+                    ], { tableName: 'system_settings' });
+                    
+                    // 4. 데이터 복구 (새 컬럼은 null로 들어감)
+                    if (rows.length > 0) {
+                        await insertRows('system_settings', rows);
+                        console.log(`[SystemConfigService] Restored ${rows.length} rows to system_settings`);
+                    }
+                    console.log('[SystemConfigService] Migration of system_settings completed successfully.');
+                }
+            } catch (err: any) {
+                console.warn('[SystemConfigService] Failed to migrate system_settings:', err.message);
+            }
         }
 
         // 2. Ensure all other SYSTEM_TABLES exist
@@ -260,6 +305,15 @@ export class SystemConfigService {
             // If user table doesn't exist, queryTable will throw, which means setup is required
             return true;
         }
+    }
+
+    /**
+     * Get the Gemini API key, prioritizing the one from the database.
+     * Falls back to process.env.GEMINI_API_KEY if not set in DB.
+     */
+    static async getGeminiApiKey(): Promise<string> {
+        const settings = await this.getSettings();
+        return settings?.geminiApiKey || process.env.GEMINI_API_KEY || "";
     }
 }
 

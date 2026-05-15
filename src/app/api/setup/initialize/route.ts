@@ -8,8 +8,7 @@ import { hashPassword, SYSTEM_TABLES } from '@/app/actions/shared';
  */
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { companyName, logoUrl, themeColor, businessContext, adminUsername, adminPassword } = body;
+        const { companyName, logoUrl, themeColor, businessContext, geminiApiKey, adminUsername, adminPassword } = body;
 
         if (!companyName) {
             return NextResponse.json({ error: 'Company Name is required' }, { status: 400 });
@@ -24,6 +23,7 @@ export async function POST(request: Request) {
             logoUrl: logoUrl || '',
             themeColor: themeColor || '#2563eb',
             businessContext: businessContext || '',
+            geminiApiKey: geminiApiKey || '',
             isInitialized: true // Mark as initialized
         });
 

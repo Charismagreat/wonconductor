@@ -9,6 +9,7 @@ import {
     createTable
 } from '@/egdesk-helpers';
 import { getSessionAction } from './auth';
+import { SystemConfigService } from '@/lib/services/system-config-service';
 import { analyzeExcelImage, extractDataFromImage, analyzeComplexDocument } from '@/lib/ai-vision';
 import { getVisualizationRecommendation } from '@/lib/dashboard-ai';
 import { runAITool } from '@/lib/ai-tools';
@@ -36,14 +37,25 @@ export async function getVisualizationRecommendationAction(selectedIds: string[]
         return await getVisualizationRecommendation(selectedIds, chatHistory);
     } catch (error: any) {
         const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('[AI Analysis Action Error]:', errorMessage);
+
         if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('quota')) {
             return {
                 content: "죄송합니다. 현재 AI 분석 서비스의 허용 한도(Quota)를 초과하여 이용이 일시적으로 제한되었습니다.",
                 chartConfigs: []
             };
         }
+
+        // 구체적인 에러 메시지가 있는 경우 이를 그대로 전달하여 사용자가 조치할 수 있게 함
+        if (errorMessage.includes('API 키')) {
+            return {
+                content: errorMessage,
+                chartConfigs: []
+            };
+        }
+
         return {
-            content: `AI 분석 도중 오류가 발생했습니다.`,
+            content: `AI 분석 도중 오류가 발생했습니다. (사유: ${errorMessage})`,
             chartConfigs: []
         };
     }
@@ -247,43 +259,66 @@ export async function reorderPinnedChartsAction(reorderedCharts: any[]) {
 
 export async function saveAIStudioSessionAction(data: any) {
     const user = await getSessionAction();
-    if (!user) return { success: false };
+    if (!user) {
+        console.error('[saveAIStudioSessionAction] 인증된 사용자가 없습니다.');
+        return { success: false, error: '인증 필요' };
+    }
     const tableName = 'ai_studio_sessions';
     const userIdStr = String(user.id);
+    
     try {
+        // 1. 테이블 존재 여부 보장 (Self-Healing)
+        await SystemConfigService.ensureSystemTables();
+
         const sessionData = { 
             userId: userIdStr, 
             data: JSON.stringify(data), 
             updatedAt: new Date().toISOString(),
             __is_deleted: 0 
         };
-        await createTable('AI Studio Session', [
-            { name: 'userId', type: 'TEXT', notNull: true },
-            { name: 'data', type: 'TEXT', notNull: true },
-            { name: 'updatedAt', type: 'TEXT', notNull: true },
-            { name: '__is_deleted', type: 'INTEGER', defaultValue: 0 },
-            { name: '__deleted_at', type: 'TEXT' }
-        ], { tableName, uniqueKeyColumns: ['userId'], duplicateAction: 'update' });
 
+        // filters에서 __is_deleted는 문자열 '0'으로 조회 (helper 규격 준수)
         const existingRaw = await queryTable(tableName, { filters: { userId: userIdStr, __is_deleted: '0' } });
         const existing = Array.isArray(existingRaw) ? existingRaw : (existingRaw as any)?.rows || [];
+        
         if (existing && existing.length > 0) {
+            console.log(`[saveAIStudioSessionAction] 세션 업데이트: ${userIdStr}`);
             await updateRows(tableName, { data: sessionData.data, updatedAt: sessionData.updatedAt }, { filters: { userId: userIdStr } });
         } else {
+            console.log(`[saveAIStudioSessionAction] 세션 신규 생성: ${userIdStr}`);
             await insertRows(tableName, [sessionData]);
         }
         return { success: true };
-    } catch (e) { return { success: false }; }
+    } catch (e: any) { 
+        console.error('[saveAIStudioSessionAction] 저장 오류:', e.message);
+        return { success: false, error: e.message }; 
+    }
 }
 
 export async function getAIStudioSessionAction() {
     const user = await getSessionAction();
     if (!user) return null;
+    const userIdStr = String(user.id);
+    
     try {
-        const resultsRaw = await queryTable('ai_studio_sessions', { filters: { userId: String(user.id), __is_deleted: '0' } });
+        // 테이블이 없을 수도 있으므로 체크 및 복구 로직 포함
+        const resultsRaw = await queryTable('ai_studio_sessions', { filters: { userId: userIdStr, __is_deleted: '0' } }).catch(async (err) => {
+            if (err.message.includes('no such table')) {
+                await SystemConfigService.ensureSystemTables();
+                return await queryTable('ai_studio_sessions', { filters: { userId: userIdStr, __is_deleted: '0' } });
+            }
+            throw err;
+        });
+
         const results = Array.isArray(resultsRaw) ? resultsRaw : (resultsRaw as any)?.rows || [];
-        if (results && results.length > 0) return JSON.parse(results[0].data);
-    } catch (e) {}
+        if (results && results.length > 0) {
+            console.log(`[getAIStudioSessionAction] 세션 복원 성공: ${userIdStr}`);
+            return JSON.parse(results[0].data);
+        }
+        console.log(`[getAIStudioSessionAction] 저장된 세션 없음: ${userIdStr}`);
+    } catch (e: any) {
+        console.error('[getAIStudioSessionAction] 복원 오류:', e.message);
+    }
     return null;
 }
 

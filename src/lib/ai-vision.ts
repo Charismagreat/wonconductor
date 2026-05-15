@@ -1,10 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const apiKey = process.env.GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(apiKey);
+import { SystemConfigService } from "./services/system-config-service";
 
-// 사용자의 요청에 따라 최신 모델인 gemini-3-flash-preview 사용 (v1 API 유지)
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
+// 글로벌 초기화 대신 각 함수 내에서 동적으로 초기화합니다.
 
 export interface ColumnRecommendation {
   name: string;
@@ -38,9 +36,13 @@ export interface ComplexDocumentResponse {
  * 추천을 위한 샘플 데이터를 기반으로 최적의 스키마를 제안합니다.
  */
 export async function recommendSchemaFromSample(currentColumns: any[], sampleRows: any[]): Promise<RecommendationResponse> {
+  const apiKey = await SystemConfigService.getGeminiApiKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. 관리자 설정에서 API 키를 입력해주세요.");
   }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 
   const prompt = `
     당신은 데이터베이스 설계 전문가입니다. 현재 테이블의 컬럼 이름과 실제 데이터 샘플을 보고, 각 컬럼에 가장 적합한 속성을 추천해 주세요.
@@ -107,9 +109,13 @@ export async function recommendSchemaFromSample(currentColumns: any[], sampleRow
  * @returns A JSON object containing recommended tables and columns
  */
 export async function analyzeExcelImage(imageBase64: string, mimeType: string): Promise<RecommendationResponse> {
+  const apiKey = await SystemConfigService.getGeminiApiKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. 관리자 설정에서 API 키를 입력해주세요.");
   }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 
   const prompt = `
     이 이미지는 엑셀 파일의 내용을 시각적으로 렌더링한 스크린샷입니다.
@@ -178,9 +184,13 @@ export async function analyzeExcelImage(imageBase64: string, mimeType: string): 
  * @returns A JSON object containing extracted field values
  */
 export async function extractDataFromImage(imageBase64: string, mimeType: string, columns: any[], aiRulesPrompt: string = ''): Promise<any> {
+  const apiKey = await SystemConfigService.getGeminiApiKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. 관리자 설정에서 API 키를 입력해주세요.");
   }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 
   // [방어 로직] columns가 배열인지 확인
   const safeColumns = Array.isArray(columns) ? columns : [];
@@ -266,9 +276,13 @@ export async function extractDataFromImage(imageBase64: string, mimeType: string
  * 이미지 또는 PDF 문서 전체를 분석하여 테이블 스키마와 실제 데이터를 모두 추출합니다.
  */
 export async function analyzeComplexDocument(base64: string, mimeType: string): Promise<ComplexDocumentResponse> {
+  const apiKey = await SystemConfigService.getGeminiApiKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
+    throw new Error("GEMINI_API_KEY가 설정되지 않았습니다. 관리자 설정에서 API 키를 입력해주세요.");
   }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 
   const prompt = `
     당신은 고급 데이터 엔지니어이자 문서 분석 전문가입니다.

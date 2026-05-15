@@ -322,5 +322,14 @@ export const SYSTEM_TABLES = [
             { name: 'createdAt', type: 'TEXT', notNull: true },
             { name: 'updatedAt', type: 'TEXT' }
         ] as any[]
+    },
+    {
+        tableName: 'ai_studio_sessions', displayName: 'AI Studio Session', schema: [
+            { name: 'userId', type: 'TEXT', notNull: true },
+            { name: 'data', type: 'TEXT', notNull: true },
+            { name: 'updatedAt', type: 'TEXT', notNull: true },
+            { name: '__is_deleted', type: 'INTEGER', defaultValue: 0 },
+            { name: '__deleted_at', type: 'TEXT' }
+        ] as any[]
     }
 ];

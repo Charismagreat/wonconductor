@@ -1,4 +1,7 @@
-import { queryTable, executeSQL, listAccounts, queryBankTransactions, getOverallStats } from "@/egdesk-helpers";
+import { 
+  queryTable, executeSQL, listAccounts, queryBankTransactions, getOverallStats,
+  queryTaxInvoices, queryTaxExemptInvoices, queryCashReceipts 
+} from "@/egdesk-helpers";
 import { queryCardTransactions, getMonthlySummary, getTransactionStats as getStatistics } from "@/egdesk-helpers";
 
 /**
@@ -14,7 +17,7 @@ async function applyGuardrails(tableId: string, rows: any[]) {
       filters: { target_id: tableId, is_current: 1 } 
     }).catch(() => []);
     
-    if (knowledges.length === 0 || !knowledges[0].ai_rules) return rows;
+    if (!Array.isArray(knowledges) || knowledges.length === 0 || !knowledges[0].ai_rules) return rows;
     
     let rules = [];
     try {
@@ -75,9 +78,29 @@ export async function runAITool(name: string, args: any) {
     case "get_finance_monthly_summary":
       result = await getMonthlySummary({ months: args.months || 6 });
       return result;
-    case "get_finance_statistics":
-      result = await getStatistics({ startDate: args.startDate, endDate: args.endDate });
-      return result;
+    case "get_finance_statistics": {
+      const [stats, accounts] = await Promise.all([
+        getStatistics({
+          startDate: args.startDate,
+          endDate: args.endDate
+        }),
+        listAccounts()
+      ]);
+
+      if (stats && Array.isArray(stats.breakdown)) {
+        const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+        stats.breakdown = stats.breakdown.map((item: any) => {
+          const acc = accList.find((a: any) => a.accountId === item.accountId);
+          return {
+            ...item,
+            _bankName: acc?.bankName || acc?.bankId || item.accountId,
+            _accountNumber: acc?.accountNumber || '',
+            _accountName: acc?.accountName || ''
+          };
+        });
+      }
+      return stats;
+    }
     case "list_bank_accounts": {
       const accounts = await listAccounts();
       const validAccounts = accounts.filter((acc: any) => {
@@ -105,37 +128,55 @@ export async function runAITool(name: string, args: any) {
       return await applyGuardrails('bank_accounts', result);
     }
     case "query_bank_transactions": {
-      const txs = await queryTable('bank_transactions', {
-        startDate: args.startDate,
-        endDate: args.endDate,
-        limit: args.limit || 100,
-        orderBy: 'date',
-        orderDir: 'desc'
-      });
-      const rows = txs.filter((tx: any) => {
-        const bId = String(tx.bankId || '').toLowerCase();
-        const aName = String(tx.accountName || '').toLowerCase();
-        return !bId.includes('card') && !aName.includes('카드');
+      const [res, accounts] = await Promise.all([
+        queryBankTransactions({
+          startDate: args.startDate,
+          endDate: args.endDate,
+          limit: args.limit || 100,
+          orderDir: (args.orderDir || 'desc').toLowerCase() as any
+        }),
+        listAccounts()
+      ]);
+      
+      const rawRows = Array.isArray(res) ? res : (res?.transactions || []);
+      const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+      const rows = rawRows.map((tx: any) => {
+        const acc = accList.find((a: any) => a.accountId === tx.accountId || a.accountNumber === tx.accountNumber);
+        return {
+          ...tx,
+          _bankName: acc?.bankName || acc?.bankId || tx.bankId,
+          _accountNumber: acc?.accountNumber || tx.accountNumber,
+          _accountName: acc?.accountName || '일반계좌'
+        };
       });
       return await applyGuardrails('bank_transactions', rows);
     }
     case "query_card_transactions": {
-      const txs = await queryTable('card_approvals', {
-        startDate: args.startDate,
-        endDate: args.endDate,
-        limit: args.limit || 100,
-        orderBy: 'date',
-        orderDir: 'desc'
+      const [res, accounts] = await Promise.all([
+        queryCardTransactions({
+          startDate: args.startDate,
+          endDate: args.endDate,
+          limit: args.limit || 100,
+          orderDir: (args.orderDir || 'desc').toLowerCase() as any
+        }),
+        listAccounts()
+      ]);
+      
+      const rawRows = Array.isArray(res) ? res : (res?.transactions || []);
+      const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+      const rows = rawRows.map((tx: any) => {
+        const acc = accList.find((a: any) => a.accountId === tx.accountId || a.cardNumber === tx.cardNumber);
+        return {
+          ...tx,
+          _bankName: acc?.bankName || acc?.cardCompanyId || tx.cardCompanyId,
+          _accountNumber: acc?.accountNumber || acc?.cardNumber || tx.cardNumber,
+          _accountName: acc?.accountName || acc?.cardName || '카드'
+        };
       });
-      const rows = txs.filter((tx: any) => {
-        const bId = String(tx.bankId || tx.cardCompanyId || '').toLowerCase();
-        const aName = String(tx.accountName || tx.cardName || '').toLowerCase();
-        return bId.includes('card') || aName.includes('카드');
-      });
-      return await applyGuardrails('card_approvals', rows);
+      return await applyGuardrails('card_transactions', rows);
     }
     case "get_card_usage_by_approval_date": {
-      const txs = await queryTable('card_approvals', {
+      const txs = await queryTable('card_transactions', {
         startDate: args.startDate,
         endDate: args.endDate,
         limit: 1000,
@@ -148,7 +189,7 @@ export async function runAITool(name: string, args: any) {
         const cat = tx.category || '기타';
         categorySummary[cat] = (categorySummary[cat] || 0) + (tx.amount || 0);
       });
-      const transactions = await applyGuardrails('card_approvals', txs.slice(0, 100));
+      const transactions = await applyGuardrails('card_transactions', txs.slice(0, 100));
       return {
         totalAmount,
         transactionCount: txs.length,
@@ -187,9 +228,18 @@ export async function runAITool(name: string, args: any) {
       const filters: any = { isDeleted: '0' };
       if (targetTable === 'dashboard_data') filters.reportId = args.tableId;
 
-      const rows = await queryTable(targetTable, { filters, limit: 5000 });
-      const allRows = Array.isArray(rows) ? rows : (rows?.rows || []);
-      const validRows = allRows.filter((row: any) => row.isDeleted === 0 || row.isDeleted === '0');
+      let allRows: any[] = [];
+      if (args.rows && Array.isArray(args.rows)) {
+        allRows = args.rows;
+      } else {
+        const queryOptions: any = { filters, limit: 5000 };
+        if (args.startDate) queryOptions.startDate = args.startDate;
+        if (args.endDate) queryOptions.endDate = args.endDate;
+        const rowsRes = await queryTable(targetTable, queryOptions);
+        allRows = Array.isArray(rowsRes) ? rowsRes : (rowsRes?.rows || []);
+      }
+      
+      const validRows = allRows.filter((row: any) => row.isDeleted === 0 || row.isDeleted === '0' || row.isDeleted === undefined);
 
       // 집계 전에 가드레일 적용 (차단된 컬럼은 집계에서 제외되도록)
       const safeRows = await applyGuardrails(args.tableId, validRows);
@@ -236,8 +286,8 @@ export async function runAITool(name: string, args: any) {
       if (targetTableStr.includes('bank_transactions') || targetTableStr.includes('bank-table')) {
         targetTable = 'bank_transactions';
         delete filters.isDeleted;
-      } else if (targetTableStr.includes('card_transactions') || targetTableStr.includes('card-table') || targetTableStr.includes('card_approvals')) {
-        targetTable = 'card_approvals';
+      } else if (targetTableStr.includes('card_transactions') || targetTableStr.includes('card-table')) {
+        targetTable = 'card_transactions';
         delete filters.isDeleted;
       } else if (targetTable !== 'dashboard_data' && !targetTableStr.includes('-')) {
         // Physical
@@ -245,9 +295,68 @@ export async function runAITool(name: string, args: any) {
         targetTable = 'dashboard_data';
         filters.reportId = args.tableId;
       }
-      const wsRows = await queryTable(targetTable, { filters, limit: args.limit || 100, offset: args.offset || 0 });
+      const wsRows = await queryTable(targetTable, { 
+        filters, 
+        limit: args.limit || 100, 
+        offset: args.offset || 0,
+        startDate: args.startDate,
+        endDate: args.endDate
+      });
       const rows = Array.isArray(wsRows) ? wsRows : (wsRows?.rows || []);
       return await applyGuardrails(args.tableId, rows);
+    }
+    case "run_studio_data_query": {
+      const { tableId, intent, startDate, endDate, limit, offset, groupBy, valueKey } = args;
+      const idStr = String(tableId || '');
+      const isFinance = idStr === 'bank_transactions' || idStr.includes('bank') || idStr.includes('card');
+      const isHometax = idStr.startsWith('hometax_');
+
+      if (isFinance) {
+        // 금융 데이터 분기
+        if (intent === 'summary' || intent === 'statistics') {
+          return await runAITool('get_finance_statistics', { startDate, endDate });
+        } else if (intent === 'monthly') {
+          return await runAITool('get_finance_monthly_summary', { months: args.months || 12 });
+        } else {
+          // 상세 목록은 bank_transactions 또는 card_approvals 자동 선택
+          const toolName = (idStr.includes('card') || idStr.includes('approvals')) 
+            ? 'query_card_transactions' 
+            : 'query_bank_transactions';
+          return await runAITool(toolName, { startDate, endDate, limit: limit || 100 });
+        }
+      } else if (isHometax) {
+        // [Universal] 국세청(홈택스) 데이터 분기
+        const queryOptions = { startDate, endDate, limit: limit || 100, offset: offset || 0 };
+        let hometaxResult;
+
+        const isSales = idStr.includes('sales');
+        const isExempt = idStr.includes('exempt');
+        const isCash = idStr.includes('cash_receipts');
+
+        if (isCash) {
+          hometaxResult = await queryCashReceipts(queryOptions);
+        } else if (isExempt) {
+          hometaxResult = await queryTaxExemptInvoices({ ...queryOptions, invoiceType: isSales ? 'sales' : 'purchase' });
+        } else {
+          // 세금계산서 (Tax Invoices)
+          hometaxResult = await queryTaxInvoices({ ...queryOptions, invoiceType: isSales ? 'sales' : 'purchase' });
+        }
+
+        const rows = Array.isArray(hometaxResult) ? hometaxResult : (hometaxResult?.rows || []);
+        
+        // 만약 집계 요청(groupBy)이 있다면 가공
+        if (groupBy && valueKey && rows.length > 0) {
+          return await runAITool('get_aggregated_report_data', { tableId, groupByKey: groupBy, sumKey: valueKey, mode: 'sum', rows });
+        }
+        return await applyGuardrails(tableId, rows);
+      } else {
+        // 일반 워크스페이스 데이터 분기
+        if (groupBy && valueKey) {
+          return await runAITool('get_aggregated_report_data', { tableId, groupByKey: groupBy, sumKey: valueKey, mode: 'sum', startDate, endDate });
+        } else {
+          return await runAITool('query_workspace_table', { tableId, limit: limit || 100, offset: offset || 0, startDate, endDate });
+        }
+      }
     }
     default:
       throw new Error(`Unknown tool: ${name}`);

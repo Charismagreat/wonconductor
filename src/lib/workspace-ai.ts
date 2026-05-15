@@ -1,9 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { queryTable } from "@/egdesk-helpers";
+import { SystemConfigService } from "./services/system-config-service";
 
-const apiKey = process.env.GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
+// 글로벌 초기화 대신 각 함수 내에서 동적으로 키를 가져와 초기화하도록 변경합니다.
 
 export interface AdminRecommendation {
     tableName: string;
@@ -44,10 +43,13 @@ export async function processWorkspaceInput(
 
     log(`>>> Analysis Start | Text: "${text}" | Image Attached: ${!!imageBase64}`);
 
+    const apiKey = await SystemConfigService.getGeminiApiKey();
     if (!apiKey) {
         log("ERROR: API Key is missing");
-        throw new Error("AI API 키가 설정되지 않았습니다.");
+        throw new Error("AI API 키가 설정되지 않았습니다. 관리자 설정에서 Gemini API 키를 입력해주세요.");
     }
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 
     log("Step 1: Querying Reports from DB...");
     const reportsRaw = await queryTable('dashboard_master', { limit: 500 });
@@ -260,7 +262,11 @@ async function generateAdminRecommendation(
     imageBase64?: string,
     mimeType?: string
 ): Promise<AdminRecommendation | null> {
+    const apiKey = await SystemConfigService.getGeminiApiKey();
     if (!apiKey) return null;
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" }, { apiVersion: "v1beta" });
 
     const recommendationPrompt = `
         이 이미지(또는 텍스트)는 기존 보고서와 매칭되지 않았습니다.

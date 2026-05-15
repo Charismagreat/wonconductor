@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { updateSystemSettingsAction } from '@/app/actions/system';
 import { analyzeCompanyWebsiteAction } from '@/app/actions/ai-analyze';
 import { SystemSettings } from '@/lib/services/system-config-service';
-import { Save, AlertCircle, CheckCircle2, Loader2, Globe, Sparkles } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle2, Loader2, Globe, Sparkles, Key, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface SettingsClientProps {
@@ -18,11 +18,13 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const [formData, setFormData] = useState({
     companyName: initialSettings?.companyName || 'EGDesk',
     themeColor: initialSettings?.themeColor || '#2563eb',
-    businessContext: initialSettings?.businessContext || ''
+    businessContext: initialSettings?.businessContext || '',
+    geminiApiKey: initialSettings?.geminiApiKey || ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -70,7 +72,8 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   const hasChanges = 
     formData.companyName !== (initialSettings?.companyName || 'EGDesk') ||
     formData.themeColor !== (initialSettings?.themeColor || '#2563eb') ||
-    formData.businessContext !== (initialSettings?.businessContext || '');
+    formData.businessContext !== (initialSettings?.businessContext || '') ||
+    formData.geminiApiKey !== (initialSettings?.geminiApiKey || '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +92,8 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       const result = await updateSystemSettingsAction({
         companyName: formData.companyName,
         themeColor: formData.themeColor,
-        businessContext: formData.businessContext
+        businessContext: formData.businessContext,
+        geminiApiKey: formData.geminiApiKey
       });
 
       if (result.success) {
@@ -227,6 +231,33 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
                 placeholder="AI에게 제공될 우리 회사의 비즈니스 개요, 용어, 혹은 분석 지침을 입력하세요."
               />
               <p className="mt-2 text-xs text-slate-500">AI가 데이터를 분석하거나 프롬프트를 처리할 때 참고할 배경 지식입니다. (직접 수정 가능)</p>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100">
+              <div className="flex items-center gap-2 mb-4">
+                <Key size={18} className="text-blue-600" />
+                <label className="block text-sm font-bold text-slate-700">Google Gemini AI API Key</label>
+              </div>
+              <div className="relative group">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  name="geminiApiKey"
+                  value={formData.geminiApiKey}
+                  onChange={handleChange}
+                  className="w-full pl-5 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-medium focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all outline-none placeholder:text-slate-400"
+                  placeholder="AI 기능을 사용하기 위한 Google Gemini API 키를 입력하세요."
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showApiKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Google AI Studio에서 발급받은 API 키를 입력해주세요. 이 키는 회사의 비즈니스 분석 및 AI 추천 기능에 사용됩니다.
+              </p>
             </div>
           </div>
 

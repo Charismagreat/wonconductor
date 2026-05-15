@@ -26,7 +26,7 @@ const tools: any[] = [
             endDate: { type: SchemaType.STRING, description: "종료 날짜 (YYYY-MM-DD)" },
             limit: { type: SchemaType.NUMBER, description: "조회 행 수 (기본 100)" },
             offset: { type: SchemaType.NUMBER, description: "조회 시작 위치 (페이징)" },
-            groupBy: { type: SchemaType.STRING, description: "집계 시 기준 컬럼명 (예: '거래처명', '날짜')" },
+            groupBy: { type: SchemaType.STRING, description: "집계 시 기준 컬럼명 (예: '거래처명', '날짜'). 날짜 기반 집계는 '__month', '__week', '__year' 특수 키를 사용하십시오." },
             valueKey: { type: SchemaType.STRING, description: "집계 시 대상 수치 컬럼명 (예: '금액', '공급가액')" },
             months: { type: SchemaType.NUMBER, description: "monthly 조회 시 최근 N개월 수 (기본 12)" }
           },
@@ -195,14 +195,19 @@ export async function getVisualizationRecommendation(
     - 사용자가 "최근", "오늘", "이번 달", "최근 10일" 등을 언급하면 위 일시를 기준으로 도구의 기간(startDate, endDate)을 계산하십시오.
     
     [데이터 분석 및 시각화 원칙] (IMPORTANT)
-    1. **단일 도구 활용**: 데이터를 가져올 때는 오직 \`run_studio_data_query\` 도구만 사용하십시오. 이 도구는 일반 테이블, 금융 통합 뷰(bank_transactions 등), 그리고 **국세청(Hometax) 시스템 테이블**을 모두 지원하는 '유니버설 쿼리 도구'입니다.
-    2. **조회 의도(Intent) 선택**: 
-       - 전체 흐름이나 추이가 필요할 때는 \`intent: "monthly"\` 또는 \`intent: "summary"\`를 사용하십시오.
-       - 개별 거래 내역이나 로우 데이터가 필요할 때는 \`intent: "list"\`를 사용하십시오.
-       - 집계나 통계가 필요할 때는 \`groupBy\`와 \`valueKey\` 인자를 함께 전달하십시오.
-    3. **기간 필터링**: 사용자의 요청에 기간이 포함되어 있다면 반드시 \`startDate\`와 \`endDate\` (YYYY-MM-DD 형식)를 도구에 전달하십시오.
-    4. **시각화 우선**: 도구 호출을 통해 데이터를 확보했다면, 이를 즉시 차트(Line, Bar, Pie 등)로 시각화하여 제안하십시오.
-    5. **보안 지침**: SQL을 직접 작성할 수 없으므로, 모든 데이터 조작은 제공된 도구의 인자를 통해서만 수행하십시오.
+    1. **단일 도구 활용**: 데이터를 가져올 때는 오직 'run_studio_data_query' 도구만 사용하십시오. 이 도구는 일반 테이블, 금융 통합 뷰(bank_transactions 등), 그리고 **국세청(Hometax) 시스템 테이블**을 모두 지원하는 '유니버설 쿼리 도구'입니다.
+    2. **조회 의도(Intent) 및 집계**: 
+       - 전체 흐름이나 추이가 필요할 때는 'intent: "monthly"' 또는 'intent: "summary"'를 사용하십시오.
+       - **유니버설 날짜 집계 (Universal Date Aggregation)**: 어떤 테이블이든 날짜 기반 합계가 필요하면 'groupBy'에 다음 특수 키를 사용하십시오. 시스템이 날짜 컬럼을 찾아 자동으로 집계하고 날짜순으로 정렬해 줍니다.
+         * '__month': 월별 집계 (YYYY-MM) - **가장 권장되는 방식**
+         * '__week': 주별 집계 (YYYY-W01)
+         * '__year': 연별 집계 (YYYY)
+       - 개별 거래 내역이나 로우 데이터가 필요할 때는 'intent: "list"'를 사용하십시오.
+       - 일반적인 그룹화 집계가 필요할 때는 'groupBy'와 'valueKey' 인자를 전달하십시오.
+    3. **금융 데이터 정밀 분석**: 'intent: "monthly"' 사용 시 'tableId'에 'card'가 포함되면 카드 내역만, 'bank'가 포함되면 은행 내역만 자동으로 필터링되어 반환됩니다. 금융 데이터 추이를 시각화할 때 매우 유용합니다.
+    4. **기간 필터링**: 사용자의 요청에 기간이 포함되어 있다면 반드시 'startDate'와 'endDate' (YYYY-MM-DD 형식)를 도구에 전달하십시오.
+    5. **시각화 우선**: 도구 호출을 통해 데이터를 확보했다면, 이를 즉시 차트(Line, Bar, Pie 등)로 시각화하여 제안하십시오.
+    6. **보안 지침**: SQL을 직접 작성할 수 없으므로, 모든 데이터 조작은 제공된 도구의 인자를 통해서만 수행하십시오.
     
     [범용 데이터 소스 분석 원칙 (Universal Analysis)]
     금융이나 홈택스 외의 생소한 데이터 소스를 분석할 때는 다음 원칙을 따르십시오:
@@ -243,7 +248,7 @@ export async function getVisualizationRecommendation(
     [중요 지침]
     - **Parameters 정확성**: 도구 호출 시 'tableId' 값은 [분석 대상 테이블 정보]에 기재된 ID를 토씨 하나 틀리지 않고 그대로 사용하십시오.
     - **정직한 응답**: 분석 대상 테이블 정보가 비어있을 때만 "테이블을 선택해 주세요"라고 안내하십시오. 정보가 있다면 그 테이블의 스키마를 바탕으로 분석을 시작하십시오.
-    - **도구 호출 오류 방지**: 홈택스 분석 시 금융 전용 요약 도구 호출 로직을 사용하지 마십시오. 오직 \`run_studio_data_query\`의 인자를 통해 데이터를 필터링하십시오.
+    - **도구 호출 오류 방지**: 홈택스 분석 시 금융 전용 요약 도구 호출 로직을 사용하지 마십시오. 오직 'run_studio_data_query'의 인자를 통해 데이터를 필터링하십시오.
     
     [SQL 및 데이터 구조 규칙] (IMPORTANT)
     1. **가상 테이블 (dashboard_data)**: \`tableName\`이 \`dashboard_data\`인 경우, 데이터는 'data'라는 JSON 컬럼에 저장되어 있습니다. 이때는 \`data->>'컬럼명'\` 형식을 사용하십시오.
@@ -289,16 +294,16 @@ export async function getVisualizationRecommendation(
       "chartConfigs": [
         {
           "type": "bar | line | area | pie | table", // (REQUIRED) 차트의 종류를 반드시 명시하십시오.
-          "data": [{"label": "값1", "value": 100, "color": "#2563eb"}],
-          "xAxis": "축으로 사용할 키 (table인 경우 첫 번째 주요 컬럼의 키)",
-          "series": [{"key": "값의 키", "name": "표시될 이름", "color": "#hex"}],
+          "data": [{"label": "2025-01", "value": 100, "color": "#2563eb"}],
+          "xAxis": "축으로 사용할 키 (예: 'label')",
+          "series": [{"key": "value", "name": "합계", "color": "#hex"}],
           "title": "차트 제목",
           "showLabels": true,
           "sourceDescription": "데이터 추출 로직 설명",
           "refreshMetadata": {
-            "tool": "사용된 도구명",
-            "args": {"인자": "값"},
-            "mapping": {"label": "결과필드명1", "value": "결과필드명2"}
+            "tool": "run_studio_data_query",
+            "args": {"tableId": "...", "intent": "list | monthly", "groupBy": "__month", "valueKey": "..."},
+            "mapping": {"label": "label", "value": "value"}
           }
         }
       ]

@@ -59,9 +59,9 @@ export async function runAITool(name: string, args: any) {
 
   switch (name) {
     case "list_available_tables": {
-      // 1. Userdata Tables (Physical tables uploaded by user)
-      const userTablesRes = await listTables().catch(() => []);
-      const userTables = Array.isArray(userTablesRes) ? userTablesRes : [];
+      // 1. Userdata Tables (일반 테이블 목록)
+      const userTablesRaw = await listTables().catch(() => ({ tables: [] }));
+      const userTables = Array.isArray(userTablesRaw?.tables) ? userTablesRaw.tables : [];
       
       // 2. FinanceHub Virtual Tables (Master and Transactions)
       const financeTables = [
@@ -104,9 +104,63 @@ export async function runAITool(name: string, args: any) {
       stats.fullTableMarkdown = tableMarkdown;
       return stats;
     }
-    case "get_finance_monthly_summary":
-      result = await getMonthlySummary({ months: args.months || 6 });
+    case "get_finance_monthly_summary": {
+      const requestedMonths = args.months || 6;
+      // [이슈 해결] months 인자가 단순 Row Limit으로 작동하는 경우를 대비해 넉넉하게 조회 (계좌 수 고려)
+      const fetchLimit = requestedMonths * 20; 
+      const result = await getMonthlySummary({ months: fetchLimit });
+      const tableId = String(args.tableId || '');
+      
+      // [개선] 요청된 tableId에 따라 은행/카드 필터링
+      if (Array.isArray(result?.summary)) {
+        const accountsRes = await listAccounts().catch(() => ({ accounts: [] }));
+        const accounts = Array.isArray(accountsRes) ? accountsRes : (accountsRes?.accounts || []);
+        
+        const isCardQuery = tableId.includes('card') || tableId.includes('approvals');
+        const isBankQuery = tableId.includes('bank') || tableId.includes('transaction') || tableId === 'bank_accounts';
+
+        let filteredSummary = result.summary.filter((item: any) => {
+          // 계좌 정보 매칭 (accountId 우선, 없으면 bankId로 매칭)
+          const acc = accounts.find((a: any) => 
+            (item.accountId && a.accountId === item.accountId) || 
+            (!item.accountId && a.bankId === item.bankId)
+          );
+          
+          const bId = String(acc?.bankId || item.bankId || '').toLowerCase();
+          const aName = String(acc?.accountName || item.accountName || '').toLowerCase();
+          const isCard = bId.includes('card') || aName.includes('카드');
+          
+          if (isCardQuery) return isCard;
+          if (isBankQuery) return !isCard;
+          return true;
+        });
+
+        // [필수] 필터링 후 다시 월별 정렬 및 최근 N개월 제한 적용
+        filteredSummary.sort((a, b) => String(b.yearMonth).localeCompare(String(a.yearMonth)));
+        
+        // 유니크한 월 목록 추출하여 최근 N개월만 선택
+        const uniqueMonths = Array.from(new Set(filteredSummary.map(s => s.yearMonth))).sort().reverse().slice(0, requestedMonths);
+        filteredSummary = filteredSummary.filter(s => uniqueMonths.includes(s.yearMonth));
+
+        const mappedSummary = filteredSummary.map((item: any) => ({
+          ...item,
+          month: item.yearMonth || item.month,
+          deposit: item.totalDeposits || item.deposit || 0,
+          withdrawal: item.totalWithdrawals || item.withdrawal || 0,
+          label: item.yearMonth || item.month,
+          value: item.totalWithdrawals || item.withdrawal || 0
+        }));
+        
+        return {
+          ...result,
+          data: mappedSummary,
+          summary: mappedSummary,
+          totalMonths: uniqueMonths.length
+        };
+      }
+      
       return result;
+    }
     case "get_finance_statistics": {
       const [stats, accounts] = await Promise.all([
         getStatistics({
@@ -317,18 +371,49 @@ export async function runAITool(name: string, args: any) {
       
       const validRows = allRows.filter((row: any) => row.isDeleted === 0 || row.isDeleted === '0' || row.isDeleted === undefined);
 
-      // 집계 전에 가드레일 적용 (차단된 컬럼은 집계에서 제외되도록)
+      // 집계 전에 가드레일 적용
       const safeRows = await applyGuardrails(args.tableId, validRows);
 
       const mode = args.mode || 'sum';
       const sumKeys = Array.isArray(args.sumKey) ? args.sumKey : [args.sumKey || 'value'];
+      const groupByKey = args.groupByKey;
       const summary: Record<string, Record<string, number>> = {};
       
       safeRows.forEach((row: any) => {
         const rowData = targetTable === 'dashboard_data'
           ? (typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}))
           : row;
-        const groupValue = rowData[args.groupByKey];
+        
+        // [개선] 날짜 기반 집계 특수 처리 (__month, __week, __year)
+        let groupValue: any;
+        if (groupByKey && groupByKey.startsWith('__')) {
+          const dateVal = rowData['date'] || rowData['작성일자'] || rowData['일자'] || rowData['createdAt'] || rowData['writeDate'] || rowData['approvalDate'] || rowData['saleDate'] || rowData['transactionDate'];
+          if (dateVal && typeof dateVal === 'string') {
+            const d = new Date(dateVal.replace(/\./g, '-'));
+            if (!isNaN(d.getTime())) {
+              if (groupByKey === '__month') {
+                groupValue = dateVal.substring(0, 7).replace(/[^0-9-]/g, '-'); // YYYY-MM
+              } else if (groupByKey === '__year') {
+                groupValue = dateVal.substring(0, 4); // YYYY
+              } else if (groupByKey === '__week') {
+                // 주차 계산 (ISO 주차 기준)
+                const target = new Date(d.valueOf());
+                const dayNr = (d.getDay() + 6) % 7;
+                target.setDate(target.getDate() - dayNr + 3);
+                const firstThursday = target.valueOf();
+                target.setMonth(0, 1);
+                if (target.getDay() !== 4) {
+                  target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+                }
+                const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+                groupValue = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+              }
+            }
+          }
+        } else {
+          groupValue = rowData[groupByKey];
+        }
+
         if (groupValue === undefined || groupValue === null || groupValue === '') return;
         const gKey = String(groupValue);
         if (!summary[gKey]) {
@@ -353,7 +438,7 @@ export async function runAITool(name: string, args: any) {
         if (sumKeys.length === 1) item.value = summary[key][sumKeys[0]];
         Object.assign(item, summary[key]);
         return item;
-      }).sort((a, b) => (b.value !== undefined ? b.value - (a.value || 0) : 0));
+      }).sort((a, b) => a.label.localeCompare(b.label)); // 날짜순 정렬을 위해 localeCompare 사용
     }
     case "query_workspace_table": {
       const targetTableStr = String(args.tableId || '');
@@ -398,7 +483,7 @@ export async function runAITool(name: string, args: any) {
         if (intent === 'summary' || intent === 'statistics') {
           return await runAITool('get_finance_statistics', { startDate, endDate });
         } else if (intent === 'monthly') {
-          return await runAITool('get_finance_monthly_summary', { months: args.months || 12 });
+          return await runAITool('get_finance_monthly_summary', { tableId, months: args.months || 12 });
         } else {
           // 상세 목록은 bank_transactions 또는 card_approvals 자동 선택
           const toolName = (idStr.includes('card') || idStr.includes('approvals')) 

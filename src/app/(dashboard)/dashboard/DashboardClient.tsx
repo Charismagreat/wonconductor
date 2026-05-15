@@ -86,16 +86,28 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
     }
   }, [chatHistory, isTyping]);
 
-  // [Persistence] 서버에서 상태 복원
+  // [Persistence] 서버 및 로컬에서 상태 복원 (Dual-Persistence)
   useEffect(() => {
     let isMounted = true;
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Session load timeout')), 5000)
+      setTimeout(() => reject(new Error('Session load timeout')), 10000) // 10초로 연장
     );
 
     async function loadSession() {
       try {
-        // 타임아웃과 경쟁하여 너무 오래 걸리면 포기
+        // 1. 로컬 스토리지에서 먼저 즉시 복원 (속도 우선)
+        const localSaved = localStorage.getItem(STORAGE_KEY);
+        if (localSaved && isMounted) {
+          try {
+            const parsed = JSON.parse(localSaved);
+            setSelectedIds(parsed.selectedIds || []);
+            setChatHistory(parsed.chatHistory || []);
+            setCharts(parsed.charts || []);
+            console.log('AI Studio session restored from LocalStorage.');
+          } catch(e) {}
+        }
+
+        // 2. 서버에서 최신 상태 가져와서 동기화 (정확도 우선)
         const savedState = await Promise.race([
           getAIStudioSessionAction(),
           timeoutPromise
@@ -106,10 +118,10 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
           if (sIds) setSelectedIds(sIds);
           if (cHist) setChatHistory(cHist);
           if (cCharts) setCharts(cCharts);
-          console.log('AI Studio session restored from server.');
+          console.log('AI Studio session synced with Server.');
         }
       } catch (e) {
-        console.warn('AI Studio session load skipped or failed:', e);
+        console.warn('AI Studio session sync skipped or failed:', e);
       } finally {
         if (isMounted) {
           isLoaded.current = true;
@@ -120,40 +132,60 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
     return () => { isMounted = false; };
   }, []);
 
-  // [Persistence] 상태 변경 시 서버에 자동 저장 (Debounced)
+  // [Persistence] 상태 변경 시 서버/로컬 자동 저장
+  const lastStateRef = useRef({ selectedIds, chatHistory, charts });
+  useEffect(() => {
+    lastStateRef.current = { selectedIds, chatHistory, charts };
+  }, [selectedIds, chatHistory, charts]);
+
   useEffect(() => {
     if (!isLoaded.current || !user) return;
 
+    // 로컬 스토리지는 즉시 저장
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      selectedIds,
+      chatHistory,
+      charts
+    }));
+
     const timer = setTimeout(async () => {
+      await performSave();
+    }, 2000); // 서버 저장은 2초 디바운스
+
+    return () => {
+      clearTimeout(timer);
+      // 언마운트 시점에 변경사항이 있다면 즉시 저장 시도 (Fire and forget)
+      if (isLoaded.current) {
+        performSave();
+      }
+    };
+
+    async function performSave() {
       setIsSaving(true);
       try {
-        // 데이터 경량화: 너무 큰 트레이스 결과는 요약하여 저장
-        const lightChatHistory = chatHistory.map(msg => ({
+        const state = lastStateRef.current;
+        // 데이터 경량화
+        const lightChatHistory = state.chatHistory.map(msg => ({
           ...msg,
           traces: msg.traces?.map(t => ({
             ...t,
             result: typeof t.result === 'object' 
-              ? JSON.parse(JSON.stringify(t.result).substring(0, 2000) + (JSON.stringify(t.result).length > 2000 ? '..."}' : ''))
-              : String(t.result).substring(0, 2000)
+              ? JSON.parse(JSON.stringify(t.result).substring(0, 1000) + (JSON.stringify(t.result).length > 1000 ? '..."}' : ''))
+              : String(t.result).substring(0, 1000)
           }))
         }));
 
-        const result = await saveAIStudioSessionAction({
-          selectedIds,
+        await saveAIStudioSessionAction({
+          selectedIds: state.selectedIds,
           chatHistory: lightChatHistory,
-          charts
+          charts: state.charts
         });
-        if (!result.success) {
-          console.warn('Session auto-save failed:', result.error);
-        }
       } catch (e) {
-        console.warn('Session auto-save network error (will retry later):', e);
+        console.warn('Session auto-save failed:', e);
       } finally {
         setIsSaving(false);
       }
-    }, 1000); // 1초 디바운스로 단축
-
-    return () => clearTimeout(timer);
+    }
   }, [selectedIds, chatHistory, charts]);
 
   const resetSession = async () => {

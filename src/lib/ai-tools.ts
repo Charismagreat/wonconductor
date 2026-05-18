@@ -106,17 +106,68 @@ export async function runAITool(name: string, args: any) {
     }
     case "get_finance_monthly_summary": {
       const requestedMonths = args.months || 6;
+      const tableId = String(args.tableId || '');
+      const isCardQuery = tableId.includes('card') || tableId.includes('approvals');
+
+      if (isCardQuery) {
+        // [필수 개선] 신용카드 취소 거래(isCancelled 또는 취소 승인 내역)를 차감(-)하여 월별 합산 계산
+        const rawCardTxRes = await queryCardTransactions({ limit: 5000, includeCancelled: true });
+        const txs = Array.isArray(rawCardTxRes) ? rawCardTxRes : (rawCardTxRes?.transactions || rawCardTxRes?.rows || []);
+        
+        const monthlyAggregation: Record<string, number> = {};
+        
+        txs.forEach((tx: any) => {
+          const dateStr = tx.approvalDate || tx.date;
+          if (!dateStr || dateStr.length < 7) return;
+          const month = dateStr.substring(0, 7); // "YYYY-MM"
+          
+          // 취소 여부 확인
+          const isCancelled = tx.isCancelled === true || tx.isCancelled === 'true' || tx.isCancelled === 1 || String(tx.salesType).includes('취소') || String(tx.status).includes('취소');
+          
+          const amount = Number(tx.amount) || 0;
+          
+          if (!monthlyAggregation[month]) {
+            monthlyAggregation[month] = 0;
+          }
+          
+          if (isCancelled) {
+            monthlyAggregation[month] -= amount;
+          } else {
+            monthlyAggregation[month] += amount;
+          }
+        });
+        
+        const sortedMonths = Object.keys(monthlyAggregation).sort().reverse().slice(0, requestedMonths);
+        
+        const mappedSummary = sortedMonths.map(month => {
+          const value = monthlyAggregation[month];
+          return {
+            month,
+            yearMonth: month,
+            deposit: 0,
+            withdrawal: value >= 0 ? value : 0,
+            label: month,
+            value: value >= 0 ? value : 0
+          };
+        });
+        
+        return {
+          success: true,
+          data: mappedSummary,
+          summary: mappedSummary,
+          totalMonths: sortedMonths.length
+        };
+      }
+
       // [이슈 해결] months 인자가 단순 Row Limit으로 작동하는 경우를 대비해 넉넉하게 조회 (계좌 수 고려)
       const fetchLimit = requestedMonths * 20; 
       const result = await getMonthlySummary({ months: fetchLimit });
-      const tableId = String(args.tableId || '');
       
       // [개선] 요청된 tableId에 따라 은행/카드 필터링
       if (Array.isArray(result?.summary)) {
         const accountsRes = await listAccounts().catch(() => ({ accounts: [] }));
         const accounts = Array.isArray(accountsRes) ? accountsRes : (accountsRes?.accounts || []);
         
-        const isCardQuery = tableId.includes('card') || tableId.includes('approvals');
         const isBankQuery = tableId.includes('bank') || tableId.includes('transaction') || tableId === 'bank_accounts';
 
         let filteredSummary = result.summary.filter((item: any) => {
@@ -130,7 +181,6 @@ export async function runAITool(name: string, args: any) {
           const aName = String(acc?.accountName || item.accountName || '').toLowerCase();
           const isCard = bId.includes('card') || aName.includes('카드');
           
-          if (isCardQuery) return isCard;
           if (isBankQuery) return !isCard;
           return true;
         });
@@ -295,8 +345,12 @@ export async function runAITool(name: string, args: any) {
       const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
       const rows = rawRows.map((tx: any) => {
         const acc = accList.find((a: any) => a.accountId === tx.accountId || a.cardNumber === tx.cardNumber || a.id === tx.accountId);
+        const isCancelled = tx.isCancelled === true || tx.isCancelled === 'true' || tx.isCancelled === 1 || String(tx.salesType).includes('취소') || String(tx.status).includes('취소');
+        const amt = Number(tx.amount) || 0;
         return {
           ...tx,
+          amount: isCancelled ? -Math.abs(amt) : amt,
+          isCancelled,
           _bankName: acc?.bankName || acc?.cardCompanyId || tx.cardCompanyId || '-',
           _accountNumber: acc?.accountNumber || acc?.cardNumber || tx.cardNumber || '-',
           _accountName: acc?.accountName || acc?.cardName || '카드',
@@ -313,11 +367,20 @@ export async function runAITool(name: string, args: any) {
         orderBy: 'date',
         orderDir: 'desc'
       });
-      const totalAmount = txs.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+      // [수정] 취소 거래(isCancelled 또는 취소 문자열 포함)인 경우 차감(-) 처리합니다.
+      const totalAmount = txs.reduce((sum: number, tx: any) => {
+        const isCancelled = tx.isCancelled === true || tx.isCancelled === 'true' || String(tx.salesType).includes('취소') || String(tx.status).includes('취소');
+        const amt = tx.amount || 0;
+        return isCancelled ? sum - amt : sum + amt;
+      }, 0);
+      
       const categorySummary: Record<string, number> = {};
       txs.forEach((tx: any) => {
         const cat = tx.category || '기타';
-        categorySummary[cat] = (categorySummary[cat] || 0) + (tx.amount || 0);
+        const isCancelled = tx.isCancelled === true || tx.isCancelled === 'true' || String(tx.salesType).includes('취소') || String(tx.status).includes('취소');
+        const amt = tx.amount || 0;
+        const adjustedAmt = isCancelled ? -amt : amt;
+        categorySummary[cat] = (categorySummary[cat] || 0) + adjustedAmt;
       });
       const transactions = await applyGuardrails('card_transactions', txs.slice(0, 100));
       return {
@@ -325,14 +388,19 @@ export async function runAITool(name: string, args: any) {
         transactionCount: txs.length,
         period: `${args.startDate} ~ ${args.endDate}`,
         categorySummary,
-        transactions: transactions.map((t: any) => ({
-          id: t.id,
-          approvalDate: t.approvalDate || t.date,
-          cardNumber: t.cardNumber || t.cardNo,
-          description: t.description || t.merchantName,
-          category: t.category,
-          amount: t.amount
-        })),
+        transactions: transactions.map((t: any) => {
+          const isCancelled = t.isCancelled === true || t.isCancelled === 'true' || String(t.salesType).includes('취소') || String(t.status).includes('취소');
+          const amt = Number(t.amount) || 0;
+          return {
+            id: t.id,
+            approvalDate: t.approvalDate || t.date,
+            cardNumber: t.cardNumber || t.cardNo,
+            description: t.description || t.merchantName,
+            category: t.category,
+            amount: isCancelled ? -Math.abs(amt) : amt,
+            isCancelled
+          };
+        }),
         basis: "승인일자(approvalDate)"
       };
     }
@@ -418,9 +486,9 @@ export async function runAITool(name: string, args: any) {
         const gKey = String(groupValue);
         if (!summary[gKey]) {
           summary[gKey] = {};
-          sumKeys.forEach(sk => summary[gKey][sk] = 0);
+          sumKeys.forEach((sk: any) => summary[gKey][sk] = 0);
         }
-        sumKeys.forEach(sk => {
+        sumKeys.forEach((sk: any) => {
           if (mode === 'count') {
             summary[gKey][sk] += 1;
           } else {
@@ -428,6 +496,13 @@ export async function runAITool(name: string, args: any) {
             let amount = 0;
             if (typeof amountRaw === 'number') amount = amountRaw;
             else if (typeof amountRaw === 'string') amount = parseFloat(amountRaw.replace(/,/g, ''));
+            
+            // [수정] 취소 거래인 경우 총액 합산 시 마이너스(-) 차감 처리합니다.
+            const isCancelled = rowData.isCancelled === true || rowData.isCancelled === 'true' || String(rowData.salesType).includes('취소') || String(rowData.status).includes('취소');
+            if (isCancelled && (sk === 'amount' || sk === 'outflow' || sk === 'withdrawal' || sk === '금액' || sk === '승인금액' || sk === '출금액')) {
+              amount = -amount;
+            }
+
             if (!isNaN(amount)) summary[gKey][sk] += amount;
           }
         });
@@ -483,7 +558,16 @@ export async function runAITool(name: string, args: any) {
         if (intent === 'summary' || intent === 'statistics') {
           return await runAITool('get_finance_statistics', { startDate, endDate });
         } else if (intent === 'monthly') {
-          return await runAITool('get_finance_monthly_summary', { tableId, months: args.months || 12 });
+          let monthsCount = args.months || 12;
+          if (!args.months && startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+              const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+              monthsCount = Math.max(1, Math.round(diffDays / 30));
+            }
+          }
+          return await runAITool('get_finance_monthly_summary', { tableId, months: monthsCount });
         } else {
           // 상세 목록은 bank_transactions 또는 card_approvals 자동 선택
           const toolName = (idStr.includes('card') || idStr.includes('approvals')) 

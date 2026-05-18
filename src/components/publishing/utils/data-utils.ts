@@ -69,11 +69,28 @@ export function extractAmount(item: any, mappingInflow?: string, mappingOutflow?
   let inflow = findNumeric(item, mappingInflow, ['inflow', 'deposit', 'inAmt', 'in_amt', 'deposit_amt', 'IN_AMT', '입금', '입금액', '입금금액']);
   let outflow = findNumeric(item, mappingOutflow, ['outflow', 'withdrawal', 'outAmt', 'out_amt', 'withdraw_amt', 'OUT_AMT', '출금', '출금액', '출금금액']);
   
+  // 승인 취소 여부 판별 (취소 거래인 경우 반대 방향으로 처리)
+  const isCancelled = item.isCancelled === true || item.isCancelled === 'true' || String(item.salesType).includes('취소') || String(item.status).includes('취소');
+
   if (inflow === 0 && outflow === 0) {
     const genericAmt = findNumeric(item, 'amount', ['amount', 'amt', '승인금액', '결제금액', '금액']);
     if (genericAmt > 0) {
-       if (item.noteType === 'received' || String(item.type).includes('deposit') || String(item.category).includes('수입')) inflow = genericAmt;
-       else outflow = genericAmt;
+       const isDeposit = item.noteType === 'received' || String(item.type).includes('deposit') || String(item.category).includes('수입');
+       if (isCancelled) {
+          // 취소된 거래인 경우 입금/출금 성격을 뒤바꿈 (카드 승인 취소 -> 환불/입금 성격으로 변환)
+          if (isDeposit) outflow = genericAmt;
+          else inflow = genericAmt;
+       } else {
+          if (isDeposit) inflow = genericAmt;
+          else outflow = genericAmt;
+       }
+    }
+  } else {
+    if (isCancelled) {
+       // 취소된 거래인 경우 기존 입금/출금을 서로 교환
+       const temp = inflow;
+       inflow = outflow;
+       outflow = temp;
     }
   }
 

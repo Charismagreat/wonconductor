@@ -203,7 +203,7 @@ export function SmartChart({
       case 'bar':
         return (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={safeData}>
+            <BarChart data={safeData} margin={{ top: 30, right: 10, left: 10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis 
                 dataKey={xAxis} 
@@ -255,7 +255,7 @@ export function SmartChart({
       case 'line':
         return (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={safeData} margin={{ top: 20 }}>
+            <LineChart data={safeData} margin={{ top: 30, right: 10, left: 10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey={xAxis} axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} dy={10} />
               <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
@@ -293,7 +293,7 @@ export function SmartChart({
       case 'area':
         return (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={safeData} margin={{ top: 20 }}>
+            <AreaChart data={safeData} margin={{ top: 30, right: 10, left: 10, bottom: 10 }}>
               <defs>
                 {chartSeries.map((s, i) => (
                   <linearGradient key={`grad-${s.key}-${i}`} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -404,8 +404,18 @@ export function SmartChart({
                         }
                       }
                       
+                      const isAmountHeader = /amount|deposit|withdrawal|value|금액|잔액|승인금액|출금|입금/i.test(header);
+                      const isNegative = isAmountHeader && typeof cellValue === 'number' && cellValue < 0;
+                      
                       return (
-                        <td key={`${i}-${header}`} className="px-6 py-4 text-slate-600 font-medium whitespace-nowrap group-hover/row:text-blue-900 transition-colors">
+                        <td 
+                          key={`${i}-${header}`} 
+                          className={`px-6 py-4 font-medium whitespace-nowrap transition-colors ${
+                            isNegative 
+                              ? 'text-red-500 font-bold group-hover/row:text-red-600' 
+                              : 'text-slate-600 group-hover/row:text-blue-900'
+                          }`}
+                        >
                           {formatValue(cellValue)}
                         </td>
                       );

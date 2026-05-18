@@ -23,19 +23,58 @@ export interface ChartConfig {
  */
 function resolveDynamicValue(val: any): any {
     if (typeof val !== 'string') return val;
-    const today = new Date();
-    const kstTodayStr = today.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
     
-    if (val === '$TODAY') return kstTodayStr;
-    
-    const match = val.match(/^\$TODAY-(\d+)$/);
-    if (match) {
-        const days = parseInt(match[1], 10);
-        const targetDate = new Date(today);
-        targetDate.setDate(today.getDate() - days);
-        return targetDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+    const getKstDate = (d: Date = new Date()) => {
+        const kstStr = d.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+        return new Date(kstStr);
+    };
+
+    const kstToday = getKstDate();
+    const formatDate = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const date = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${date}`;
+    };
+
+    if (val === '$TODAY') return formatDate(kstToday);
+
+    const minusMatch = val.match(/^\$TODAY-(\d+)$/);
+    if (minusMatch) {
+        const days = parseInt(minusMatch[1], 10);
+        const targetDate = new Date(kstToday);
+        targetDate.setDate(kstToday.getDate() - days);
+        return formatDate(targetDate);
     }
-    
+
+    const plusMatch = val.match(/^\$TODAY\+(\d+)$/);
+    if (plusMatch) {
+        const days = parseInt(plusMatch[1], 10);
+        const targetDate = new Date(kstToday);
+        targetDate.setDate(kstToday.getDate() + days);
+        return formatDate(targetDate);
+    }
+
+    if (val === '$START_OF_MONTH') {
+        const firstDay = new Date(kstToday.getFullYear(), kstToday.getMonth(), 1);
+        return formatDate(firstDay);
+    }
+
+    if (val === '$END_OF_MONTH') {
+        const lastDay = new Date(kstToday.getFullYear(), kstToday.getMonth() + 1, 0);
+        return formatDate(lastDay);
+    }
+
+    if (val === '$START_OF_YEAR') {
+        const firstDay = new Date(kstToday.getFullYear(), 0, 1);
+        return formatDate(firstDay);
+    }
+
+    if (val === '$END_OF_YEAR') {
+        const lastDay = new Date(kstToday.getFullYear(), 11, 31);
+        return formatDate(lastDay);
+    }
+
     return val;
 }
 

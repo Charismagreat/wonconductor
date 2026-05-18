@@ -192,7 +192,9 @@ export async function getVisualizationRecommendation(
     
     [현 시점 정보]
     - 현재 일시: ${currentTime}
-    - 사용자가 "최근", "오늘", "이번 달", "최근 10일" 등을 언급하면 위 일시를 기준으로 도구의 기간(startDate, endDate)을 계산하십시오.
+    - 사용자가 "최근 N일", "오늘", "이번 달", "최근 N개월" 등 상대적인 기간을 언급하는 경우:
+      * **도구 호출(Function Call)** 시에는 위 일시를 기준으로 계산한 실제 정적 날짜 문자열(예: '2026-05-09')을 전달하여 데이터를 실시간으로 가져옵니다.
+      * 하지만 생성하는 차트 설정의 **\`refreshMetadata.args\` 내의 \`startDate\`와 \`endDate\`에는 절대로 정적 날짜 문자열을 하드코딩하지 말고, 반드시 동적 플레이스홀더(\`$TODAY\`, \`$TODAY-N\`, \`$START_OF_MONTH\`, \`$END_OF_MONTH\`, \`$START_OF_YEAR\`, \`$END_OF_YEAR\` 등)를 사용**하여 작성해야 합니다. (예: "최근 7일간의 지출" -> startDate는 "$TODAY-7", endDate는 "$TODAY")
     
     [데이터 분석 및 시각화 원칙] (IMPORTANT)
     1. **단일 도구 활용**: 데이터를 가져올 때는 오직 'run_studio_data_query' 도구만 사용하십시오. 이 도구는 일반 테이블, 금융 통합 뷰(bank_transactions 등), 그리고 **국세청(Hometax) 시스템 테이블**을 모두 지원하는 '유니버설 쿼리 도구'입니다.
@@ -285,8 +287,8 @@ export async function getVisualizationRecommendation(
         - **마크다운 금지**: 절대 \` \` \`json ... \` \` \` 과 같은 마크다운 코드 블록을 사용하지 마십시오. 오직 순수 JSON 객지( { ... } )만 출력하십시오.
         - **특수 문자 이스케이프**: \`content\` 필드 내의 모든 쌍따옴표는 \`\\"\`로, 줄바꿈은 \`\\n\`으로 반드시 이스케이프하십시오.
         - **데이터 부재 설명**: "2025년 매출액은 0원입니다"라고만 하지 말고, "선택하신 2025년 기간에는 조회된 데이터가 없으나, 샘플링 결과 2026년 1월 데이터가 존재함을 확인했습니다."와 같이 정교하게 설명하십시오.
-       - 'sourceDescription': 데이터가 어떻게 추출되었는지에 대한 한글 설명 (예: "최근 6개월간의 월별 카드 지출 합계")
-       - 'refreshMetadata': 자동 갱신을 위한 기술적 정보. 사용한 도구명('tool'), 인자('args'), 그리고 도구 결과 필드를 차트 데이터('label', 'value')로 매핑하는 정보('mapping')를 포함하십시오.
+        - 'sourceDescription': 데이터가 어떻게 추출되었는지에 대한 한글 설명 (예: "최근 6개월간의 월별 카드 지출 합계")
+        - 'refreshMetadata': 자동 갱신을 위한 기술적 정보. 사용한 도구명('tool'), 인자('args'), 그리고 도구 결과 필드를 차트 데이터('label', 'value')로 매핑하는 정보('mapping')를 포함하십시오. **특히, \`args\`의 \`startDate\`, \`endDate\`는 항상 상대 기간(예: "$TODAY-7", "$TODAY", "$START_OF_MONTH", "$END_OF_MONTH") 형태의 동적 플레이스홀더를 기재해야 갤러리 및 대시보드 로드 시 동적으로 최신화됩니다.**
     
     응답 JSON 형식 (반드시 다음 구조를 지키고, 특히 chartConfigs의 'type'은 필수로 포함하십시오):
     {

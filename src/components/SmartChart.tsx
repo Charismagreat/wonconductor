@@ -33,7 +33,8 @@ import {
   Minimize2,
   Download,
   Share2,
-  X
+  X,
+  Check
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -143,7 +144,17 @@ export function SmartChart({
     const keys = Object.keys(data[0]);
     const amountKey = keys.find(k => /amount|value|금액|잔액|승인금액|출금|입금/i.test(k)) || 'value';
     
-    return data.reduce((sum, item) => sum + (Number(item[amountKey]) || 0), 0);
+    return data.reduce((sum, item) => {
+      const rawVal = Number(item[amountKey]) || 0;
+      
+      // 마이너스 통장 계좌인 경우, 잔액 대신 가용 한도(약정금액 - 사용액)를 합산하여 표시
+      const isMinusAcc = rawVal < 0 || String(item.계좌명 || item.name || '').includes('마이너스') || (item.약정금액 !== undefined && item.약정금액 !== null);
+      if (isMinusAcc && item.약정금액) {
+        const availableLimit = Number(item.약정금액) + rawVal;
+        return sum + availableLimit;
+      }
+      return sum + Math.abs(rawVal);
+    }, 0);
   }, [data]);
 
   React.useEffect(() => {
@@ -352,7 +363,22 @@ export function SmartChart({
       case 'pie': {
         const valKey = chartSeries[0]?.key || 'value';
         const nameKey = xAxis || 'name';
-        const totalSum = safeData.reduce((sum, item) => sum + (Number(item[valKey]) || 0), 0);
+        
+        // Recharts 및 퍼센티지 연산을 위해 양수 절댓값 데이터 준비 (마이너스 통장인 경우 잔액 대신 '사용가능한도(한도 - 사용액)'를 적용)
+        const processedData = safeData.map(item => {
+          const rawVal = Number(item[valKey]) || 0;
+          const isMinusAcc = rawVal < 0 || String(item[nameKey]).includes('마이너스') || (item.약정금액 !== undefined && item.약정금액 !== null);
+          const chartValue = (isMinusAcc && item.약정금액) ? (Number(item.약정금액) + rawVal) : Math.abs(rawVal);
+          
+          return {
+            ...item,
+            [valKey]: chartValue,
+            _originalValue: rawVal,
+            _isMinusAccount: isMinusAcc
+          };
+        });
+
+        const totalSum = processedData.reduce((sum, item) => sum + (item[valKey] || 0), 0);
         
         // 3% 미만의 자잘한 비중은 "기타" 그룹으로 통합하여 겹침 방지
         const threshold = totalSum * 0.03;
@@ -360,8 +386,8 @@ export function SmartChart({
         const othersList: any[] = [];
         let othersSum = 0;
         
-        safeData.forEach(item => {
-          const val = Number(item[valKey]) || 0;
+        processedData.forEach(item => {
+          const val = item[valKey];
           if (val >= threshold) {
             majorSlices.push(item);
           } else {
@@ -374,6 +400,7 @@ export function SmartChart({
           majorSlices.push({
             [nameKey]: '기타',
             [valKey]: othersSum,
+            _originalValue: othersSum,
             color: '#94a3b8' // 프리미엄 슬레이트 그레이 컬러 적용
           });
         }
@@ -394,10 +421,11 @@ export function SmartChart({
                   {totalAmount.toLocaleString()}원
                 </span>
                 <span className="text-[8px] font-bold text-slate-400">
-                  {title.includes('카드') || title.includes('사용') ? '카드 승인 내역 합산' : `통합 ${data.length}개 계좌 잔액`}
+                  {title.includes('카드') || title.includes('사용') ? '카드 승인 내역 합산' : `통합 계좌 가용자산`}
                 </span>
               </div>
             )}
+            
             {/* 좌측: 도넛 파이 차트 */}
             <div className="flex-1 w-full h-full min-h-[250px] transition-all duration-300">
               <ResponsiveContainer width="100%" height="100%">
@@ -411,19 +439,45 @@ export function SmartChart({
                     paddingAngle={5}
                     dataKey={valKey}
                     nameKey={nameKey}
-                    label={({ name, value }) => `${name}\n(${formatValue(value)})`}
+                    label={({ name, payload }) => {
+                      if (payload?._isMinusAccount && payload?.사용가능한도 !== undefined && payload?.사용가능한도 !== null) {
+                        return `${name}\n(${formatValue(payload.사용가능한도)})`;
+                      }
+                      const val = payload?._originalValue !== undefined ? payload._originalValue : payload?.[valKey];
+                      return `${name}\n(${formatValue(val)})`;
+                    }}
                     isAnimationActive={false} // 리사이징 시 라벨 깜빡임 및 소실 현상 완벽 방지
                   >
-                    {pieData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.color || COLORS[index % COLORS.length]} 
-                      />
-                    ))}
+                    {pieData.map((entry, index) => {
+                      // 마이너스 계좌는 강렬하고 전문적인 경고성 다크 레드 컬러 적용
+                      const isNegativeAcc = entry._originalValue < 0;
+                      const fillColor = isNegativeAcc ? '#dc2626' : (entry.color || COLORS[index % COLORS.length]);
+                      return (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={fillColor} 
+                        />
+                      );
+                    })}
                   </Pie>
                   <Tooltip 
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
-                    formatter={(val: any) => [formatValue(val), '']}
+                    formatter={(val: any, name: any, entry: any) => {
+                      const payload = entry?.payload || {};
+                      const originalVal = payload?._originalValue !== undefined ? payload._originalValue : val;
+                      
+                      const lines = [`현재잔액: ${formatValue(originalVal)}원`];
+                      if (payload.약정금액) {
+                        lines.push(`약정금액: ${payload.약정금액.toLocaleString()}원`);
+                      }
+                      if (payload.사용가능한도 !== undefined && payload.사용가능한도 !== null) {
+                        lines.push(`가용한도: ${payload.사용가능한도.toLocaleString()}원`);
+                      }
+                      if (payload.관리점) {
+                        lines.push(`지점: ${payload.관리점}`);
+                      }
+                      return [lines.join(' | '), ''];
+                    }}
                   />
                   <Legend verticalAlign="bottom" height={36}/>
                 </PieChart>
@@ -449,11 +503,26 @@ export function SmartChart({
                   </div>
                   <span className="text-[10px] font-black text-blue-600">총 {othersSum.toLocaleString()}원</span>
                 </div>
-                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2.5 scrollbar-thin">
+                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 scrollbar-thin">
                   {othersList.sort((a,b) => (Number(b[valKey]) || 0) - (Number(a[valKey]) || 0)).map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition-colors">
-                      <span className="truncate max-w-[150px]">{item[nameKey]}</span>
-                      <span className="font-mono text-slate-400 font-bold shrink-0">{formatValue(item[valKey])}원</span>
+                    <div key={idx} className="flex justify-between items-start text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition-colors py-1.5 border-b border-slate-100 last:border-0">
+                      <div className="flex flex-col gap-0.5 max-w-[150px]">
+                        <span className="truncate text-slate-800 font-bold">{item[nameKey]}</span>
+                        {item.관리점 && (
+                          <span className="text-[8px] font-medium text-slate-400">지점: {item.관리점}</span>
+                        )}
+                        {item.약정금액 && (
+                          <span className="text-[8px] font-medium text-red-500/80">약정: {item.약정금액.toLocaleString()}원</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        <span className={`font-mono font-bold shrink-0 ${item._originalValue < 0 ? 'text-red-500 font-bold' : 'text-slate-500 font-bold'}`}>
+                          {formatValue(item._originalValue !== undefined ? item._originalValue : item[valKey])}원
+                        </span>
+                        {item.사용가능한도 !== undefined && item.사용가능한도 !== null && (
+                          <span className="text-[8px] font-bold text-blue-500 font-mono">가용: {item.사용가능한도.toLocaleString()}원</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -132,13 +132,25 @@ export async function mapRefreshedDataAction(rawData: any, mapping: any): Promis
                     hasData = true;
                 }
             }
+            // 금융 특수 메타데이터 보존
+            if (row.약정금액 !== undefined) mappedRow.약정금액 = row.약정금액;
+            if (row.사용가능한도 !== undefined) mappedRow.사용가능한도 = row.사용가능한도;
+            if (row.관리점 !== undefined) mappedRow.관리점 = row.관리점;
+            
             if (hasData) return mappedRow;
         }
 
-        return {
-            label: row.yearMonth || row.month || row.name || row.label || row.date || Object.values(row)[0],
-            value: row.totalWithdrawals || row.amount || row.value || row.count || row.total || Object.values(row)[1]
+        const fallbackMapped: any = {
+            label: row.계좌명 || row.yearMonth || row.month || row.name || row.label || row.date || Object.values(row)[0],
+            value: row.잔액 !== undefined ? row.잔액 : (row.totalWithdrawals || row.amount || row.value || row.count || row.total || Object.values(row)[1])
         };
+
+        // 금융 특수 메타데이터 보존
+        if (row.약정금액 !== undefined) fallbackMapped.약정금액 = row.약정금액;
+        if (row.사용가능한도 !== undefined) fallbackMapped.사용가능한도 = row.사용가능한도;
+        if (row.관리점 !== undefined) fallbackMapped.관리점 = row.관리점;
+
+        return fallbackMapped;
     };
 
     if (records) {

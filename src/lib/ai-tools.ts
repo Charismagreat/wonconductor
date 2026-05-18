@@ -97,9 +97,13 @@ export async function runAITool(name: string, args: any) {
         fullTableMarkdown: ""
       };
       let tableMarkdown = `### 🏦 은행 및 계좌별 잔액 현황 (전체 ${integratedRows.length}건)\n\n`;
-      tableMarkdown += "| 은행명 | 계좌번호 | 현재잔액 | 최종거래일 |\n| :--- | :--- | :---: | :---: |\n";
+      tableMarkdown += "| 은행명 | 계좌번호 | 계좌명 | 현재잔액 | 약정금액 | 사용가능한도 | 관리점 | 최종거래일 |\n| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |\n";
       integratedRows.forEach((row: any) => {
-        tableMarkdown += `| ${row._bankName} | ${row.accountNumber} | **${(row.balance || 0).toLocaleString()}** | ${row.date} |\n`;
+        const balanceStr = (row.잔액 || 0).toLocaleString() + "원";
+        const contractStr = row.약정금액 ? `${row.약정금액.toLocaleString()}원` : "-";
+        const availableStr = row.사용가능한도 ? `${row.사용가능한도.toLocaleString()}원` : "-";
+        const branchStr = row.관리점 || "-";
+        tableMarkdown += `| ${row._bankName} | ${row.계좌번호} | ${row.계좌명} | **${balanceStr}** | ${contractStr} | **${availableStr}** | ${branchStr} | ${row.일자} |\n`;
       });
       stats.fullTableMarkdown = tableMarkdown;
       return stats;
@@ -265,14 +269,27 @@ export async function runAITool(name: string, args: any) {
 
       const integratedRows = validAccounts.map((acc: any) => {
         const stat = txStats[acc.accountId] || txStats[acc.id];
+        const balance = stat?.balance !== undefined ? stat.balance : (acc.balance || 0);
+        
+        // 약정금액 및 사용가능한도 파싱 (마이너스 통장/대출 전용 메타데이터)
+        const contractAmount = acc.metadata?.contractAmount 
+          ? Number(acc.metadata.contractAmount.replace(/[^0-9.-]/g, '')) 
+          : null;
+        const availableLimit = contractAmount !== null 
+          ? contractAmount + balance 
+          : null;
+
         return {
             id: acc.id || acc.accountId,
             일자: stat?.date || '기록없음',
             은행명: acc.bankName || acc.bankId,
             계좌번호: acc.accountNumber,
             계좌명: acc.accountName || '일반계좌',
-            잔액: stat?.balance || acc.balance || 0,
+            잔액: balance,
             거래건수: stat?.count || 0,
+            약정금액: contractAmount,
+            사용가능한도: availableLimit,
+            관리점: acc.metadata?.branchName || null,
             _bankName: acc.bankName || acc.bankId,
             _accountNumber: acc.accountNumber
         };

@@ -32,7 +32,8 @@ import {
   Maximize2,
   Minimize2,
   Download,
-  Share2
+  Share2,
+  X
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -130,8 +131,20 @@ export function SmartChart({
   const { data, xAxis, series = [], title, showLabels = true, sourceDescription } = config;
   const type = effectiveType;
   const [showInfo, setShowInfo] = React.useState(false);
+  const [showOthersDetails, setShowOthersDetails] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
+
+  // 데이터의 총합(자산/사용액 등)을 자동으로 계산
+  const totalAmount = React.useMemo(() => {
+    if (!data || data.length === 0) return 0;
+    
+    // 금액 관련 키 식별 (amount, value, 잔액, 금액, 승인금액 등)
+    const keys = Object.keys(data[0]);
+    const amountKey = keys.find(k => /amount|value|금액|잔액|승인금액|출금|입금/i.test(k)) || 'value';
+    
+    return data.reduce((sum, item) => sum + (Number(item[amountKey]) || 0), 0);
+  }, [data]);
 
   React.useEffect(() => {
     setMounted(true);
@@ -336,36 +349,131 @@ export function SmartChart({
           </ResponsiveContainer>
         );
 
-      case 'pie':
+      case 'pie': {
+        const valKey = chartSeries[0]?.key || 'value';
+        const nameKey = xAxis || 'name';
+        const totalSum = safeData.reduce((sum, item) => sum + (Number(item[valKey]) || 0), 0);
+        
+        // 3% 미만의 자잘한 비중은 "기타" 그룹으로 통합하여 겹침 방지
+        const threshold = totalSum * 0.03;
+        const majorSlices: any[] = [];
+        const othersList: any[] = [];
+        let othersSum = 0;
+        
+        safeData.forEach(item => {
+          const val = Number(item[valKey]) || 0;
+          if (val >= threshold) {
+            majorSlices.push(item);
+          } else {
+            othersSum += val;
+            othersList.push(item);
+          }
+        });
+        
+        if (othersSum > 0) {
+          majorSlices.push({
+            [nameKey]: '기타',
+            [valKey]: othersSum,
+            color: '#94a3b8' // 프리미엄 슬레이트 그레이 컬러 적용
+          });
+        }
+        
+        // 금액이 큰 순으로 정렬하여 배치
+        const pieData = majorSlices.sort((a, b) => (Number(b[valKey]) || 0) - (Number(a[valKey]) || 0));
+        
         return (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={safeData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey={chartSeries[0]?.key || 'value'}
-                nameKey={xAxis || 'name'}
-                label={({ name, percent, value }) => `${name}\n(${formatValue(value)})`}
-              >
-                {safeData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.color || COLORS[index % COLORS.length]} 
+          <div className="w-full h-full flex flex-col md:flex-row gap-6 items-center relative">
+            {/* 좌측 상단 고정 KPI 요약 카드 (사용자 지정 레드 서클 위치) */}
+            {totalAmount !== 0 && (
+              <div className="absolute left-2 top-2 z-10 p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100/50 rounded-2xl flex flex-col gap-1 transition-all duration-300" data-html2canvas-ignore>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                  <span>{title.includes('카드') || title.includes('사용') ? '총 사용액 요약' : '총 통합 자금'}</span>
+                </span>
+                <span className="text-lg font-black text-slate-800 font-mono tracking-tight leading-none">
+                  {totalAmount.toLocaleString()}원
+                </span>
+                <span className="text-[8px] font-bold text-slate-400">
+                  {title.includes('카드') || title.includes('사용') ? '카드 승인 내역 합산' : `통합 ${data.length}개 계좌 잔액`}
+                </span>
+              </div>
+            )}
+            {/* 좌측: 도넛 파이 차트 */}
+            <div className="flex-1 w-full h-full min-h-[250px] transition-all duration-300">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey={valKey}
+                    nameKey={nameKey}
+                    label={({ name, value }) => `${name}\n(${formatValue(value)})`}
+                    isAnimationActive={false} // 리사이징 시 라벨 깜빡임 및 소실 현상 완벽 방지
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.color || COLORS[index % COLORS.length]} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                    formatter={(val: any) => [formatValue(val), '']}
                   />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
-                formatter={(val: any) => [formatValue(val), '']}
-              />
-              <Legend verticalAlign="bottom" height={36}/>
-            </PieChart>
-          </ResponsiveContainer>
+                  <Legend verticalAlign="bottom" height={36}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            
+            {/* 우측: 정적 고정 '기타 상세 구성' 패널 */}
+            {othersList.length > 0 && showOthersDetails ? (
+              <div className="w-full md:w-72 h-[280px] bg-slate-50/80 border border-slate-100 rounded-3xl p-5 flex flex-col shrink-0 relative animate-in fade-in slide-in-from-right-4" data-html2canvas-ignore>
+                {/* 닫기(접기) 버튼 */}
+                <button
+                  onClick={() => setShowOthersDetails(false)}
+                  className="absolute right-4 top-4 p-1 rounded-full hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 transition-colors"
+                  title="상세 내역 접기"
+                >
+                  <X size={12} className="stroke-[2.5]" />
+                </button>
+
+                <div className="flex justify-between items-center pb-2 pr-6 mb-3 border-b border-slate-200/50 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1 h-3 bg-slate-400 rounded-full" />
+                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">기타 자금 구성 ({othersList.length})</span>
+                  </div>
+                  <span className="text-[10px] font-black text-blue-600">총 {othersSum.toLocaleString()}원</span>
+                </div>
+                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2.5 scrollbar-thin">
+                  {othersList.sort((a,b) => (Number(b[valKey]) || 0) - (Number(a[valKey]) || 0)).map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+                      <span className="truncate max-w-[150px]">{item[nameKey]}</span>
+                      <span className="font-mono text-slate-400 font-bold shrink-0">{formatValue(item[valKey])}원</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : othersList.length > 0 ? (
+              // 접혔을 때 펼치기 위한 플로팅 캡슐 버튼
+              <div className="absolute right-4 bottom-12 z-20 animate-in fade-in slide-in-from-bottom-2" data-html2canvas-ignore>
+                <button
+                  onClick={() => setShowOthersDetails(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-full text-[10px] font-black text-slate-500 hover:text-slate-800 transition-all shadow-sm"
+                  title="상세 내역 펼치기"
+                >
+                  <ChevronLeft size={10} className="text-blue-500 stroke-[3]" />
+                  <span>기타 상세 구성</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         );
+      }
 
       case 'table':
         // 1. 컬럼 헤더 및 순서 결정 (series가 있으면 이를 따르고, 없으면 데이터 키를 사용)
@@ -455,6 +563,13 @@ export function SmartChart({
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest truncate">
               {title}
             </h3>
+            {totalAmount !== 0 && (
+              <span className="shrink-0 px-2.5 py-1 bg-blue-50/80 text-blue-600 font-black text-[10px] rounded-full border border-blue-100/50 tracking-wider flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in duration-300">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                <span>{title.includes('카드') || title.includes('사용') ? '총 사용액' : '총 자금'}</span>
+                <span className="font-mono">{totalAmount.toLocaleString()}원</span>
+              </span>
+            )}
             {sourceDescription && (
               <div className="relative">
                 <button 

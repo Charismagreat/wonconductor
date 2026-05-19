@@ -255,6 +255,7 @@ export const SYSTEM_TABLES = [
             { name: 'isSample', type: 'INTEGER', defaultValue: 0 },
             { name: '__is_deleted', type: 'INTEGER', defaultValue: 0 },
             { name: '__deleted_at', type: 'TEXT' },
+            { name: 'orderIndex', type: 'INTEGER', defaultValue: 0 },
             { name: 'createdAt', type: 'TEXT', notNull: true },
             { name: 'updatedAt', type: 'TEXT' }
         ] as any[]

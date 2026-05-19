@@ -11,6 +11,7 @@ export interface ChartConfig {
     userId: string;
     config: any;
     layout?: any;
+    orderIndex?: number;
     createdAt?: string;
     updatedAt?: string;
     refreshedAt?: string;
@@ -177,11 +178,11 @@ export async function mapRefreshedDataAction(rawData: any, mapping: any): Promis
  */
 export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
     try {
-        // 1. DB에서 조회 시도 (__is_deleted = 0 필터 추가)
+        // 1. DB에서 조회 시도 (__is_deleted = 0, orderIndex 오름차순 필터 적용)
         let rows = await queryTable('dashboard_chart', { 
             filters: { __is_deleted: '0' },
-            orderBy: 'createdAt', 
-            orderDirection: 'DESC' 
+            orderBy: 'orderIndex', 
+            orderDirection: 'ASC' 
         });
 
         // [버그 수정] queryTable 결과가 { rows, total } 형태인 경우를 고려하여 배열 추출
@@ -199,12 +200,13 @@ export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
                     
                     if (jsonCharts.length > 0) {
                         console.log(`[ChartService] Migrating ${jsonCharts.length} charts to database...`);
-                        const rowsToInsert = jsonCharts.map((c: any) => ({
+                        const rowsToInsert = jsonCharts.map((c: any, idx: number) => ({
                             id: c.id,
                             userId: String(c.userId || 'admin'),
                             config: JSON.stringify(c.config),
                             layout: JSON.stringify(c.layout || {}),
                             isSample: c.isSample ? 1 : 0,
+                            orderIndex: idx,
                             __is_deleted: 0,
                             createdAt: c.createdAt || new Date().toISOString(),
                             updatedAt: c.updatedAt || new Date().toISOString()
@@ -216,8 +218,8 @@ export async function loadAllPinnedChartsAction(): Promise<ChartConfig[]> {
                         // 다시 DB에서 읽어오기
                         const migratedRows = await queryTable('dashboard_chart', { 
                             filters: { __is_deleted: '0' },
-                            orderBy: 'createdAt', 
-                            orderDirection: 'DESC' 
+                            orderBy: 'orderIndex', 
+                            orderDirection: 'ASC' 
                         });
                         
                         // 파일 삭제 (안전하게 마이그레이션 확인 후)
@@ -247,6 +249,7 @@ function mapRowToChartConfig(row: any): ChartConfig {
         userId: row.userId,
         config: typeof row.config === 'string' ? JSON.parse(row.config) : row.config,
         layout: typeof row.layout === 'string' ? JSON.parse(row.layout) : row.layout,
+        orderIndex: row.orderIndex !== undefined ? Number(row.orderIndex) : 0,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         refreshedAt: row.updatedAt,
@@ -288,12 +291,14 @@ export async function saveAllPinnedChartsAction(charts: ChartConfig[]): Promise<
             }
         }
         
-        for (const c of charts) {
+        for (let idx = 0; idx < charts.length; idx++) {
+            const c = charts[idx];
             const chartData: any = {
                 userId: String(c.userId),
                 config: JSON.stringify(c.config),
                 layout: JSON.stringify(c.layout || {}),
                 isSample: (c as any).isSample ? 1 : 0,
+                orderIndex: idx, // 순서 보존 정렬 인덱스
                 __is_deleted: 0, // 저장 시에는 다시 활성화 상태 보장
                 updatedAt: new Date().toISOString()
             };

@@ -210,10 +210,11 @@ export class SystemConfigService {
                             console.warn(`[SystemConfigService] WARNING: 'dashboard_data' schema mismatch but no backup file found. Skipping destructive migration.`);
                         }
                     }
-                    // [Self-Healing] dashboard_chart 테이블의 __is_deleted 컬럼 누락 체크 (강화된 감지)
+                    // [Self-Healing] dashboard_chart 테이블의 __is_deleted 및 orderIndex 컬럼 누락 체크 (강화된 감지)
                     const hasIsDeleted = schema.some((c: any) => (c.name || c.id || "").toLowerCase() === '__is_deleted');
-                    if (!hasIsDeleted && table.tableName === 'dashboard_chart') {
-                        console.log(`[SystemConfigService] 🚨 CRITICAL: 'dashboard_chart' table is missing deletion columns. Starting emergency migration...`);
+                    const hasOrderIndex = schema.some((c: any) => (c.name || "").toLowerCase() === 'orderindex');
+                    if ((!hasIsDeleted || !hasOrderIndex) && table.tableName === 'dashboard_chart') {
+                        console.log(`[SystemConfigService] 🚨 CRITICAL: 'dashboard_chart' table schema mismatch (missing isDeleted or orderIndex). Starting emergency migration...`);
                         
                         // 1. 기존 데이터 백업
                         const queryResult: any = await queryTable('dashboard_chart').catch(() => []);
@@ -227,10 +228,16 @@ export class SystemConfigService {
                         // 3. 신규 테이블 생성
                         await createTable(table.displayName, table.schema, { tableName: table.tableName });
                         
-                        // 4. 데이터 복구
+                        // 4. 데이터 복구 (orderIndex 값 순차 부여 및 데이터타입 변환)
                         if (rows.length > 0) {
-                            await insertRows('dashboard_chart', rows);
-                            console.log(`[SystemConfigService] ✅ Successfully migrated and restored ${rows.length} rows to dashboard_chart.`);
+                            const rowsToInsert = rows.map((r: any, idx: number) => ({
+                                ...r,
+                                orderIndex: r.orderIndex !== undefined ? Number(r.orderIndex) : idx,
+                                isSample: r.isSample !== undefined ? Number(r.isSample) : 0,
+                                __is_deleted: r.__is_deleted !== undefined ? Number(r.__is_deleted) : 0
+                            }));
+                            await insertRows('dashboard_chart', rowsToInsert);
+                            console.log(`[SystemConfigService] ✅ Successfully migrated and restored ${rowsToInsert.length} rows to dashboard_chart.`);
                         } else {
                             console.log(`[SystemConfigService] ✅ Recreated empty dashboard_chart table with correct schema.`);
                         }

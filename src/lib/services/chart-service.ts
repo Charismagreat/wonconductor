@@ -119,11 +119,18 @@ export async function mapRefreshedDataAction(rawData: any, mapping: any): Promis
     let newData: any[] = [];
     const records = (rawData && rawData.result && Array.isArray(rawData.result)) ? rawData.result :
                   (rawData && rawData.transactions && Array.isArray(rawData.transactions)) ? rawData.transactions : 
-                  (rawData && rawData.summary && Array.isArray(rawData.summary)) ? rawData.summary : null;
+                  (rawData && rawData.summary && Array.isArray(rawData.summary)) ? rawData.summary : 
+                  (rawData && rawData.invoices && Array.isArray(rawData.invoices)) ? rawData.invoices : 
+                  (rawData && rawData.receipts && Array.isArray(rawData.receipts)) ? rawData.receipts : null;
 
     const processRow = (row: any) => {
+        // [자가 치유] 데이터의 무손실 매핑 보장. 
+        // mapping이 있더라도 원본 row의 모든 속성을 기본적으로 상속받아(Spread), 
+        // Recharts가 s.key를 정상적으로 참조할 수 있도록 원본 키-값들을 완벽히 보존합니다.
+        const baseRow = { ...row };
+
         if (mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0) {
-            const mappedRow: any = {};
+            const mappedRow: any = { ...baseRow };
             let hasData = false;
             for (const [targetKey, sourceKey] of Object.entries(mapping)) {
                 const value = row[sourceKey as string] ?? row[targetKey];
@@ -141,6 +148,7 @@ export async function mapRefreshedDataAction(rawData: any, mapping: any): Promis
         }
 
         const fallbackMapped: any = {
+            ...baseRow,
             label: row.계좌명 || row.yearMonth || row.month || row.name || row.label || row.date || Object.values(row)[0],
             value: row.잔액 !== undefined ? row.잔액 : (row.totalWithdrawals || row.amount || row.value || row.count || row.total || Object.values(row)[1])
         };

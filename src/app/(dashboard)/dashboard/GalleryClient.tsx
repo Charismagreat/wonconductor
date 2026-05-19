@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { SmartChart } from '@/components/SmartChart';
-import { deletePinnedChartAction, refreshIndividualChartAction, updateChartLayoutAction, reorderPinnedChartsAction } from '@/app/actions/ai';
+import { deletePinnedChartAction, refreshIndividualChartAction, updateChartLayoutAction, reorderPinnedChartsAction, savePinnedChartAction } from '@/app/actions/ai';
 import { useRouter } from 'next/navigation';
 
 interface GalleryClientProps {
@@ -47,6 +47,16 @@ export function GalleryClient({ initialCharts }: GalleryClientProps) {
     }
   };
 
+  const handleConfigChange = async (id: string, newConfig: any) => {
+    // 낙관적 업데이트 (함수형 상태 업데이트로 Stale Closure 방지)
+    setCharts(prev => prev.map(c => c.id === id ? { ...c, config: newConfig } : c));
+    try {
+      await savePinnedChartAction(id, newConfig);
+    } catch (e) {
+      console.error('Config update failed:', e);
+    }
+  };
+
   const handleMove = async (id: string, direction: -1 | 1) => {
     const currentIndex = charts.findIndex(c => c.id === id);
     if (currentIndex === -1) return;
@@ -86,6 +96,7 @@ export function GalleryClient({ initialCharts }: GalleryClientProps) {
             isRefreshing={refreshingId === p.id}
             layout={p.layout}
             onLayoutChange={(newLayout) => handleLayoutChange(p.id, newLayout)}
+            onConfigChange={(newConfig) => handleConfigChange(p.id, newConfig)}
             onMoveUp={i > 0 ? () => handleMove(p.id, -1) : undefined}
             onMoveDown={i < charts.length - 1 ? () => handleMove(p.id, 1) : undefined}
           />

@@ -464,10 +464,56 @@ export async function runAITool(name: string, args: any) {
       const groupByKey = args.groupByKey;
       const summary: Record<string, Record<string, number>> = {};
       
+      const hometaxFieldMappings: Record<string, string> = {
+        '작성일자': 'date',
+        '승인번호': 'approvalNo',
+        '발급일자': 'issueDate',
+        '전송일자': 'sendDate',
+        '공급자사업자등록번호': 'supplierBusinessNumber',
+        '공급자종사업장번호': 'supplierSubBusinessNumber',
+        '공급자상호': 'supplierName',
+        '공급자대표자명': 'supplierCEO',
+        '공급자주소': 'supplierAddress',
+        '공급받는자사업자등록번호': 'receiverBusinessNumber',
+        '공급받는자종사업장번호': 'receiverSubBusinessNumber',
+        '공급받는자상호': 'receiverName',
+        '공급받는자대표자명': 'receiverCEO',
+        '공급받는자주소': 'receiverAddress',
+        '합계금액': 'totalAmount',
+        '공급가액': 'supplyAmount',
+        '세액': 'taxAmount',
+        '전자세금계산서분류': 'invoiceCategory',
+        '전자세금계산서종류': 'invoiceTypeDetail',
+        '발급유형': 'issueType',
+        '비고': 'remarks',
+        '영수청구구분': 'claimType',
+        '공급자이메일': 'supplierEmail',
+        '공급받는자이메일1': 'receiverEmail1',
+        '공급받는자이메일2': 'receiverEmail2',
+        '품목일자': 'itemDate',
+        '품목명': 'itemName',
+        '품목규격': 'itemSpec',
+        '품목수량': 'itemQty',
+        '품목단가': 'itemPrice',
+        '품목공급가액': 'itemSupplyAmount',
+        '품목세액': 'itemTaxAmount',
+        '품목비고': 'itemRemarks',
+      };
+
       safeRows.forEach((row: any) => {
-        const rowData = targetTable === 'dashboard_data'
+        const rawRowData = targetTable === 'dashboard_data'
           ? (typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {}))
           : row;
+        
+        // [자가 치유] 테이블 조인 및 한글/영문 혼합 데이터의 안정성을 위해 양방향 필드 미러링 적용
+        const rowData = { ...rawRowData };
+        Object.entries(hometaxFieldMappings).forEach(([kor, eng]) => {
+          if (rowData[kor] !== undefined && rowData[eng] === undefined) {
+            rowData[eng] = rowData[kor];
+          } else if (rowData[eng] !== undefined && rowData[kor] === undefined) {
+            rowData[kor] = rowData[eng];
+          }
+        });
         
         // [개선] 날짜 기반 집계 특수 처리 (__month, __week, __year)
         let groupValue: any;
@@ -509,14 +555,20 @@ export async function runAITool(name: string, args: any) {
           if (mode === 'count') {
             summary[gKey][sk] += 1;
           } else {
+            // [자가 치유] 합계 대상 키 탐색 시 한글/영문 매칭 호환
             let amountRaw = rowData[sk];
+            if (amountRaw === undefined) {
+              const altKey = hometaxFieldMappings[sk] || Object.keys(hometaxFieldMappings).find(k => hometaxFieldMappings[k] === sk);
+              if (altKey) amountRaw = rowData[altKey];
+            }
+            
             let amount = 0;
             if (typeof amountRaw === 'number') amount = amountRaw;
             else if (typeof amountRaw === 'string') amount = parseFloat(amountRaw.replace(/,/g, ''));
             
             // [수정] 취소 거래인 경우 총액 합산 시 마이너스(-) 차감 처리합니다.
             const isCancelled = rowData.isCancelled === true || rowData.isCancelled === 'true' || String(rowData.salesType).includes('취소') || String(rowData.status).includes('취소');
-            if (isCancelled && (sk === 'amount' || sk === 'outflow' || sk === 'withdrawal' || sk === '금액' || sk === '승인금액' || sk === '출금액')) {
+            if (isCancelled && (sk === 'amount' || sk === 'outflow' || sk === 'withdrawal' || sk === '금액' || sk === '승인금액' || sk === '출금액' || sk === '공급가액' || sk === 'supplyAmount')) {
               amount = -amount;
             }
 
@@ -534,14 +586,82 @@ export async function runAITool(name: string, args: any) {
     }
     case "query_workspace_table": {
       const targetTableStr = String(args.tableId || '');
+
+      // ── [1] bank-product 테이블 실데이터 동적 페칭 분기 처리 ───────────────────────
+      if (targetTableStr.startsWith('bank-product:')) {
+        const parts = targetTableStr.split(':');
+        const tableSlug = parts[2]; // 'ibk_b2b_receivables' 등 추출
+        
+        try {
+          const { queryBankProductTable } = require('@/egdesk-helpers');
+          
+          const filtersArr: any[] = [];
+          
+          // A. 날짜 필터 (startDate, endDate) 연동
+          // B2B 외상매출금 등 은행 상품 데이터의 실 날짜 컬럼명은 registered_date이다.
+          if (args.startDate) {
+            filtersArr.push({ column: 'registered_date', op: '>=', value: args.startDate });
+          }
+          if (args.endDate) {
+            filtersArr.push({ column: 'registered_date', op: '<=', value: args.endDate });
+          }
+          
+          // B. 추가 조건 필터 객체(args.filters) 연동
+          if (args.filters && typeof args.filters === 'object') {
+            Object.entries(args.filters).forEach(([key, val]) => {
+              if (key === '__is_deleted') return; // 시스템 기본 삭제 플래그는 제외
+              if (val !== undefined && val !== null && val !== '') {
+                if (typeof val === 'object' && (val as any).op) {
+                  filtersArr.push({
+                    column: key,
+                    op: (val as any).op,
+                    value: (val as any).value
+                  });
+                } else {
+                  filtersArr.push({
+                    column: key,
+                    op: '=',
+                    value: val
+                  });
+                }
+              }
+            });
+          }
+          
+          // C. 상태 필터 (status) 연동 및 지능형 Fallback 가드
+          if (args.status) {
+            filtersArr.push({ column: 'status', op: '=', value: args.status });
+          } else if (args.filters && args.filters.status) {
+            // Already handled in loop
+          } else {
+            // [지능형 Fallback 가드] 명시적인 status 필터가 없는 경우,
+            // 대시보드 화면의 오염을 방지하기 위해 기본적으로 '완제' 상태의 과거 어음은 자동 소거하고
+            // 현재 살아 있는 실 어음 건들만 노출하도록 스마트 필터링을 자동 탑재합니다!
+            filtersArr.push({ column: 'status', op: '!=', value: '완제' });
+          }
+
+          const productRes = await queryBankProductTable({
+            tableSlug,
+            filters: filtersArr.length > 0 ? filtersArr : undefined,
+            limit: args.limit || 100,
+            offset: args.offset || 0
+          });
+          const rows = Array.isArray(productRes) ? productRes : (productRes?.rows || productRes?.transactions || []);
+          return await applyGuardrails(args.tableId, rows);
+        } catch (e: any) {
+          console.error(`Failed to query real bank-product table '${tableSlug}':`, e.message);
+          return [];
+        }
+      }
+
       let targetTable = args.tableId;
-      const filters: any = { isDeleted: '0' };
+      const filters: any = { __is_deleted: '0' };
       if (targetTableStr.includes('bank_transactions') || targetTableStr.includes('bank-table')) {
         targetTable = 'bank_transactions';
-        delete filters.isDeleted;
+        delete filters.__is_deleted;
       } else if (targetTableStr.includes('card_transactions') || targetTableStr.includes('card-table')) {
         targetTable = 'card_transactions';
-        delete filters.isDeleted;
+        delete filters.__is_deleted;
       } else if (targetTable !== 'dashboard_data' && !targetTableStr.includes('-')) {
         // Physical
       } else {
@@ -561,7 +681,7 @@ export async function runAITool(name: string, args: any) {
     case "run_studio_data_query": {
       const { tableId, intent, startDate, endDate, limit, offset, groupBy, valueKey } = args;
       const idStr = String(tableId || '');
-      const isFinance = idStr === 'bank_transactions' || idStr.includes('bank') || idStr.includes('card');
+      const isFinance = (idStr === 'bank_transactions' || idStr.includes('bank') || idStr.includes('card')) && !idStr.includes('bank-product');
       const isHometax = idStr.startsWith('hometax_');
 
       if (isFinance) {
@@ -594,7 +714,9 @@ export async function runAITool(name: string, args: any) {
         }
       } else if (isHometax) {
         // [Universal] 국세청(홈택스) 데이터 분기
-        const queryOptions = { startDate, endDate, limit: limit || 100, offset: offset || 0 };
+        // 통계/집계(groupBy)인 경우 데이터 유실을 방지하기 위해 기본 limit을 5000으로 넉넉하게 설정합니다.
+        const defaultLimit = groupBy ? 5000 : 100;
+        const queryOptions = { startDate, endDate, limit: limit || defaultLimit, offset: offset || 0 };
         let hometaxResult;
 
         const isSales = idStr.includes('sales');
@@ -610,7 +732,63 @@ export async function runAITool(name: string, args: any) {
           hometaxResult = await queryTaxInvoices({ ...queryOptions, invoiceType: isSales ? 'sales' : 'purchase' });
         }
 
-        const rows = Array.isArray(hometaxResult) ? hometaxResult : (hometaxResult?.rows || []);
+        // [이슈 해결] 홈택스 쿼리는 결과 포맷에 따라 invoices 또는 receipts 배열에 실제 데이터가 있습니다.
+        let rawRows: any[] = [];
+        if (Array.isArray(hometaxResult)) {
+          rawRows = hometaxResult;
+        } else if (hometaxResult) {
+          rawRows = hometaxResult.invoices || hometaxResult.receipts || hometaxResult.rows || [];
+        }
+
+        // 한글/영문 필드 양방향 매핑을 통해 AI 쿼리 유연성 극대화
+        const hometaxFieldMappings: Record<string, string> = {
+          '작성일자': 'date',
+          '승인번호': 'approvalNo',
+          '발급일자': 'issueDate',
+          '전송일자': 'sendDate',
+          '공급자사업자등록번호': 'supplierBusinessNumber',
+          '공급자종사업장번호': 'supplierSubBusinessNumber',
+          '공급자상호': 'supplierName',
+          '공급자대표자명': 'supplierCEO',
+          '공급자주소': 'supplierAddress',
+          '공급받는자사업자등록번호': 'receiverBusinessNumber',
+          '공급받는자종사업장번호': 'receiverSubBusinessNumber',
+          '공급받는자상호': 'receiverName',
+          '공급받는자대표자명': 'receiverCEO',
+          '공급받는자주소': 'receiverAddress',
+          '합계금액': 'totalAmount',
+          '공급가액': 'supplyAmount',
+          '세액': 'taxAmount',
+          '전자세금계산서분류': 'invoiceCategory',
+          '전자세금계산서종류': 'invoiceTypeDetail',
+          '발급유형': 'issueType',
+          '비고': 'remarks',
+          '영수청구구분': 'claimType',
+          '공급자이메일': 'supplierEmail',
+          '공급받는자이메일1': 'receiverEmail1',
+          '공급받는자이메일2': 'receiverEmail2',
+          '품목일자': 'itemDate',
+          '품목명': 'itemName',
+          '품목규격': 'itemSpec',
+          '품목수량': 'itemQty',
+          '품목단가': 'itemPrice',
+          '품목공급가액': 'itemSupplyAmount',
+          '품목세액': 'itemTaxAmount',
+          '품목비고': 'itemRemarks',
+        };
+
+        const rows = rawRows.map((row: any) => {
+          const newRow = { ...row };
+          // 양방향 매핑 복사
+          Object.entries(hometaxFieldMappings).forEach(([kor, eng]) => {
+            if (newRow[kor] !== undefined && newRow[eng] === undefined) {
+              newRow[eng] = newRow[kor];
+            } else if (newRow[eng] !== undefined && newRow[kor] === undefined) {
+              newRow[kor] = newRow[eng];
+            }
+          });
+          return newRow;
+        });
         
         // 만약 집계 요청(groupBy)이 있다면 가공
         if (groupBy && valueKey && rows.length > 0) {

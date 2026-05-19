@@ -34,7 +34,8 @@ import {
   Download,
   Share2,
   X,
-  Check
+  Check,
+  Palette
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -86,6 +87,7 @@ interface SmartChartProps {
   isBuildMode?: boolean;
   isBuildSelected?: boolean;
   onBuildSelect?: (selected: boolean) => void;
+  onConfigChange?: (config: ChartConfig) => void;
 }
 
 const COLORS = ['#2563eb', '#6366f1', '#4f46e5', '#4338ca', '#3730a3', '#312e81'];
@@ -117,7 +119,8 @@ export function SmartChart({
   onMoveDown,
   isBuildMode = false,
   isBuildSelected = false,
-  onBuildSelect
+  onBuildSelect,
+  onConfigChange
 }: SmartChartProps) {
   // [고도화] 타입 추론 Fallback: AI가 타입을 누락한 경우 데이터 구조를 보고 판단
   let effectiveType = config.type;
@@ -136,15 +139,133 @@ export function SmartChart({
   const [mounted, setMounted] = React.useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
 
+  const [showColorPicker, setShowColorPicker] = React.useState(false);
+  const [customColor, setCustomColor] = React.useState('');
+  const [localColor, setLocalColor] = React.useState(series[0]?.color || '#3b82f6');
+  const [isEditingTitle, setIsEditingTitle] = React.useState(false);
+  const [tempTitle, setTempTitle] = React.useState(title || '시각화 차트');
+  const [editingLegendKey, setEditingLegendKey] = React.useState<string | null>(null);
+  const [tempLegendName, setTempLegendName] = React.useState('');
+  const [editingHeaderKey, setEditingHeaderKey] = React.useState<string | null>(null);
+  const [tempHeaderName, setTempHeaderName] = React.useState('');
+
+  const [localTitle, setLocalTitle] = React.useState(title || '시각화 차트');
+  const [localSeriesList, setLocalSeriesList] = React.useState(series || []);
+
+  React.useEffect(() => {
+    if (title) {
+      setLocalTitle(title);
+      setTempTitle(title);
+    }
+  }, [title]);
+
+  React.useEffect(() => {
+    if (series && series.length > 0) {
+      setLocalSeriesList(series);
+      if (series[0]?.color) {
+        setLocalColor(series[0]?.color);
+      }
+    }
+  }, [JSON.stringify(series)]);
+
+  const handleTitleSave = () => {
+    if (!isEditingTitle) return;
+    setIsEditingTitle(false);
+    if (!tempTitle.trim()) return;
+    setLocalTitle(tempTitle.trim());
+    if (!onConfigChange || tempTitle.trim() === title) return;
+    onConfigChange({
+      ...config,
+      title: tempTitle.trim()
+    });
+  };
+
+  const handleLegendSave = (key: string) => {
+    if (editingLegendKey !== key) return;
+    setEditingLegendKey(null);
+    if (!tempLegendName.trim()) return;
+    const updatedSeries = localSeriesList.map(s => 
+      s.key === key ? { ...s, name: tempLegendName.trim() } : s
+    );
+    setLocalSeriesList(updatedSeries);
+    if (!onConfigChange) return;
+    onConfigChange({
+      ...config,
+      series: updatedSeries
+    });
+  };
+
+  const handleTableHeaderSave = (key: string, newName: string) => {
+    if (!newName.trim()) return;
+    
+    const exists = localSeriesList.some(s => s.key === key);
+    let updatedSeries = [];
+    
+    if (exists) {
+      updatedSeries = localSeriesList.map(s => 
+        s.key === key ? { ...s, name: newName.trim() } : s
+      );
+    } else {
+      const columnConfigs = localSeriesList.length > 0 ? localSeriesList : [];
+      const headers = columnConfigs.length > 0 
+        ? columnConfigs.map(s => s.key)
+        : (data && data.length > 0 ? Object.keys(data[0]).filter(k => k !== 'color') : []);
+
+      updatedSeries = headers.map(hKey => {
+        const matching = localSeriesList.find(s => s.key === hKey);
+        if (hKey === key) {
+          return { key: hKey, name: newName.trim(), color: matching?.color || '#3b82f6' };
+        }
+        return matching || { key: hKey, name: hKey.charAt(0).toUpperCase() + hKey.slice(1), color: '#3b82f6' };
+      });
+    }
+    
+    setLocalSeriesList(updatedSeries);
+    if (!onConfigChange) return;
+    onConfigChange({
+      ...config,
+      series: updatedSeries
+    });
+  };
+
+  const handleColorChange = (newColor: string) => {
+    setLocalColor(newColor);
+    const updatedSeries = localSeriesList.map(s => ({
+      ...s,
+      color: newColor
+    }));
+    setLocalSeriesList(updatedSeries);
+    if (!onConfigChange) return;
+    onConfigChange({
+      ...config,
+      series: updatedSeries
+    });
+  };
+
   // 데이터의 총합(자산/사용액 등)을 자동으로 계산
   const totalAmount = React.useMemo(() => {
     if (!data || data.length === 0) return 0;
     
-    // 금액 관련 키 식별 (amount, value, 잔액, 금액, 승인금액 등)
+    // 금액 관련 키 식별 (공급가액, 합계, 세액 추가)
     const keys = Object.keys(data[0]);
-    const amountKey = keys.find(k => /amount|value|금액|잔액|승인금액|출금|입금/i.test(k)) || 'value';
+    const amountKey = keys.find(k => /amount|value|금액|잔액|승인금액|출금|입금|공급가액|합계|세액/i.test(k)) || 'value';
     
     return data.reduce((sum, item) => {
+      // 행의 값들 중 '합계', '소계', '총계', '누계', 'total', 'subtotal' 등이 들어있는지 정교하게 검사
+      const isTotalRow = Object.values(item).some(val => {
+        if (typeof val !== 'string') return false;
+        const normalized = val.trim().toLowerCase();
+        return normalized.includes('합계') || 
+               normalized.includes('소계') || 
+               normalized.includes('총계') || 
+               normalized.includes('누계') || 
+               normalized === 'total' || 
+               normalized === 'subtotal' || 
+               normalized === 'sum';
+      });
+
+      if (isTotalRow) return sum; // 합계 요약 행은 뱃지 총합에서 원천 배제!
+
       const rawVal = Number(item[amountKey]) || 0;
       
       // 마이너스 통장 계좌인 경우, 잔액 대신 가용 한도(약정금액 - 사용액)를 합산하여 표시
@@ -212,16 +333,51 @@ export function SmartChart({
     );
   }
 
+
+
   const renderChart = () => {
-    // 차트일 때, x축 값이 series에 포함되어 버리면 숫자가 아닌 문자열 바를 렌더링하려다 라이브러리가 크래시됨
-    // 따라서 type이 table이 아닌 경우에는 xAxis 키를 series에서 걸러냄
-    const chartSeries = type === 'table' ? series : series.filter(s => s.key !== xAxis);
-    
-    // 데이터 중 null/undefined 보완
-    const safeData = data.map(d => ({
-      ...d,
-      [xAxis || '']: d[xAxis || ''] ?? '알 수 없음'
+    const rawSeries = type === 'table' ? localSeriesList : localSeriesList.filter(s => s.key !== xAxis);
+    const chartSeries = rawSeries.map((s, idx) => ({
+      ...s,
+      color: idx === 0 ? localColor : s.color
     }));
+    
+    // [자가 치유] 차트용 데이터 빌드 시 합계/소계 행 필터링 (표 뷰 'table'이 아닐 때만 제외하여 그래프 비율 왜곡 방지)
+    const filteredData = type === 'table' ? data : data.filter(d => {
+      return !Object.values(d).some(val => {
+        if (typeof val !== 'string') return false;
+        const normalized = val.trim().toLowerCase();
+        return normalized.includes('합계') || 
+               normalized.includes('소계') || 
+               normalized.includes('총계') || 
+               normalized.includes('누계') || 
+               normalized === 'total' || 
+               normalized === 'subtotal' || 
+               normalized === 'sum';
+      });
+    });
+
+    // 데이터 중 null/undefined 보완 및 [자가 치유] 차트 시리즈 Key 누락 보정
+    const safeData = filteredData.map(d => {
+      const newRow = { 
+        ...d,
+        [xAxis || '']: d[xAxis || ''] ?? '알 수 없음'
+      };
+      
+      // 만약 series가 필요로 하는 key가 row에 없고, 
+      // 그 대신 value나 공급가액 등의 대표값이 존재한다면, 
+      // 해당 key로 값을 복사해 주어 Recharts가 바를 완벽하게 그리도록 보장합니다.
+      chartSeries.forEach(s => {
+        if (newRow[s.key] === undefined) {
+          const fallbackVal = d.value !== undefined ? d.value : (d.공급가액 !== undefined ? d.공급가액 : d.totalAmount);
+          if (fallbackVal !== undefined) {
+            newRow[s.key] = fallbackVal;
+          }
+        }
+      });
+      
+      return newRow;
+    });
 
     switch (type) {
       case 'bar':
@@ -245,7 +401,6 @@ export function SmartChart({
                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px', padding: '12px' }}
                 formatter={(value: any) => [formatValue(value), '']}
               />
-              <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
               {chartSeries.map((s, i) => (
                 <Bar 
                   key={`${s.key}-${i}`} 
@@ -287,7 +442,6 @@ export function SmartChart({
                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                 formatter={(value: any) => [formatValue(value), '']}
               />
-              <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold' }} />
               {chartSeries.map((s, i) => (
                 <Line 
                   key={`${s.key}-${i}`} 
@@ -333,7 +487,6 @@ export function SmartChart({
                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                 formatter={(value: any) => [formatValue(value), '']}
               />
-              <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold' }} />
               {chartSeries.map((s, i) => (
                 <Area 
                   key={`${s.key}-${i}`} 
@@ -415,13 +568,21 @@ export function SmartChart({
               <div className="absolute left-2 top-2 z-10 p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100/50 rounded-2xl flex flex-col gap-1 transition-all duration-300" data-html2canvas-ignore>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                  <span>{title.includes('카드') || title.includes('사용') ? '총 사용액 요약' : '총 통합 자금'}</span>
+                  <span>
+                    {title.includes('카드') || title.includes('사용') 
+                      ? '총 사용액 요약' 
+                      : (title.includes('매출') || title.includes('세금계산서') && !title.includes('매입') ? '총 매출액' : 
+                         (title.includes('매입') || title.includes('exempt_invoices') ? '총 매입액' : '총 통합 자금'))}
+                  </span>
                 </span>
                 <span className="text-lg font-black text-slate-800 font-mono tracking-tight leading-none">
                   {totalAmount.toLocaleString()}원
                 </span>
                 <span className="text-[8px] font-bold text-slate-400">
-                  {title.includes('카드') || title.includes('사용') ? '카드 승인 내역 합산' : `통합 계좌 가용자산`}
+                  {title.includes('카드') || title.includes('사용') 
+                    ? '카드 승인 내역 합산' 
+                    : (title.includes('매출') || title.includes('세금계산서') && !title.includes('매입') ? '매출 증빙 합산' : 
+                       (title.includes('매입') || title.includes('exempt_invoices') ? '매입 증빙 합산' : `통합 계좌 가용자산`))}
                 </span>
               </div>
             )}
@@ -545,8 +706,8 @@ export function SmartChart({
       }
 
       case 'table':
-        // 1. 컬럼 헤더 및 순서 결정 (series가 있으면 이를 따르고, 없으면 데이터 키를 사용)
-        const columnConfigs = series.length > 0 ? series : [];
+        // 1. 컬럼 헤더 및 순서 결정 (localSeriesList가 있으면 이를 따르고, 없으면 데이터 키를 사용)
+        const columnConfigs = localSeriesList.length > 0 ? localSeriesList : [];
         const headers = columnConfigs.length > 0 
           ? columnConfigs.map(s => s.key)
           : (data.length > 0 ? Object.keys(data[0]).filter(k => k !== 'color') : []);
@@ -561,11 +722,64 @@ export function SmartChart({
             <table className="w-full text-xs text-left border-collapse min-w-max">
               <thead className="sticky top-0 bg-white/90 backdrop-blur-md z-10 shadow-sm border-b border-slate-100">
                 <tr>
-                  {headers.map(header => (
-                    <th key={header} className="px-6 py-4 font-black text-blue-600 uppercase tracking-widest whitespace-nowrap">
-                      {getHeaderName(header)}
-                    </th>
-                  ))}
+                  {headers.map(header => {
+                    const headerName = getHeaderName(header);
+                    return (
+                      <th 
+                        key={header} 
+                        className="px-6 py-4 font-black text-blue-600 uppercase tracking-widest whitespace-nowrap group/th relative"
+                      >
+                        {editingHeaderKey === header && onConfigChange ? (
+                          <input
+                            type="text"
+                            value={tempHeaderName}
+                            onChange={(e) => setTempHeaderName(e.target.value)}
+                            onBlur={() => {
+                              if (editingHeaderKey === header) {
+                                handleTableHeaderSave(header, tempHeaderName);
+                                setEditingHeaderKey(null);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleTableHeaderSave(header, tempHeaderName);
+                                setEditingHeaderKey(null);
+                              }
+                              if (e.key === 'Escape') setEditingHeaderKey(null);
+                            }}
+                            autoFocus
+                            className="px-2 py-0.5 bg-slate-50 border border-blue-500 rounded-lg text-xs font-bold outline-none text-slate-700 w-28"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span 
+                              className={`cursor-pointer hover:text-blue-800 transition-colors`}
+                              onClick={() => {
+                                if (!onConfigChange) return;
+                                setEditingHeaderKey(header);
+                                setTempHeaderName(headerName);
+                              }}
+                              title={onConfigChange ? "클릭하여 컬럼명 수정" : undefined}
+                            >
+                              {headerName}
+                            </span>
+                            {onConfigChange && (
+                              <span
+                                onClick={() => {
+                                  setEditingHeaderKey(header);
+                                  setTempHeaderName(headerName);
+                                }}
+                                className="opacity-0 group-hover/th:opacity-100 p-0.5 text-slate-400 hover:text-blue-800 rounded transition-all cursor-pointer"
+                                title="컬럼명 수정"
+                              >
+                                <Palette size={10} className="w-2.5 h-2.5 rotate-45" />
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -629,13 +843,52 @@ export function SmartChart({
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-2 h-2 bg-blue-600 rounded-full" />
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest truncate">
-              {title}
-            </h3>
+            {isEditingTitle && onConfigChange ? (
+              <input
+                type="text"
+                value={tempTitle}
+                onChange={(e) => setTempTitle(e.target.value)}
+                onBlur={handleTitleSave}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTitleSave();
+                  if (e.key === 'Escape') {
+                    setTempTitle(localTitle || '시각화 차트');
+                    setIsEditingTitle(false);
+                  }
+                }}
+                autoFocus
+                className="text-sm font-black text-slate-900 border-b border-blue-500 outline-none px-1 py-0.5 max-w-[200px] sm:max-w-[300px]"
+              />
+            ) : (
+              <div className="flex items-center gap-1.5 group/title">
+                <h3 
+                  className={`text-sm font-black text-slate-900 uppercase tracking-widest truncate ${onConfigChange ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                  onClick={() => onConfigChange && setIsEditingTitle(true)}
+                  title={onConfigChange ? "클릭하여 제목 수정" : undefined}
+                >
+                  {localTitle}
+                </h3>
+                {onConfigChange && (
+                  <span 
+                    onClick={() => setIsEditingTitle(true)} 
+                    className="opacity-0 group-hover/title:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 rounded transition-all cursor-pointer"
+                    title="제목 수정"
+                    data-html2canvas-ignore
+                  >
+                    <Palette size={10} className="w-2.5 h-2.5 rotate-45" />
+                  </span>
+                )}
+              </div>
+            )}
             {totalAmount !== 0 && (
               <span className="shrink-0 px-2.5 py-1 bg-blue-50/80 text-blue-600 font-black text-[10px] rounded-full border border-blue-100/50 tracking-wider flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in duration-300">
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                <span>{title.includes('카드') || title.includes('사용') ? '총 사용액' : '총 자금'}</span>
+                <span>
+                  {title.includes('카드') || title.includes('사용') 
+                    ? '총 사용액' 
+                    : (title.includes('매출') || title.includes('세금계산서') && !title.includes('매입') ? '총 매출액' : 
+                       (title.includes('매입') || title.includes('exempt_invoices') ? '총 매입액' : '총 자금'))}
+                </span>
                 <span className="font-mono">{totalAmount.toLocaleString()}원</span>
               </span>
             )}
@@ -756,6 +1009,22 @@ export function SmartChart({
                    <Star size={14} fill={isPinned ? 'currentColor' : 'none'} />
                  </button>
                )}
+               {onConfigChange && (
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     setShowColorPicker(prev => !prev);
+                   }}
+                   className={`p-1.5 rounded-xl transition-all ${
+                     showColorPicker 
+                     ? 'bg-blue-50 text-blue-600 shadow-sm shadow-blue-100/50' 
+                     : 'bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600'
+                   }`}
+                   title="차트 색상 변경"
+                 >
+                   <Palette size={14} />
+                 </button>
+               )}
                 {onMoveUp && (
                    <button 
                      onClick={(e) => {
@@ -817,9 +1086,121 @@ export function SmartChart({
            )}
         </div>
       </div>
+
+      {/* Color Picker Panel */}
+      {showColorPicker && onConfigChange && (
+        <div 
+          className="flex flex-wrap items-center gap-3 p-3 mb-6 bg-slate-50 border border-slate-100 rounded-2xl animate-in fade-in slide-in-from-top-2 z-10" 
+          onClick={e => e.stopPropagation()}
+          data-html2canvas-ignore
+        >
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">테마 컬러</span>
+          <div className="flex items-center gap-2">
+            {[
+              { color: '#3b82f6', label: 'Classic Blue' },
+              { color: '#0f766e', label: 'Teal Green' },
+              { color: '#ea580c', label: 'Orange' },
+              { color: '#e11d48', label: 'Rose Red' },
+              { color: '#8b5cf6', label: 'Violet' },
+              { color: '#475569', label: 'Charcoal' }
+            ].map(preset => (
+              <button
+                key={preset.color}
+                onClick={() => handleColorChange(preset.color)}
+                className="w-5 h-5 rounded-full border border-white shadow-sm hover:scale-110 active:scale-95 transition-all relative"
+                style={{ backgroundColor: preset.color }}
+                title={preset.label}
+              >
+                {series[0]?.color === preset.color && (
+                  <Check size={10} className="text-white absolute inset-0 m-auto font-bold" />
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="h-4 w-px bg-slate-200 mx-1" />
+          {/* Color Wheel input */}
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight">맞춤 설정</span>
+            <div className="relative w-6 h-6 rounded-full overflow-hidden border border-slate-200 shadow-sm cursor-pointer hover:scale-110 active:scale-95 transition-all">
+              <input
+                type="color"
+                value={localColor}
+                onInput={(e) => {
+                  setLocalColor((e.target as HTMLInputElement).value);
+                }}
+                onChange={(e) => {
+                  handleColorChange((e.target as HTMLInputElement).value);
+                }}
+                className="absolute inset-[-4px] w-[calc(100%+8px)] h-[calc(100%+8px)] cursor-pointer outline-none border-none p-0 bg-transparent"
+              />
+            </div>
+            <span className="text-[10px] font-mono font-black text-slate-500 uppercase tracking-wider bg-white px-2 py-1 rounded-md border border-slate-100/50">
+              {localColor}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 w-full min-h-[300px]">
           {renderChart()}
       </div>
+
+      {/* Pure React Custom Legend Panel */}
+      {type !== 'table' && (
+        <div className="flex flex-wrap items-center justify-center gap-6 pt-6 mt-4 border-t border-slate-50/50 w-full" data-html2canvas-ignore>
+          {localSeriesList.map((s, idx) => {
+            const color = s.color || COLORS[idx % COLORS.length];
+            const name = s.name || s.key;
+            
+            return (
+              <div key={s.key} className="flex items-center gap-2 group/legend">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm transition-all group-hover/legend:scale-110" style={{ backgroundColor: color }} />
+                
+                {editingLegendKey === s.key && onConfigChange ? (
+                  <input
+                    type="text"
+                    value={tempLegendName}
+                    onChange={(e) => setTempLegendName(e.target.value)}
+                    onBlur={() => handleLegendSave(s.key)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleLegendSave(s.key);
+                      if (e.key === 'Escape') setEditingLegendKey(null);
+                    }}
+                    autoFocus
+                    className="px-2 py-0.5 bg-slate-50 border border-blue-500 rounded-lg text-[10px] font-bold outline-none text-slate-700 w-24 shadow-sm animate-in zoom-in-95 duration-100"
+                  />
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span 
+                      className={`text-[10px] font-black text-slate-500 uppercase tracking-wider ${onConfigChange ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                      onClick={() => {
+                        if (!onConfigChange) return;
+                        setEditingLegendKey(s.key);
+                        setTempLegendName(name);
+                      }}
+                      title={onConfigChange ? "클릭하여 범례명 수정" : undefined}
+                    >
+                      {name}
+                    </span>
+                    {onConfigChange && (
+                      <span
+                        onClick={() => {
+                          setEditingLegendKey(s.key);
+                          setTempLegendName(name);
+                        }}
+                        className="opacity-0 group-hover/legend:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 rounded transition-all cursor-pointer"
+                        title="범례명 수정"
+                      >
+                        <Palette size={8} className="w-2.5 h-2.5 rotate-45" />
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

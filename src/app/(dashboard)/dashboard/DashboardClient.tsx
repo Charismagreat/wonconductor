@@ -94,15 +94,21 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
     );
 
     async function loadSession() {
+      let localCharts: any[] = [];
+      let localChat: any[] = [];
+      let localSelectedIds: any[] = [];
       try {
         // 1. 로컬 스토리지에서 먼저 즉시 복원 (속도 우선)
         const localSaved = localStorage.getItem(STORAGE_KEY);
         if (localSaved && isMounted) {
           try {
             const parsed = JSON.parse(localSaved);
-            setSelectedIds(parsed.selectedIds || []);
-            setChatHistory(parsed.chatHistory || []);
-            setCharts(parsed.charts || []);
+            localSelectedIds = parsed.selectedIds || [];
+            localChat = parsed.chatHistory || [];
+            localCharts = parsed.charts || [];
+            setSelectedIds(localSelectedIds);
+            setChatHistory(localChat);
+            setCharts(localCharts);
             console.log('AI Studio session restored from LocalStorage.');
           } catch(e) {}
         }
@@ -115,10 +121,16 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
 
         if (isMounted && savedState) {
           const { selectedIds: sIds, chatHistory: cHist, charts: cCharts } = savedState as any;
-          if (sIds) setSelectedIds(sIds);
-          if (cHist) setChatHistory(cHist);
-          if (cCharts) setCharts(cCharts);
-          console.log('AI Studio session synced with Server.');
+          
+          // [자가 치유] 서버의 최신 세션이 비어있고 로컬스토리지에 차트나 대화가 남아있는 경우, 덮어쓰지 않고 로컬스토리지 데이터를 보존합니다.
+          const finalCharts = (cCharts && cCharts.length > 0) ? cCharts : (localCharts.length > 0 ? localCharts : []);
+          const finalChat = (cHist && cHist.length > 1) ? cHist : (localChat.length > 1 ? localChat : cHist || []);
+          const finalSelectedIds = (sIds && sIds.length > 0) ? sIds : (localSelectedIds.length > 0 ? localSelectedIds : []);
+
+          if (finalSelectedIds) setSelectedIds(finalSelectedIds);
+          if (finalChat) setChatHistory(finalChat);
+          if (finalCharts) setCharts(finalCharts);
+          console.log('AI Studio session synced with Server (Self-Healed/Merged).');
         }
       } catch (e) {
         console.warn('AI Studio session sync skipped or failed:', e);
@@ -132,11 +144,9 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
     return () => { isMounted = false; };
   }, []);
 
-  // [Persistence] 상태 변경 시 서버/로컬 자동 저장
+  // [Persistence] 상태 변경 시 서버/로컬 자동 저장 (동기식 갱신으로 비동기 레이스 컨디션 완벽 차단)
   const lastStateRef = useRef({ selectedIds, chatHistory, charts });
-  useEffect(() => {
-    lastStateRef.current = { selectedIds, chatHistory, charts };
-  }, [selectedIds, chatHistory, charts]);
+  lastStateRef.current = { selectedIds, chatHistory, charts };
 
   useEffect(() => {
     if (!isLoaded.current || !user) return;
@@ -308,10 +318,20 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
       const res = await savePinnedChartAction(id, { ...config, layout });
       const newId = res.success && res.id ? String(res.id) : id;
       
+      let updatedCharts = charts;
       if (newId !== id) {
-          setCharts(prev => prev.map(c => c.id === id ? { ...c, id: newId } : c));
+          updatedCharts = charts.map(c => c.id === id ? { ...c, id: newId } : c);
+          setCharts(updatedCharts);
       }
       setPinnedIds(prev => [...prev, newId]);
+
+      // [즉시 커밋] 핀이 고정되어 상태가 변한 시점에 즉시 동기화 서버 저장을 보장하여, 이탈 시의 유실을 방지합니다.
+      await saveAIStudioSessionAction({
+        selectedIds,
+        chatHistory,
+        charts: updatedCharts
+      }).catch(e => console.warn('Immediate session save failed:', e));
+
       alert('차트가 리포트 갤러리에 고정되었습니다!');
     } catch (error) {
       console.error('Pin Error:', error);
@@ -323,6 +343,22 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
     setCharts(prev => prev.filter(c => c.id !== id));
     if (selectedChartId === id) {
       setSelectedChartId(null);
+    }
+  };
+
+  const handleConfigChange = async (id: string, newConfig: any) => {
+    setCharts(prev => prev.map(c => c.id === id ? {
+      ...c,
+      versions: c.versions.map((v, idx) => idx === c.currentVersion ? newConfig : v)
+    } : c));
+
+    if (pinnedIds.includes(id)) {
+      try {
+        await savePinnedChartAction(id, newConfig);
+        console.log('[DashboardClient] Config successfully synced on server.');
+      } catch (e) {
+        console.error('Failed to sync chart config on server:', e);
+      }
     }
   };
 
@@ -569,6 +605,7 @@ export function DashboardClient({ allTables, user }: DashboardClientProps) {
                     onDelete={() => handleDeleteChart(chart.id)}
                     layout={chart.layout}
                     onLayoutChange={(newLayout) => handleLayoutChange(chart.id, newLayout)}
+                    onConfigChange={(newConfig) => handleConfigChange(chart.id, newConfig)}
                     isBuildMode={isAppBuildMode}
                     isBuildSelected={selectedChartIdsForApp.includes(chart.id)}
                     onBuildSelect={(selected) => {

@@ -14,29 +14,34 @@ export default function LoginPage() {
   const router = useRouter();
 
   React.useEffect(() => {
-    // 시스템 설정 필요 여부 체크
-    const checkSetup = async () => {
-        const isRequired = await checkSetupRequiredAction();
-        if (isRequired) {
-            router.push('/setup');
-        }
-    };
-    checkSetup();
-
-    // 세션 킬 스위치: 로그인 페이지에 진입하면 무조건 이전 세션을 파기
-    const killSession = async () => {
-      console.log('[CLIENT DEBUG] LoginPage mounted: executing session kill switch...');
+    // 마운트 시 필요한 초기화 작업(셋업 상태 검증 & 기존 세션 파기)을 병렬로 전송하여 RTT를 중첩시킵니다.
+    const initializeLoginPage = async () => {
+      console.log('[CLIENT DEBUG] LoginPage mounted: executing parallel initialization...');
       try {
-        await logoutAction();
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log('[CLIENT DEBUG] Session kill switch completed: auth cookies & storage cleared.');
-      } catch (e) {
-        console.error("[CLIENT DEBUG] Session kill switch failed:", e);
+        const [isRequired] = await Promise.all([
+          checkSetupRequiredAction(),
+          (async () => {
+            try {
+              await logoutAction();
+              localStorage.clear();
+              sessionStorage.clear();
+              console.log('[CLIENT DEBUG] Session kill switch completed: auth cookies & storage cleared.');
+            } catch (e) {
+              console.error('[CLIENT DEBUG] Session kill switch failed:', e);
+            }
+          })()
+        ]);
+
+        if (isRequired) {
+          router.push('/setup');
+        }
+      } catch (err) {
+        console.error('[CLIENT DEBUG] Initialization error:', err);
       }
     };
-    killSession();
-  }, []);
+
+    initializeLoginPage();
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

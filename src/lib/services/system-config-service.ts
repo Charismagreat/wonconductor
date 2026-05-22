@@ -19,6 +19,8 @@ export interface SystemSettings {
  */
 export class SystemConfigService {
     private static readonly SETTINGS_ID = 'global-settings';
+    // 시스템 설치 완료 여부를 저장하는 고속 메모리 캐시 필드
+    private static isSetupCompleted: boolean | null = null;
 
     /**
      * Retrieve the global system settings.
@@ -311,6 +313,9 @@ export class SystemConfigService {
             const { BackupScheduler } = await import('./backup-scheduler');
             await BackupScheduler.update();
 
+            // 셋업 상태가 변경되었을 수 있으므로 안전하게 캐시 무효화
+            this.isSetupCompleted = null;
+
             return true;
         } catch (error: any) {
             console.error('[SystemConfigService] Failed to update settings:', error);
@@ -323,6 +328,11 @@ export class SystemConfigService {
      * Required if system_settings table doesn't exist, isInitialized is false, OR no active admin user exists.
      */
     static async isSystemSetupRequired(): Promise<boolean> {
+        // 이미 셋업 완료가 확인되었으면 0ms만에 바이패스 처리
+        if (this.isSetupCompleted === true) {
+            return false;
+        }
+
         try {
             const settings = await this.getSettings();
             if (!settings || !settings.isInitialized) {
@@ -332,7 +342,15 @@ export class SystemConfigService {
             // Also check if at least one active admin user exists
             const result = await queryTable('user', { filters: { role: 'ADMIN', isActive: 1 }, limit: 1 });
             const admins = Array.isArray(result) ? result : (result?.rows || []);
-            return admins.length === 0;
+            const isRequired = admins.length === 0;
+
+            // 셋업 완료가 확인되면 고속 캐시 활성화
+            if (!isRequired) {
+                this.isSetupCompleted = true;
+                console.log('[SystemConfigService] Cache hit! Setting isSetupCompleted = true');
+            }
+
+            return isRequired;
         } catch (error) {
             // If user table doesn't exist, queryTable will throw, which means setup is required
             return true;

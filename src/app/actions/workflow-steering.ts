@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { 
     queryTable, 
     insertRows, 
-    updateRows 
+    updateRows,
+    executeSQL
 } from '@/egdesk-helpers';
 import { getSessionAction } from './auth';
 import { getMasterRecords } from './report';
@@ -105,21 +106,45 @@ export async function getPendingSteeringActionsAction() {
         orderDirection: 'DESC'
     });
 
-    // 상세 정보 보정 (Join 대용)
     const pendingList = Array.isArray(pendings) ? pendings : [];
-    
-    return await Promise.all(pendingList.map(async (p: any) => {
-        const reports: any = await getMasterRecords(p.reportId);
-        const report = reports[0];
-        const rows = await queryTable('dashboard_data', { filters: { id: p.rowId } });
-        const row = Array.isArray(rows) ? rows[0] : null;
+    if (pendingList.length === 0) return [];
+
+    // [최적화] 1. 관련 리포트 마스터 레코드 전체 일괄 조회
+    const reportsRes = await queryTable('dashboard_master', { limit: 1000 }).catch(() => []);
+    const reportsArray = Array.isArray(reportsRes) ? reportsRes : (reportsRes?.rows || []);
+    const reportMap = new Map<string, any>();
+    reportsArray.forEach((r: any) => {
+        reportMap.set(String(r.id), r);
+        if (r.reportId) reportMap.set(String(r.reportId), r);
+    });
+
+    // [최적화] 2. 관련 데이터 행(rowId) 일괄 조회
+    const rowIds = pendingList.map((p: any) => p.rowId).filter(Boolean);
+    const rowMap = new Map<string, any>();
+    if (rowIds.length > 0) {
+        try {
+            const placeholders = rowIds.map(id => `'${id}'`).join(',');
+            const rawRows = await executeSQL(`SELECT * FROM dashboard_data WHERE id IN (${placeholders})`).catch(() => []);
+            const rowsArray = Array.isArray(rawRows) ? rawRows : (rawRows?.rows || []);
+            rowsArray.forEach((row: any) => {
+                rowMap.set(String(row.id), row);
+            });
+        } catch (err) {
+            console.error('Failed to batch fetch dashboard_data for workflow steering:', err);
+        }
+    }
+
+    // 3. 0ms 고속 메모리 결합
+    return pendingList.map((p: any) => {
+        const report = reportMap.get(String(p.reportId));
+        const row = rowMap.get(String(p.rowId));
         return {
             ...p,
             reportName: report?.name || '알 수 없는 보고서',
             rowData: row ? JSON.parse(row.data) : {},
             recommendation: JSON.parse(p.recommendation)
         };
-    }));
+    });
 }
 
 /**

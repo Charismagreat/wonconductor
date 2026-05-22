@@ -1,6 +1,6 @@
 /**
  * EGDesk User Data Configuration
- * Generated at: 2026-05-22T05:51:53.436Z
+ * Generated at: 2026-05-22T09:16:52.396Z
  *
  * This file contains type-safe definitions for your EGDesk tables.
  */
@@ -22,25 +22,26 @@ export interface TableDefinition {
 
 export const TABLES = {
   table1: {
+    name: 'system_settings',
+    displayName: 'System Settings',
+    description: 'System Settings Table for EGDesk Dashboard',
+    rowCount: 1,
+    columnCount: 13,
+    columns: ['id', 'legacyId', 'companyName', 'logoUrl', 'themeColor', 'businessContext', 'geminiApiKey', 'isInitialized', 'backupScheduleEnabled', 'backupScheduleDays', 'backupScheduleTime', 'backupRetentionCount', 'updatedAt']
+  } as TableDefinition,
+  table2: {
     name: 'dashboard_chart',
     displayName: 'Dashboard Chart Widgets',
     rowCount: 15,
     columnCount: 10,
     columns: ['id', 'userId', 'config', 'layout', 'isSample', '__is_deleted', '__deleted_at', 'orderIndex', 'createdAt', 'updatedAt']
   } as TableDefinition,
-  table2: {
+  table3: {
     name: 'ai_studio_sessions',
     displayName: 'AI Studio Session',
     rowCount: 2,
     columnCount: 6,
     columns: ['id', 'userId', 'data', 'updatedAt', '__is_deleted', '__deleted_at']
-  } as TableDefinition,
-  table3: {
-    name: 'system_settings',
-    displayName: 'System Settings',
-    rowCount: 1,
-    columnCount: 13,
-    columns: ['id', 'legacyId', 'companyName', 'logoUrl', 'themeColor', 'businessContext', 'geminiApiKey', 'isInitialized', 'backupScheduleEnabled', 'backupScheduleDays', 'backupScheduleTime', 'backupRetentionCount', 'updatedAt']
   } as TableDefinition,
   table4: {
     name: 'form_submissions',
@@ -150,7 +151,7 @@ export const TABLES = {
   table19: {
     name: 'dashboard_data_history',
     displayName: 'Dashboard Row History',
-    rowCount: 196,
+    rowCount: 198,
     columnCount: 7,
     columns: ['id', 'rowId', 'oldData', 'newData', 'changeType', 'changedById', 'changedAt']
   } as TableDefinition,
@@ -203,9 +204,9 @@ export function getTableByName(tableName: string): TableDefinition | undefined {
 
 // Export table names for easy access
 export const TABLE_NAMES = {
-  table1: 'dashboard_chart',
-  table2: 'ai_studio_sessions',
-  table3: 'system_settings',
+  table1: 'system_settings',
+  table2: 'dashboard_chart',
+  table3: 'ai_studio_sessions',
   table4: 'form_submissions',
   table5: 'form_studio_templates',
   table6: 'micro_app_projects',

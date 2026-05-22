@@ -99,6 +99,16 @@ const formatValue = (val: any) => {
   return val;
 };
 
+const safeParseNumber = (val: any): number => {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/[^0-9.-]/g, '');
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : num;
+  }
+  return 0;
+};
+
 export function SmartChart({ 
   config, 
   isSelected, 
@@ -266,15 +276,21 @@ export function SmartChart({
 
       if (isTotalRow) return sum; // 합계 요약 행은 뱃지 총합에서 원천 배제!
 
-      const rawVal = Number(item[amountKey]) || 0;
+      const rawVal = safeParseNumber(item[amountKey]);
       
       // 마이너스 통장 계좌인 경우, 잔액 대신 가용 한도(약정금액 - 사용액)를 합산하여 표시
       const isMinusAcc = rawVal < 0 || String(item.계좌명 || item.name || '').includes('마이너스') || (item.약정금액 !== undefined && item.약정금액 !== null);
-      if (isMinusAcc && item.약정금액) {
-        const availableLimit = Number(item.약정금액) + rawVal;
-        return sum + availableLimit;
+      if (isMinusAcc) {
+        const parsedLimit = safeParseNumber(item.약정금액);
+        if (parsedLimit > 0) {
+          const availableLimit = parsedLimit + rawVal;
+          return sum + Math.max(0, availableLimit);
+        } else {
+          // 대출/약정금액 정보가 없는 음수 잔액은 절댓값을 적용하지 않고 그대로 합산(차감)
+          return sum + rawVal;
+        }
       }
-      return sum + Math.abs(rawVal);
+      return sum + rawVal;
     }, 0);
   }, [data]);
 
@@ -519,15 +535,27 @@ export function SmartChart({
         
         // Recharts 및 퍼센티지 연산을 위해 양수 절댓값 데이터 준비 (마이너스 통장인 경우 잔액 대신 '사용가능한도(한도 - 사용액)'를 적용)
         const processedData = safeData.map(item => {
-          const rawVal = Number(item[valKey]) || 0;
+          const rawVal = safeParseNumber(item[valKey]);
           const isMinusAcc = rawVal < 0 || String(item[nameKey]).includes('마이너스') || (item.약정금액 !== undefined && item.약정금액 !== null);
-          const chartValue = (isMinusAcc && item.약정금액) ? (Number(item.약정금액) + rawVal) : Math.abs(rawVal);
+          
+          let chartValue = 0;
+          if (isMinusAcc) {
+            const parsedLimit = safeParseNumber(item.약정금액);
+            if (parsedLimit > 0) {
+              chartValue = Math.max(0, parsedLimit + rawVal);
+            } else {
+              chartValue = Math.abs(rawVal);
+            }
+          } else {
+            chartValue = Math.abs(rawVal);
+          }
           
           return {
             ...item,
             [valKey]: chartValue,
             _originalValue: rawVal,
-            _isMinusAccount: isMinusAcc
+            _isMinusAccount: isMinusAcc,
+            사용가능한도: isMinusAcc && safeParseNumber(item.약정금액) > 0 ? (safeParseNumber(item.약정금액) + rawVal) : null
           };
         });
 

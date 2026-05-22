@@ -1,12 +1,52 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { revalidatePath as flushCache } from 'next/cache';
 import { queryTable, insertRows, updateRows } from '@/egdesk-helpers';
 import { 
     hashPassword, 
     verifyPassword 
 } from './shared';
+
+/**
+ * 터널링 환경(HTTPS) 또는 운영 환경(production) 여부를 감지하여 쿠키 Secure 옵션을 결정합니다.
+ */
+async function getIsSecure() {
+    try {
+        const headerStore = await headers();
+        const proto = headerStore.get('x-forwarded-proto');
+        const host = headerStore.get('host') || '';
+        const forwardedHost = headerStore.get('x-forwarded-host') || '';
+        const referer = headerStore.get('referer') || '';
+
+        // 1. 프로토콜이 https이거나 referer가 https로 시작하는 경우 (터널링 HTTPS 우회 접속 등)
+        const isHttps = proto === 'https' || referer.startsWith('https://');
+        
+        // 2. 호스트명, 포워딩 호스트, 혹은 referer에 터널링 도메인 징후가 있는 경우
+        const isTunnel = 
+            host.includes('loca.lt') || 
+            host.includes('ngrok') || 
+            host.includes('trycloudflare') || 
+            host.includes('localto.net') ||
+            forwardedHost.includes('loca.lt') ||
+            forwardedHost.includes('ngrok') ||
+            forwardedHost.includes('trycloudflare') ||
+            forwardedHost.includes('localto.net') ||
+            referer.includes('loca.lt') ||
+            referer.includes('ngrok') ||
+            referer.includes('trycloudflare') ||
+            referer.includes('localto.net');
+
+        const isSecure = isHttps || isTunnel || process.env.NODE_ENV === 'production';
+        
+        console.log(`[SERVER DEBUG] getIsSecure evaluated to ${isSecure} (isHttps: ${isHttps}, isTunnel: ${isTunnel})`);
+        return isSecure;
+    } catch (e) {
+        console.error("[SERVER DEBUG] getIsSecure failed to read headers:", e);
+        return process.env.NODE_ENV === 'production';
+    }
+}
+
 
 /**
  * 사용자 세션을 가져옵니다.
@@ -87,10 +127,13 @@ export async function loginAction(username: string, password?: string) {
 
         const cookieStore = await cookies();
         
+        const isSecure = await getIsSecure();
         const cookieOptions = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax' as const,
+            secure: isSecure,
+            // 터널링 환경이나 HTTPS 환경(Secure가 true인 환경)에서는 SameSite=None을 사용하여
+            // Electron 앱 웹뷰나 크로스 도메인 환경에서의 쿠키 유실을 원천 차단합니다.
+            sameSite: isSecure ? ('none' as const) : ('lax' as const),
             maxAge: 60 * 60 * 24 * 7, // 1 week
             path: '/' 
         };
@@ -124,12 +167,13 @@ export async function logoutAction() {
     
     console.log('[SERVER DEBUG] Initiating logout: setting expiration...');
 
+    const isSecure = await getIsSecure();
     const options = { 
         path: '/', 
         expires: new Date(0), 
         httpOnly: true, 
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'lax' as const 
+        secure: isSecure, 
+        sameSite: isSecure ? ('none' as const) : ('lax' as const)
     };
     
     try {

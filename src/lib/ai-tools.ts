@@ -51,9 +51,50 @@ async function applyGuardrails(tableId: string, rows: any[]) {
 }
 
 /**
+ * 거래 내역 데이터에서 실시간 타임스탬프(밀리초)를 안전하고 정밀하게 추출하는 유틸리티
+ */
+function getSafeTimestamp(item: any): number {
+  if (!item) return 0;
+  // 1. transaction_datetime 속성이 존재할 때 최우선 사용
+  if (item.transaction_datetime) {
+    const parsed = Date.parse(String(item.transaction_datetime).replace(/\//g, '-'));
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+
+  // 2. date와 time 필드 조합이 있는 경우
+  const dateVal = item.date || item.TRAN_DATE || item.transactionDate || item.tranDate || '';
+  const timeVal = item.time || item.TRAN_TIME || '';
+  if (dateVal) {
+    let cleanStr = String(dateVal).trim().replace(/[\.\/]/g, '-');
+    if (/^\d{8}$/.test(cleanStr)) {
+      cleanStr = `${cleanStr.substring(0, 4)}-${cleanStr.substring(4, 6)}-${cleanStr.substring(6, 8)}`;
+    }
+    if (timeVal) {
+      cleanStr = `${cleanStr.split(' ')[0]} ${timeVal}`;
+    }
+    const parsed = Date.parse(cleanStr);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  // 3. timestamp 또는 기타 속성 폴백
+  if (item.timestamp !== undefined && item.timestamp !== null) {
+    const ts = Number(item.timestamp);
+    if (!isNaN(ts) && ts > 0) return ts;
+  }
+  
+  // 4. createdAt (DB 적재 UTC 타임스탬프) 폴백
+  if (item.createdAt) {
+    const parsed = Date.parse(item.createdAt);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  
+  return 0;
+}
+
+/**
  * 도구 호출(Function Call) 실행기 - 공유 유틸리티
  */
-export async function runAITool(name: string, args: any) {
+export async function runAITool(name: string, args: any): Promise<any> {
   console.log(`[AI Tool Execution] ${name}`, args);
   let result: any;
 
@@ -190,11 +231,11 @@ export async function runAITool(name: string, args: any) {
         });
 
         // [필수] 필터링 후 다시 월별 정렬 및 최근 N개월 제한 적용
-        filteredSummary.sort((a, b) => String(b.yearMonth).localeCompare(String(a.yearMonth)));
+        filteredSummary.sort((a: any, b: any) => String(b.yearMonth).localeCompare(String(a.yearMonth)));
         
         // 유니크한 월 목록 추출하여 최근 N개월만 선택
-        const uniqueMonths = Array.from(new Set(filteredSummary.map(s => s.yearMonth))).sort().reverse().slice(0, requestedMonths);
-        filteredSummary = filteredSummary.filter(s => uniqueMonths.includes(s.yearMonth));
+        const uniqueMonths = Array.from(new Set(filteredSummary.map((s: any) => s.yearMonth))).sort().reverse().slice(0, requestedMonths);
+        filteredSummary = filteredSummary.filter((s: any) => uniqueMonths.includes(s.yearMonth));
 
         const mappedSummary = filteredSummary.map((item: any) => ({
           ...item,
@@ -239,48 +280,61 @@ export async function runAITool(name: string, args: any) {
       return stats;
     }
     case "list_bank_accounts": {
-      const [accRes, txRes] = await Promise.all([
-        listAccounts(),
-        queryBankTransactions({ limit: 10000 })
-      ]);
-      
+      const accRes = await listAccounts();
       const accounts = Array.isArray(accRes) ? accRes : (accRes?.accounts || []);
-      const transactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
       
-      // 거래 내역에서 계좌별 건수 및 최신 잔액 직접 집계
-      const txStats: Record<string, { count: number, balance: number, date: string }> = {};
-      transactions.forEach((tx: any) => {
-        const id = tx.accountId;
-        if (!txStats[id]) {
-            txStats[id] = { count: 0, balance: 0, date: '' };
-        }
-        txStats[id].count++;
-        if (!txStats[id].date || tx.date >= txStats[id].date) {
-            txStats[id].date = tx.date;
-            txStats[id].balance = tx.balance;
-        }
-      });
-
       const validAccounts = accounts.filter((acc: any) => {
         const bId = String(acc.bankId || '').toLowerCase();
         const aName = String(acc.accountName || '').toLowerCase();
         return !bId.includes('card') && !aName.includes('카드');
       });
 
+      // 각 은행 계좌별로 개별 트랜잭션을 안전하게 조회하여 병합 집계 (Promise.all 활용)
+      const txStats: Record<string, { count: number, balance: number, date: string, timestamp: number }> = {};
+      
+      await Promise.all(validAccounts.map(async (acc: any) => {
+        const id = acc.id || acc.accountId;
+        try {
+          // 계좌 ID를 명시적으로 전달하므로 타 계좌에 영향받지 않고 최대 1000건까지 거래를 완전히 수집함
+          const txRes = await queryBankTransactions({ accountId: id, limit: 1000 });
+          const transactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+          
+          txStats[id] = { count: 0, balance: 0, date: '', timestamp: 0 };
+          
+          transactions.forEach((tx: any) => {
+            txStats[id].count++;
+            
+            const currentTimestamp = getSafeTimestamp(tx);
+            const lastTimestamp = txStats[id].timestamp;
+            
+            if (!lastTimestamp || currentTimestamp > lastTimestamp) {
+              txStats[id].date = tx.date;
+              txStats[id].balance = tx.balance;
+              txStats[id].timestamp = currentTimestamp;
+            }
+          });
+        } catch (e) {
+          console.error(`Failed to fetch transactions for account ${id}:`, e);
+          txStats[id] = { count: 0, balance: acc.balance || 0, date: '조회오류', timestamp: 0 };
+        }
+      }));
+
       const integratedRows = validAccounts.map((acc: any) => {
-        const stat = txStats[acc.accountId] || txStats[acc.id];
+        const id = acc.id || acc.accountId;
+        const stat = txStats[id];
         const balance = stat?.balance !== undefined ? stat.balance : (acc.balance || 0);
         
         // 약정금액 및 사용가능한도 파싱 (마이너스 통장/대출 전용 메타데이터)
-        const contractAmount = acc.metadata?.contractAmount 
-          ? Number(acc.metadata.contractAmount.replace(/[^0-9.-]/g, '')) 
+        const rawContract = acc.metadata?.contractAmount || acc.metadata?.payableAmount || '';
+        const contractAmount = rawContract
+          ? Number(String(rawContract).replace(/[^0-9.-]/g, '')) 
           : null;
         const availableLimit = contractAmount !== null 
           ? contractAmount + balance 
           : null;
 
         return {
-            id: acc.id || acc.accountId,
+            id: id,
             일자: stat?.date || '기록없음',
             은행명: acc.bankName || acc.bankId,
             계좌번호: acc.accountNumber,

@@ -51,6 +51,45 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
   }, [data]);
 
   const { summary, accountBalances, transactions } = useMemo(() => {
+    // 거래 내역 데이터에서 실시간 타임스탬프(밀리초)를 안전하고 정밀하게 추출하는 유틸리티
+    const getSafeTimestamp = (item: any, dateMappingKey?: string): number => {
+      if (!item) return 0;
+      // 1. transaction_datetime 속성이 존재할 때 최우선 사용 ("2026/05/20 12:03:49" 형태 대응)
+      if (item.transaction_datetime) {
+        const parsed = Date.parse(String(item.transaction_datetime).replace(/\//g, '-'));
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+
+      // 2. date와 time 필드 조합이 있는 경우
+      const dateVal = item[dateMappingKey || ''] || item.date || item.TRAN_DATE || item.transactionDate || item.tranDate || '';
+      const timeVal = item.time || item.TRAN_TIME || '';
+      if (dateVal) {
+        let cleanStr = String(dateVal).trim().replace(/[\.\/]/g, '-');
+        if (/^\d{8}$/.test(cleanStr)) {
+          cleanStr = `${cleanStr.substring(0, 4)}-${cleanStr.substring(4, 6)}-${cleanStr.substring(6, 8)}`;
+        }
+        if (timeVal) {
+          cleanStr = `${cleanStr.split(' ')[0]} ${timeVal}`;
+        }
+        const parsed = Date.parse(cleanStr);
+        if (!isNaN(parsed)) return parsed;
+      }
+
+      // 3. timestamp 또는 기타 속성 폴백
+      if (item.timestamp !== undefined && item.timestamp !== null) {
+        const ts = Number(item.timestamp);
+        if (!isNaN(ts) && ts > 0) return ts;
+      }
+      
+      // 4. createdAt (DB 적재 UTC 타임스탬프) 폴백
+      if (item.createdAt) {
+        const parsed = Date.parse(item.createdAt);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+      
+      return 0;
+    };
+
     // Utility to find any numeric value in an object based on likely keys
     const findNumeric = (obj: any, key: string, fallbackKeywords: string[]) => {
       if (!obj) return 0;
@@ -171,11 +210,9 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
           });
 
           if (accountTxs.length > 0) {
-            // 날짜/시간 기반 정렬하여 가장 최신 거래의 잔액 필드를 가져옴
+            // 정밀 타임스탬프 기반 정렬하여 가장 최신 거래의 잔액 필드를 가져옴
             const sortedTxs = [...accountTxs].sort((a, b) => {
-              const dateA = a[mapping.date] || a.date || '';
-              const dateB = b[mapping.date] || b.date || '';
-              return new Date(dateB).getTime() - new Date(dateA).getTime();
+              return getSafeTimestamp(b, mapping.date) - getSafeTimestamp(a, mapping.date);
             });
             
             const latestTx = sortedTxs[0];
@@ -235,7 +272,7 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
              return rBank === acc.bankName;
           }).length
         })),
-        transactions: processedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        transactions: processedTransactions.sort((a, b) => getSafeTimestamp(b, mapping.date) - getSafeTimestamp(a, mapping.date))
       };
     }
 
@@ -246,7 +283,7 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
       transactions: [] 
     };
 
-    const balances: Record<string, { name: string, balance: number, count: number, lastDate: string }> = {};
+    const balances: Record<string, { name: string, balance: number, count: number, lastDate: string, lastTimestamp: number }> = {};
     let totalIn = 0;
     let totalOut = 0;
 
@@ -277,24 +314,38 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
       }
 
       const key = `${bank}-${accNum}`;
+      const currentTimestamp = getSafeTimestamp(item, mapping.date);
 
       totalIn += inflow;
       totalOut += outflow;
 
-      // 가장 최신의 잔액을 유지 (날짜와 시간까지 포함된 정밀 비교)
-      if (!balances[key] || new Date(date).getTime() >= new Date(balances[key].lastDate).getTime()) {
-        if (!balances[key]) {
-          balances[key] = { name: bank + (accNum ? ` (${accNum})` : ''), balance: 0, count: 0, lastDate: date };
+      if (!balances[key]) {
+        // 1) 신규 계좌 최초 등록
+        balances[key] = { 
+          name: bank + (accNum ? ` (${accNum})` : ''), 
+          balance: rowBalance !== 0 ? rowBalance : (inflow - outflow), 
+          count: 1, 
+          lastDate: date,
+          lastTimestamp: currentTimestamp
+        };
+      } else {
+        balances[key].count += 1;
+
+        // 2) 더 최근의 타임스탬프를 가진 거래인 경우 잔액 덮어쓰기 (초과 > 비교를 통해 과거로의 덮어쓰기 원천 차단)
+        if (currentTimestamp > balances[key].lastTimestamp) {
+          if (rowBalance !== 0) {
+            balances[key].balance = rowBalance;
+          }
+          balances[key].lastDate = date;
+          balances[key].lastTimestamp = currentTimestamp;
+        } 
+        // 3) 타임스탬프가 완벽히 동일할 경우 (덮어쓰지 않고 최신 잔액 보존하되, 기존 잔액이 0이었던 경우에만 채워넣음)
+        else if (currentTimestamp === balances[key].lastTimestamp) {
+          if (balances[key].balance === 0 && rowBalance !== 0) {
+            balances[key].balance = rowBalance;
+          }
         }
-        if (rowBalance !== 0) {
-          balances[key].balance = rowBalance;
-        } else if (balances[key].balance === 0) {
-          balances[key].balance += (inflow - outflow);
-        }
-        balances[key].lastDate = date;
       }
-      
-      balances[key].count += 1;
 
       return {
         date,
@@ -311,8 +362,8 @@ export function CashReport({ id, data, mapping, uiSettings, appName }: CashRepor
 
     return {
       summary: { totalIn, totalOut, balance: finalTotalBalance },
-      accountBalances: Object.values(balances),
-      transactions: processed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      accountBalances: Object.values(balances).map(({ name, balance, count }) => ({ name, balance, count })),
+      transactions: processed.sort((a, b) => getSafeTimestamp(b, mapping.date) - getSafeTimestamp(a, mapping.date))
     };
   }, [rawData, serverAccounts, mapping]);
 

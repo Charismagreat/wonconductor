@@ -24,7 +24,18 @@ const nextConfig: NextConfig = {
   
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb'
+      bodySizeLimit: '10mb',
+      allowedOrigins: [
+        'localhost:3000',
+        '127.0.0.1:3000',
+        '*.loca.lt',
+        '*.ngrok.io',
+        '*.ngrok-free.app',
+        '*.trycloudflare.com',
+        '*.gitpod.io',
+        '*.tryhook.io',
+        '*.localto.net'
+      ]
     }
   }
 };

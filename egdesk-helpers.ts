@@ -63,7 +63,8 @@ export async function callUserDataTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   };
 
   const isServer = typeof window === 'undefined';
@@ -284,7 +285,8 @@ export async function callFinanceHubTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   };
 
   const isServer = typeof window === 'undefined';
@@ -530,7 +532,8 @@ export async function callInternalKnowledgeTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   };
 
   const isServer = typeof window === 'undefined';
@@ -694,7 +697,8 @@ export async function callBrowserRecordingTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   };
 
   const isServer = typeof window === 'undefined';
@@ -776,7 +780,8 @@ export async function callAICenterTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   };
 
   const isServer = typeof window === 'undefined';

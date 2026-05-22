@@ -49,9 +49,9 @@ next-env.d.ts
 pinned_charts.json
 /backups/
 
-# egdesk
-egdesk.config.ts
-egdesk-helpers.ts
+# egdesk (테스트 목적으로 임시 Git 업로드 허용)
+# egdesk.config.ts
+# egdesk-helpers.ts
 
 # Data backups and sensitive logs
 *_backup.json

@@ -19,6 +19,7 @@ import { HistoryService } from '@/lib/services/history-service';
 import { DbSyncService } from '@/lib/services/db-sync-service';
 import { RowService } from '@/lib/services/row-service';
 import { getNowKST } from '@/lib/data-utils';
+import { invalidateRowCountCache } from '@/lib/utils/dashboard-cache';
 
 /**
  * egdesk-helpers의 반환값을 배열로 보장하는 헬퍼 함수
@@ -111,6 +112,7 @@ export async function addRowAction(reportId: string, rowData: any) {
   triggerWorkflow(canonicalReportId, cleanedData, user.id).catch(console.error);
 
   revalidatePath(`/report/${canonicalReportId}`);
+  invalidateRowCountCache(report.tableName || canonicalReportId);
   return { success: true, syncWarning };
 }
 
@@ -234,6 +236,7 @@ export async function addRowsAction(reportId: string, rows: any[]) {
     }).catch(console.error);
 
     revalidatePath('/report/' + reportId);
+    invalidateRowCountCache(report.tableName || reportId);
     return { success: true, addedCount: cleanedRowsToInsert.length, skippedCount };
 }
 
@@ -286,6 +289,7 @@ export async function updateSingleRowAction(reportId: string, rowId: string, new
     }
 
     revalidatePath(`/report/${reportId}`);
+    invalidateRowCountCache(report.tableName || reportId);
     return { success: true };
 }
 
@@ -372,6 +376,7 @@ export async function bulkUpdateRowsAction(
     }).catch(console.error);
 
     revalidatePath(`/report/${reportId}`);
+    invalidateRowCountCache(report.tableName || reportId);
     return { success: true, count: successCount };
 }
 
@@ -382,16 +387,10 @@ export async function getRowHistoryAction(rowId: string) {
     const user = await getSessionAction();
     if (!user) throw new Error('인증이 필요합니다.');
 
-    // 1. 기본 데이터 조회 (작성자 정보 포함)
+    // 1. 기본 데이터 조회
     const rows = unwrap(await queryTable('dashboard_data', { filters: { id: String(rowId) } }));
     const row = rows[0];
     if (!row) throw new Error('데이터를 찾을 수 없습니다.');
-
-    const creators = unwrap(await queryTable('user', { filters: { id: String(row.creatorId) } }));
-    const creator = creators[0];
-    
-    const updaters = unwrap(await queryTable('user', { filters: { id: String(row.updaterId || row.creatorId) } }));
-    const updater = updaters[0];
 
     // 2. 이력 조회
     const histories = unwrap(await queryTable('dashboard_data_history', { 
@@ -400,20 +399,45 @@ export async function getRowHistoryAction(rowId: string) {
         limit: 100
     }));
 
-    // 3. 각 이력 항목에 사용자 정보 매핑
-    const mappedHistories = [];
-    for (const h of histories) {
-        const users = unwrap(await queryTable('user', { filters: { id: String(h.changedById) } }));
-        const changedBy = users[0];
-        mappedHistories.push({
+    // 3. [성능 고도화] N+1 직렬 쿼리 완전 제거
+    // 이력 및 데이터에 연관된 모든 고유 사용자 ID 수집 (중복 제거)
+    const userIdsSet = new Set<string>();
+    if (row.creatorId) userIdsSet.add(String(row.creatorId));
+    if (row.updaterId) userIdsSet.add(String(row.updaterId));
+    histories.forEach((h: any) => {
+        if (h.changedById) userIdsSet.add(String(h.changedById));
+    });
+
+    const uniqueUserIds = Array.from(userIdsSet);
+
+    // 병렬 일괄 쿼리로 사용자 정보 긁어와 메모리 맵(Map) 빌드
+    const userQueries = await Promise.all(
+        uniqueUserIds.map(async (uid) => {
+            const results = unwrap(await queryTable('user', { filters: { id: uid } }));
+            return results[0] || null;
+        })
+    );
+
+    const userMap: Record<string, any> = {};
+    userQueries.forEach((u) => {
+        if (u) userMap[String(u.id)] = u;
+    });
+
+    // 4. 메모리 맵을 통한 O(1) 초고속 매핑 연산 실행 (DB 통신 홉 0회)
+    const creator = userMap[String(row.creatorId)] || null;
+    const updater = userMap[String(row.updaterId || row.creatorId)] || null;
+
+    const mappedHistories = histories.map((h: any) => {
+        const changedBy = userMap[String(h.changedById)] || null;
+        return {
             ...h,
             changedBy: changedBy ? {
                 id: changedBy.id,
                 username: changedBy.username,
                 fullName: changedBy.fullName
             } : null
-        });
-    }
+        };
+    });
 
     // 최신순 정렬
     mappedHistories.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
@@ -496,6 +520,7 @@ export async function deleteRowsAction(reportId: string, rowIds: string[]) {
     }).catch(console.error);
 
     revalidatePath(`/report/${reportId}`);
+    invalidateRowCountCache(report.tableName || reportId);
     return { success: true };
 }
 
@@ -560,6 +585,7 @@ export async function restoreRowsAction(reportId: string, rowIds: string[]) {
     }
 
     revalidatePath(`/report/${reportId}`);
+    invalidateRowCountCache(report.tableName || reportId);
     return { success: true, restoredCount: successCount };
 }
 

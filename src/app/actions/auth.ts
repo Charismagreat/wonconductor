@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { revalidatePath as flushCache } from 'next/cache';
 import { queryTable, insertRows, updateRows } from '@/egdesk-helpers';
@@ -50,8 +51,10 @@ async function getIsSecure() {
 
 /**
  * 사용자 세션을 가져옵니다.
+ * [성능 고도화] 단일 렌더링 요청 생명주기(Request Life Cycle) 동안의 세션 쿼리 RTT 병목을 소멸시키기 위해
+ * React.cache (Request Memoization)를 연동했습니다.
  */
-export async function getSessionAction() {
+export const getSessionAction = cache(async () => {
     const cookieStore = await cookies();
     const allCookies = cookieStore.getAll();
     
@@ -85,7 +88,7 @@ export async function getSessionAction() {
         console.error("[SERVER DEBUG] Session fetch failed:", err);
         return null;
     }
-}
+});
 
 /**
  * 로그인 처리를 수행합니다.

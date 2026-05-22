@@ -26,6 +26,7 @@ import { SyncStatusBadge } from '@/components/SyncStatusBadge';
 import PageHeader from '@/components/PageHeader';
 import { DashboardHubClient } from './DashboardHubClient';
 import { getCalendarEvents } from '@/lib/services/calendar-service';
+import { ROW_COUNT_CACHE, CACHE_TTL_MS } from '@/lib/utils/dashboard-cache';
 
 export default async function DashboardPage() {
   // 시스템 초기화 여부 체크 (신규 설치 시 /setup으로 유도)
@@ -94,20 +95,30 @@ export default async function DashboardPage() {
     });
   }
 
-  // [통합 로직] 보고서별 데이터 행 개수 계산 함수
+  // [통합 로직] 보고서별 데이터 행 개수 계산 함수 (고속 캐싱 추가)
   const getReportRowCount = async (r: any) => {
+    const cacheKey = r.tableName || r.reportId || String(r.id);
+    const cached = ROW_COUNT_CACHE[cacheKey];
+    const now = Date.now();
+
+    // 30초 내에 이미 조회가 이루어졌다면 RTT 홉 비용 없이 즉시 캐시 값(0ms)을 반환합니다.
+    if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+      return cached.count;
+    }
+
+    let count = 0;
+
     // 1. FinanceHub 및 홈택스 (물리 테이블 직접 집계)
     if (r.tableName) {
       try {
         const aggr = await aggregateTable(r.tableName, 'id', 'COUNT');
-        return Number(aggr?.value ?? aggr) || 0;
+        count = Number(aggr?.value ?? aggr) || 0;
       } catch (err) {
-        return 0;
+        count = 0;
       }
     }
-
     // 2. 홈택스 데이터 (API 통계와 DB 집계 중 최대값 선택)
-    if (r.tableName?.startsWith('hometax_')) {
+    else if (r.tableName?.startsWith('hometax_')) {
       const hometaxConnection = hometaxStats?.connections?.[0] || {};
       const fieldMap: Record<string, string> = {
         'hometax_sales_invoices': 'sales_count',
@@ -120,31 +131,31 @@ export default async function DashboardPage() {
         const aggr = await aggregateTable(r.tableName, 'id', 'COUNT');
         dbCount = Number(aggr?.value ?? aggr) || 0;
       } catch (err) {}
-      return Math.max(apiCount, dbCount);
+      count = Math.max(apiCount, dbCount);
     }
-
     // 3. 테스트 데이터 예외 처리
-    if (r.id === 'test-report-id') return 133;
-
-    // 4. 일반 물리 테이블 직접 집계 (Templates 등)
-    if (r.tableName) {
+    else if (r.id === 'test-report-id') {
+      count = 133;
+    }
+    // 4. 순수 가상 보고서 (dashboard_data 기반)
+    else {
       try {
-        const aggr = await aggregateTable(r.tableName, 'id', 'COUNT');
-        return Number(aggr?.value ?? aggr) || 0;
+        const aggr = await aggregateTable('dashboard_data', 'id', 'COUNT', {
+          filters: { reportId: r.reportId || String(r.id), isDeleted: '0' }
+        });
+        count = Number(aggr?.value ?? aggr) || 0;
       } catch (err) {
-        return 0;
+        count = 0;
       }
     }
 
-    // 5. 순수 가상 보고서 (dashboard_data 기반)
-    try {
-      const aggr = await aggregateTable('dashboard_data', 'id', 'COUNT', {
-        filters: { reportId: r.reportId || String(r.id), isDeleted: '0' }
-      });
-      return Number(aggr?.value ?? aggr) || 0;
-    } catch (err) {
-      return 0;
-    }
+    // 캐시 저장
+    ROW_COUNT_CACHE[cacheKey] = {
+      count,
+      timestamp: now
+    };
+
+    return count;
   };
 
   // 모든 가상 리포트에 통합 로직 적용

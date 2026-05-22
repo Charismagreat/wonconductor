@@ -9,7 +9,8 @@ import {
     deleteRows,
     renameTable,
     deleteTable,
-    getTableSchema
+    getTableSchema,
+    executeSQL
 } from '@/egdesk-helpers';
 import { 
     checkReportAuthorization 
@@ -205,6 +206,7 @@ export async function updateReportAccessAction(reportId: string, userIds: string
 
 /**
  * 보고서에 권한이 있는 사용자 및 부서 목록을 가져옵니다.
+ * [성능 고도화] N+1 직렬 및 다중 RTT 병목을 소멸시키기 위해 executeSQL 벌크 조회 및 폴백 구조를 적용했습니다.
  */
 export async function getReportAccessListAction(reportId: string) {
     if (!reportId) return { users: [], departments: [] };
@@ -218,19 +220,39 @@ export async function getReportAccessListAction(reportId: string) {
         const userIds = accessList.map((a: any) => a.userId).filter(Boolean);
         const departmentIds = accessList.map((a: any) => a.departmentId).filter(Boolean);
         
-        const users = userIds.length > 0 ? await Promise.all(
-            userIds.map(async (id: string) => {
-                const results = await queryTable('user', { filters: { id: String(id) } });
-                return results[0];
-            })
-        ) : [];
+        let users: any[] = [];
+        if (userIds.length > 0) {
+            try {
+                const placeholders = userIds.map((id: string) => `'${String(id).replace(/'/g, "''")}'`).join(', ');
+                const res = await executeSQL(`SELECT * FROM user WHERE id IN (${placeholders})`);
+                users = Array.isArray(res) ? res : (res?.rows || []);
+            } catch (sqlErr) {
+                console.warn('[SQL Fallback] getReportAccessListAction user query failed, falling back to Promise.all:', sqlErr);
+                users = await Promise.all(
+                    userIds.map(async (id: string) => {
+                        const results = await queryTable('user', { filters: { id: String(id) } });
+                        return Array.isArray(results) ? results[0] : (results as any)?.rows?.[0];
+                    })
+                );
+            }
+        }
         
-        const departments = departmentIds.length > 0 ? await Promise.all(
-            departmentIds.map(async (id: string) => {
-                const results = await queryTable('department', { filters: { id: String(id) } });
-                return results[0];
-            })
-        ) : [];
+        let departments: any[] = [];
+        if (departmentIds.length > 0) {
+            try {
+                const placeholders = departmentIds.map((id: string) => `'${String(id).replace(/'/g, "''")}'`).join(', ');
+                const res = await executeSQL(`SELECT * FROM department WHERE id IN (${placeholders})`);
+                departments = Array.isArray(res) ? res : (res?.rows || []);
+            } catch (sqlErr) {
+                console.warn('[SQL Fallback] getReportAccessListAction department query failed, falling back to Promise.all:', sqlErr);
+                departments = await Promise.all(
+                    departmentIds.map(async (id: string) => {
+                        const results = await queryTable('department', { filters: { id: String(id) } });
+                        return Array.isArray(results) ? results[0] : (results as any)?.rows?.[0];
+                    })
+                );
+            }
+        }
         
         return {
             users: users.filter(u => u),

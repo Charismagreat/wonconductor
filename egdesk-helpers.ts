@@ -70,8 +70,8 @@ export async function callUserDataTool(
 
   let response: Response;
   if (isServer) {
-    // API routes: call Egdesk directly (relative URL is invalid in Node)
-    const apiUrl =
+    // API 라우트: Node 환경에서는 상대 경로가 유효하지 않으므로 Egdesk API를 직접 호출합니다.
+    let apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -80,7 +80,12 @@ export async function callUserDataTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    response = await fetch(`${apiUrl}/user-data/tools/call`, {
+    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
+    if (apiUrl && !apiUrl.endsWith('/')) {
+      apiUrl += '/';
+    }
+    const targetUrl = `${apiUrl}user-data/tools/call`.replace(/([^:]\/)\/+/g, "$1");
+    response = await fetch(targetUrl, {
       method: 'POST',
       headers,
       body
@@ -286,7 +291,7 @@ export async function callFinanceHubTool(
 
   let response: Response;
   if (isServer) {
-    const apiUrl =
+    let apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -295,7 +300,12 @@ export async function callFinanceHubTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    response = await fetch(`${apiUrl}/financehub/tools/call`, {
+    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
+    if (apiUrl && !apiUrl.endsWith('/')) {
+      apiUrl += '/';
+    }
+    const targetUrl = `${apiUrl}financehub/tools/call`.replace(/([^:]\/)\/+/g, "$1");
+    response = await fetch(targetUrl, {
       method: 'POST',
       headers,
       body
@@ -527,7 +537,7 @@ export async function callInternalKnowledgeTool(
 
   let response: Response;
   if (isServer) {
-    const apiUrl =
+    let apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -536,7 +546,12 @@ export async function callInternalKnowledgeTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    response = await fetch(`${apiUrl}/internal-knowledge/tools/call`, {
+    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
+    if (apiUrl && !apiUrl.endsWith('/')) {
+      apiUrl += '/';
+    }
+    const targetUrl = `${apiUrl}internal-knowledge/tools/call`.replace(/([^:]\/)\/+/g, "$1");
+    response = await fetch(targetUrl, {
       method: 'POST',
       headers,
       body
@@ -686,7 +701,7 @@ export async function callBrowserRecordingTool(
 
   let response: Response;
   if (isServer) {
-    const apiUrl =
+    let apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -695,7 +710,12 @@ export async function callBrowserRecordingTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    response = await fetch(`${apiUrl}/browser-recording/tools/call`, {
+    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
+    if (apiUrl && !apiUrl.endsWith('/')) {
+      apiUrl += '/';
+    }
+    const targetUrl = `${apiUrl}browser-recording/tools/call`.replace(/([^:]\/)\/+/g, "$1");
+    response = await fetch(targetUrl, {
       method: 'POST',
       headers,
       body
@@ -763,7 +783,7 @@ export async function callAICenterTool(
 
   let response: Response;
   if (isServer) {
-    const apiUrl =
+    let apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -772,7 +792,12 @@ export async function callAICenterTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    response = await fetch(`${apiUrl}/ai-center/tools/call`, {
+    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
+    if (apiUrl && !apiUrl.endsWith('/')) {
+      apiUrl += '/';
+    }
+    const targetUrl = `${apiUrl}ai-center/tools/call`.replace(/([^:]\/)\/+/g, "$1");
+    response = await fetch(targetUrl, {
       method: 'POST',
       headers,
       body

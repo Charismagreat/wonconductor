@@ -1,39 +1,62 @@
 import React from 'react';
-import { queryTable, aggregateTable } from '@/egdesk-helpers';
+import { queryTable, executeSQL, listTables } from '@/egdesk-helpers';
 import Link from 'next/link';
 import { FileSpreadsheet, ArrowLeft, Archive } from 'lucide-react';
 import { ArchiveActions } from '@/components/ArchiveActions';
 import PageHeader from '@/components/PageHeader';
 
 export default async function ArchivePage() {
-  const rawAllDeletedReports = await queryTable('dashboard_master', {
-    limit: 1000,
-    orderBy: 'deletedAt',
-    orderDirection: 'DESC'
-  });
+  const [rawAllDeletedReports, tablesRes] = await Promise.all([
+    queryTable('dashboard_master', {
+      limit: 1000,
+      orderBy: 'deletedAt',
+      orderDirection: 'DESC'
+    }),
+    listTables().catch(() => ({ tables: [] }))
+  ]);
+  
+  const systemTables = tablesRes?.tables || [];
   
   // 루트 egdesk-helpers의 반환값(객체)을 배열로 변환하여 filter 호출 보장
   const reports = Array.isArray(rawAllDeletedReports) ? rawAllDeletedReports : (rawAllDeletedReports as any)?.rows || [];
   const allDeletedReports = reports.filter((r: any) => String(r.isDeleted) === '1');
 
-  const deletedReports: any[] = [];
-  for (const r of allDeletedReports) {
-    try {
-      const rowCountResult = await aggregateTable('dashboard_data', 'id', 'COUNT', { 
-        filters: { reportId: r.reportId || String(r.id) } 
-      });
-      deletedReports.push({
-        ...r,
-        _count: { rows: Number(rowCountResult) || 0 }
-      });
-    } catch (err) {
-      console.warn(`Failed to count rows for report ${r.id}:`, err);
-      deletedReports.push({
-        ...r,
-        _count: { rows: 0 }
-      });
-    }
+  // 삭제된 가상 리포트 행 개수 일괄 조회 (N+1 병목 극복!)
+  const virtualCountsMap: Record<string, number> = {};
+  try {
+    const rawCounts = await executeSQL(
+      `SELECT reportId, COUNT(*) as cnt FROM dashboard_data GROUP BY reportId`
+    ).catch(() => []);
+    
+    const countRows = Array.isArray(rawCounts) ? rawCounts : (rawCounts?.rows || []);
+    countRows.forEach((row: any) => {
+      if (row && row.reportId) {
+        virtualCountsMap[row.reportId] = Number(row.cnt || row.COUNT || 0);
+      }
+    });
+  } catch (err) {
+    console.error('Failed to batch query archived virtual report row counts:', err);
   }
+
+  const deletedReports = allDeletedReports.map((r: any) => {
+    const rId = r.reportId || String(r.id);
+    let rowCount = 0;
+    
+    if (!r.tableName) {
+      rowCount = virtualCountsMap[rId] || 0;
+    } else {
+      const tName = r.tableName.toLowerCase();
+      const sysTable = systemTables.find((t: any) => t.tableName?.toLowerCase() === tName);
+      if (sysTable) {
+        rowCount = Number(sysTable.rowCount || 0);
+      }
+    }
+
+    return {
+      ...r,
+      _count: { rows: rowCount }
+    };
+  });
 
   return (
     <div className="flex-1 overflow-y-auto">

@@ -13,7 +13,8 @@ export default async function ReportGalleryPage() {
     redirect('/login');
   }
 
-  const pinnedCharts = await getPinnedChartsAction();
+  // [성능 최적화] 이미 조회 완료된 user.id를 전달하여 중복 세션 API 홉(Hop)을 제거하고 즉시 로드합니다.
+  const pinnedCharts = await getPinnedChartsAction(user.id);
 
   const headerRight = (
     <Link 

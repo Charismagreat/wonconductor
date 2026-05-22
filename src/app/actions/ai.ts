@@ -199,13 +199,15 @@ export async function savePinnedChartAction(chartId: string, config: any) {
     return { success: true, id: result?.newId || chartId };
 }
 
-export async function getPinnedChartsAction() {
-    // [Self-Healing] 차트 로딩 전 시스템 테이블 구조 보장
-    await SystemConfigService.ensureSystemTables().catch(e => console.warn('[getPinnedChartsAction] Schema check failed:', e));
+export async function getPinnedChartsAction(providedUserId?: string) {
+    // [성능 최적화] 무거운 동기식 스키마 체크 RTT 블로킹 제거 -> 백그라운드로 비동기 처리하여 렌더링 지연 방지
+    SystemConfigService.ensureSystemTables().catch(e => console.warn('[getPinnedChartsAction] Schema check failed (background):', e));
     
-    const user = await getSessionAction();
-    if (!user) return [];
-    const { charts } = await refreshUserChartsAction(user.id);
+    // 이미 로그인한 사용자 ID가 있다면 중복 세션 조회를 스킵하여 RTT를 획기적으로 줄임
+    const userId = providedUserId || (await getSessionAction())?.id;
+    if (!userId) return [];
+    
+    const { charts } = await refreshUserChartsAction(userId);
     return charts;
 }
 

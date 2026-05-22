@@ -23,6 +23,7 @@ export async function proxy(request: NextRequest) {
 
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
 
       if (apiKey) {
@@ -31,6 +32,41 @@ export async function proxy(request: NextRequest) {
 
       // Forward to EGDesk MCP server
       const response = await fetch(`${apiUrl}/user-data/tools/call`, {
+        method: 'POST',
+        headers,
+        body,
+      });
+
+      const result = await response.json();
+
+      return NextResponse.json(result, { status: response.status });
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: 'Proxy error', message: error.message },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Intercept __financehub_proxy requests
+  if (pathname.includes('__financehub_proxy')) {
+    try {
+      const body = await request.text();
+
+      const apiKey = process.env.NEXT_PUBLIC_EGDESK_API_KEY;
+      const apiUrl = process.env.NEXT_PUBLIC_EGDESK_API_URL || 'http://localhost:8080';
+
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      };
+
+      if (apiKey) {
+        headers['X-Api-Key'] = apiKey;
+      }
+
+      // Forward to EGDesk MCP server
+      const response = await fetch(`${apiUrl}/financehub/tools/call`, {
         method: 'POST',
         headers,
         body,
@@ -56,6 +92,7 @@ export async function proxy(request: NextRequest) {
 
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
 
       if (apiKey) {
@@ -88,6 +125,7 @@ export async function proxy(request: NextRequest) {
 
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
 
       if (apiKey) {
@@ -120,6 +158,7 @@ export async function proxy(request: NextRequest) {
 
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
 
       if (apiKey) {

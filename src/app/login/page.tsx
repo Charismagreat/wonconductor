@@ -58,11 +58,15 @@ export default function LoginPage() {
           router.push('/');
         }
         router.refresh(); // 세션 정보를 위해 강제 새로고침
+        
+        // [성능 및 UX 개선] 로그인 성공 시에는 setIsLoading(false)를 호출하지 않습니다.
+        // 메인 화면으로의 리다이렉트 및 컴포넌트 마운트가 완전히 완료되어 로그인 페이지가 Unmount될 때까지
+        // 명멸하는 프리미엄 오버레이와 로딩 스피너를 끊김 없이 끝까지 지속시킵니다.
+        return;
       }
     } catch (err: any) {
       setError(err.message || '로그인에 실패했습니다. 다시 확인해 주세요.');
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // 오직 로그인 실패(에러) 상황에서만 로딩을 풀어 입력 폼을 활성화시킵니다.
     }
   };
 

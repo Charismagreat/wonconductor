@@ -21,6 +21,8 @@ export class SystemConfigService {
     private static readonly SETTINGS_ID = 'global-settings';
     // 시스템 설치 완료 여부를 저장하는 고속 메모리 캐시 필드
     private static isSetupCompleted: boolean | null = null;
+    // [성능 최적화] 스키마 자가 치유(테이블 정합성 수색) 완료 여부를 저장하는 전역 메모리 캐시 필드
+    private static isSchemaVerified: boolean = false;
 
     /**
      * Retrieve the global system settings.
@@ -65,6 +67,12 @@ export class SystemConfigService {
      * Ensures all core system tables exist.
      */
     static async ensureSystemTables(): Promise<void> {
+        // [성능 최적화] 최초 1회 전체 스키마 자가 치유 및 정합성 검증이 완료되었다면,
+        // 중복되는 24개 테이블 전수 파일 탐색 RTT를 방지하기 위해 0ms 만에 즉시 반환(Bypass)합니다.
+        if (this.isSchemaVerified) {
+            return;
+        }
+
         let result;
         try {
             result = await listTables();
@@ -249,6 +257,10 @@ export class SystemConfigService {
                 }
             }
         }
+
+        // 검증이 정상 완료되었으므로 고속 전역 캐시 활성화
+        this.isSchemaVerified = true;
+        console.log('[SystemConfigService] 스키마 자가 치유 및 테이블 정합성 전수 검증 완료! isSchemaVerified = true');
     }
 
     /**

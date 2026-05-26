@@ -51,17 +51,13 @@ export default function LoginPage() {
     try {
       const result = await loginAction(username, password);
       if (result.success) {
-        // 권한에 따른 리다이렉션 경로 설정
+        // [성능 및 UX 극대화] SPA 라우터(router.push/refresh)를 사용하면 Vercel 프로덕션 환경에서 가상 DOM 교체 및 쿠키 동기화 지연으로 인해 약 2초간의 프리징 멈춤 렉이 발생합니다.
+        // 이를 네이티브 리다이렉트(window.location.href)로 대체하여 0ms 만에 즉시 브라우저 레벨에서 화면을 전환하도록 구동시킵니다.
         if (result.user.role === 'VIEWER') {
-          router.push('/workspace');
+          window.location.href = '/workspace';
         } else {
-          router.push('/');
+          window.location.href = '/';
         }
-        router.refresh(); // 세션 정보를 위해 강제 새로고침
-        
-        // [성능 및 UX 개선] 로그인에 성공했을 때는 로딩 애니메이션(isLoading)을 강제로 해제(false)하지 않고 
-        // 새로운 대시보드 페이지가 완전히 마운트되어 로그인 화면이 언마운트될 때까지 프리미엄 로딩 상태를 끝까지 유지합니다.
-        // 이를 통해 사용자가 2초 동안 멈춘 일반 폼을 보게 되던 햅틱 결함을 완벽히 해결합니다.
       }
     } catch (err: any) {
       setError(err.message || '로그인에 실패했습니다. 다시 확인해 주세요.');

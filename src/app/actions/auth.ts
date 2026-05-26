@@ -95,9 +95,13 @@ export const getSessionAction = cache(async () => {
  */
 export async function loginAction(username: string, password?: string) {
     const trimmedUsername = username.trim();
+    console.log(`\n[로그인 계측 시작] 사용자: [${trimmedUsername}]`);
+    console.time('[로그인 계측] 0. 전체 로그인 완료 시간');
 
     try {
+        console.time('[로그인 계측] 1. user 테이블 쿼리 조회 시간');
         const result = await queryTable('user', { filters: { username: trimmedUsername } });
+        console.timeEnd('[로그인 계측] 1. user 테이블 쿼리 조회 시간');
         
         // [성능 개선] 성능 저하를 방지하기 위해 동기식 파일 디스크 쓰기(appendFileSync) 디버그 로깅을 제거합니다.
         // 디버그성 출력은 필요한 경우 콘솔 출력을 사용합니다.
@@ -121,8 +125,9 @@ export async function loginAction(username: string, password?: string) {
         // 비밀번호 검증
         if (user.password && password) {
             console.log(`[AUTH_DEBUG] Verifying password for ${trimmedUsername}`);
-            // [성능 개선 - 비동기 검증] CPU 블로킹 및 프리징을 차단하기 위해 비동기 방식으로 대기합니다.
-            const isValid = await verifyPassword(password, user.password);
+            console.time('[로그인 계측] 2. scrypt 패스워드 검증 시간');
+            const isValid = verifyPassword(password, user.password);
+            console.timeEnd('[로그인 계측] 2. scrypt 패스워드 검증 시간');
             console.log(`[AUTH_DEBUG] Result: ${isValid ? 'SUCCESS' : 'FAILURE'}`);
             
             if (!isValid) {
@@ -133,9 +138,12 @@ export async function loginAction(username: string, password?: string) {
             throw new Error('비밀번호를 입력해 주세요.');
         }
 
-        const cookieStore = await cookies();
-        
+        console.time('[로그인 계측] 3. headers() 및 getIsSecure() RTT 시간');
         const isSecure = await getIsSecure();
+        console.timeEnd('[로그인 계측] 3. headers() 및 getIsSecure() RTT 시간');
+
+        console.time('[로그인 계측] 4. cookies 및 세션 세팅 시간');
+        const cookieStore = await cookies();
         const cookieOptions = {
             httpOnly: true,
             secure: isSecure,
@@ -148,6 +156,10 @@ export async function loginAction(username: string, password?: string) {
 
         cookieStore.set('session_user_id', String(user.id), cookieOptions);
         cookieStore.set('session_user_role', user.role, cookieOptions);
+        console.timeEnd('[로그인 계측] 4. cookies 및 세션 세팅 시간');
+
+        console.timeEnd('[로그인 계측] 0. 전체 로그인 완료 시간');
+        console.log('[로그인 계측 종료]\n');
 
         return { success: true, user };
     } catch (err: any) {

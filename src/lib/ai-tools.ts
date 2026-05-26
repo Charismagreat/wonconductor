@@ -301,17 +301,27 @@ export async function runAITool(name: string, args: any): Promise<any> {
           
           txStats[id] = { count: 0, balance: 0, date: '', timestamp: 0 };
           
-          transactions.forEach((tx: any) => {
+          // 동일한 날짜에 다수 거래 발생 시 최신 잔액이 누락되는 현상을 방지하기 위해 
+          // 1차: 타임스탬프 오름차순, 2차: DB PK ID 오름차순으로 명시적 정렬을 수행합니다.
+          const sortedTransactions = [...transactions].sort((a: any, b: any) => {
+            const tsA = getSafeTimestamp(a);
+            const tsB = getSafeTimestamp(b);
+            if (tsA !== tsB) {
+              return tsA - tsB;
+            }
+            const idA = Number(a.id) || 0;
+            const idB = Number(b.id) || 0;
+            return idA - idB;
+          });
+          
+          sortedTransactions.forEach((tx: any) => {
             txStats[id].count++;
             
             const currentTimestamp = getSafeTimestamp(tx);
-            const lastTimestamp = txStats[id].timestamp;
-            
-            if (!lastTimestamp || currentTimestamp > lastTimestamp) {
-              txStats[id].date = tx.date;
-              txStats[id].balance = tx.balance;
-              txStats[id].timestamp = currentTimestamp;
-            }
+            // 오름차순 정렬되었으므로 루프가 돌면서 가장 최신의 잔액과 날짜가 최종 생존합니다.
+            txStats[id].date = tx.date;
+            txStats[id].balance = tx.balance;
+            txStats[id].timestamp = currentTimestamp;
           });
         } catch (e) {
           console.error(`Failed to fetch transactions for account ${id}:`, e);

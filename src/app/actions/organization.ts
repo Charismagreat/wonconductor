@@ -8,7 +8,7 @@ import {
     deleteRows,
     executeSQL
 } from '@/egdesk-helpers';
-import { hashPasswordSync } from './shared';
+import { hashPassword } from './shared';
 import { getSessionAction } from './auth';
 
 /** `queryTable` may return a row array or `{ rows: [...] }` depending on MCP/backend shape. */
@@ -129,7 +129,7 @@ export async function createMemberAction(data: any) {
         ...cleanData,
         departmentId,
         username: data.username || `user_${data.employeeId || Date.now()}`,
-        password: hashPasswordSync('1234'), 
+        password: hashPassword('1234'), 
         isActive: 1,
         createdAt: now,
         __created_at: now,

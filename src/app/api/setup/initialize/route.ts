@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SystemConfigService } from '@/lib/services/system-config-service';
 import { listTables, createTable, queryTable, insertRows } from '@/egdesk-helpers';
-import { hashPasswordSync, SYSTEM_TABLES } from '@/app/actions/shared';
+import { hashPassword, SYSTEM_TABLES } from '@/app/actions/shared';
 
 /**
  * API to initialize the system settings for a new company.
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         const adminRows = Array.isArray(adminResult) ? adminResult : (adminResult?.rows || []);
 
         if (adminRows.length === 0) {
-            const hashed = hashPasswordSync(adminPassword);
+            const hashed = hashPassword(adminPassword);
             await insertRows('user', [{
                 username: adminUsername,
                 password: hashed,
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
             console.log(`[InitializeAPI] Created admin user: ${adminUsername}`);
         } else {
             // Update existing admin if it exists
-            const hashed = hashPasswordSync(adminPassword);
+            const hashed = hashPassword(adminPassword);
             await updateRows('user', { 
                 password: hashed,
                 role: 'ADMIN',

@@ -164,6 +164,13 @@ export class SystemConfigService {
                 }
             } else {
                 console.log(`[SystemConfigService] Table '${table.tableName}' already exists.`);
+                
+                // [성능 최적화] Vercel 서버리스 등 프로덕션 환경에서의 18회 연속 getTableSchema 외부 API RTT 통신 재앙을 방지하기 위해,
+                // 스키마 정밀 정합성(컬럼 누락 점검 및 마이그레이션) 검사는 오직 로컬 개발 환경(development)에서만 수행되도록 가드합니다.
+                if (process.env.NODE_ENV !== 'development') {
+                    continue;
+                }
+
                 // [Self-Healing] 컬럼 누락 체크 (특히 report 테이블의 id 컬럼)
                 try {
                     const schemaRes = await getTableSchema(table.tableName).catch(() => []);

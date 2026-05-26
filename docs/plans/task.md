@@ -13,6 +13,7 @@
 | **Task 7** | `src/app/(dashboard)/DashboardHubClient.tsx` 비동기 패칭 및 프리미엄 스켈레톤 구현 | `done` | 로딩 시 아름다운 펄싱 스켈레톤 카드 띄운 후 실시간 데이터 교체 검증 |
 | **Task 8** | 리액트 로딩 상태 생명주기 불일치 개선 (로그인 성공 시 스피너 강제 종료 버그 교정) | `done` | 로그인 후 페이지가 전환되는 순간까지 로딩 스피너와 글래스모픽 흐림 효과 유지 확인 |
 | **Task 9** | SystemConfigService 자가치유 스키마 검증 캐싱 (ensureSystemTables 1회 스킵 튜닝) | `done` | 로그인 후 대시보드 리다이렉트 진입 시간이 3초에서 0.1초 수준으로 극대화되는지 최종 확인 |
+| **Task 10** | Vercel 프로덕션 18회 연속 API RTT 제거 (테이블 존재 시 스키마 정밀검사 스킵) | `done` | Vercel 환경에서 18회 순차 getTableSchema 호출을 배제하여 2초 병목 최종 해결 |
 
 ---
 * **상세 구현 계획**: [2026-05-26-login-performance-optimization-plan.md](file:///c:/Users/user/Desktop/ExcelToDB/docs/plans/2026-05-26-login-performance-optimization-plan.md)

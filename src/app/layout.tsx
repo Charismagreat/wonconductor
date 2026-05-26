@@ -19,9 +19,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 5,
+  // [데스크톱 전용 강제 전환] 모바일 반응형 감지를 원천 차단하고 PC 규격의 시원한 1280px 가로폭으로 사이트 전체를 고정합니다.
+  width: 1280,
+  initialScale: 0.35, // 모바일 기기 접속 시 컴퓨터용 고해상도 화면 전체가 시원하게 한눈에 들어오도록 기본 축소 배율 적용
+  minimumScale: 0.1,
+  maximumScale: 5.0,  // 터치 기반 줌인/줌아웃(Pinch to Zoom)을 완전히 허용하여 상세 데이터를 자유롭게 볼 수 있게 튜닝
   userScalable: true,
 };
 

@@ -214,8 +214,8 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
             
             {/* Upcoming Schedule Widget (NEW) - 대시보드에서만 표시 */}
             {pathname === '/dashboard' && <UpcomingEventsWidget events={events} />}
-
-            {/* Smart Toolbox (Search & Filters) */}
+ 
+            {/* Smart Toolbox (Search & Filters) - 오리지널 PC 웅장한 패딩 및 라운딩으로 롤백 */}
             <section className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-900/5 space-y-10">
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                 <div className="flex items-center gap-4 shrink-0">

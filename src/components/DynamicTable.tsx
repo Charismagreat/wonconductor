@@ -628,73 +628,80 @@ export function DynamicTable({
           <thead className="bg-slate-50/50">
             <tr>
               {hasBaseEditAuth && (
-                <th className="px-6 py-5 text-left w-12">
+                <th className="px-6 py-5 text-left w-12 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
                   <input type="checkbox" checked={processedData.length > 0 && selectedIds.length === processedData.length} onChange={toggleSelectAll} className="w-5 h-5 rounded border-slate-300 text-blue-600 cursor-pointer transition-all focus:ring-blue-500" />
                 </th>
               )}
-              {localColumns.map((col, idx) => (
-                <th 
-                  key={col.name} 
-                  className={`px-6 py-5 text-left transition-all relative ${isColumnEditMode ? 'bg-blue-50/50 ring-1 ring-inset ring-blue-100' : 'cursor-pointer hover:bg-slate-100/50'}`}
-                  onClick={(e) => {
-                    if (!isColumnEditMode) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleSort(col.name, e.shiftKey);
-                    }
-                  }}
-                >
-                  {isColumnEditMode ? (
-                    <div className="flex flex-col gap-2 min-w-[140px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter opacity-50">{col.name}</span>
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => handleColumnMove(idx, 'left')} 
-                            disabled={idx === 0}
-                            className="p-1 hover:bg-white rounded text-blue-500 disabled:opacity-20 transition-all"
-                          >
-                            <SafeIcon icon={MoveLeft} isMounted={isMounted} size={12} />
-                          </button>
-                          <button 
-                            onClick={() => handleColumnMove(idx, 'right')} 
-                            disabled={idx === localColumns.length - 1}
-                            className="p-1 hover:bg-white rounded text-blue-500 disabled:opacity-20 transition-all"
-                          >
-                            <SafeIcon icon={MoveRight} isMounted={isMounted} size={12} />
-                          </button>
+              {localColumns.map((col, idx) => {
+                const isFirstCol = idx === 0;
+                // [모바일 최적화] 수평 스크롤 시 첫 번째 열이 좌측 체크박스 오프셋만큼 고정되어 흐르게 하는 sticky 클래스 바인딩
+                const stickyClass = isFirstCol 
+                  ? (hasBaseEditAuth ? 'sticky left-[48px] bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.02)]' : 'sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.02)]') 
+                  : '';
+                return (
+                  <th 
+                    key={col.name} 
+                    className={`px-6 py-5 text-left transition-all relative ${stickyClass} ${isColumnEditMode ? 'bg-blue-50/50 ring-1 ring-inset ring-blue-100' : 'cursor-pointer hover:bg-slate-100/50'}`}
+                    onClick={(e) => {
+                      if (!isColumnEditMode) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleSort(col.name, e.shiftKey);
+                      }
+                    }}
+                  >
+                    {isColumnEditMode ? (
+                      <div className="flex flex-col gap-2 min-w-[140px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black text-blue-600 uppercase tracking-tighter opacity-50">{col.name}</span>
+                          <div className="flex items-center gap-1">
+                            <button 
+                              onClick={() => handleColumnMove(idx, 'left')} 
+                              disabled={idx === 0}
+                              className="p-1 hover:bg-white rounded text-blue-500 disabled:opacity-20 transition-all"
+                            >
+                              <SafeIcon icon={MoveLeft} isMounted={isMounted} size={12} />
+                            </button>
+                            <button 
+                              onClick={() => handleColumnMove(idx, 'right')} 
+                              disabled={idx === localColumns.length - 1}
+                              className="p-1 hover:bg-white rounded text-blue-500 disabled:opacity-20 transition-all"
+                            >
+                              <SafeIcon icon={MoveRight} isMounted={isMounted} size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        <input 
+                          type="text" 
+                          value={col.displayName} 
+                          onChange={(e) => handleColumnRename(idx, e.target.value)}
+                          className="w-full bg-white border border-blue-200 rounded-lg px-3 py-1.5 text-[11px] font-black text-blue-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+                          placeholder="표시명 입력"
+                        />
+                      </div>
+                    ) : (
+                      <div 
+                        className={`flex items-center gap-2 text-[11px] font-black uppercase tracking-widest group whitespace-nowrap ${multiSortConfig.some(c => c.key === col.name) ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`}
+                      >
+                        {col.displayName || col.name}
+                        <div className="flex items-center gap-0.5">
+                          {multiSortConfig.map((c, pIdx) => c.key === col.name && (
+                             <div key={pIdx} className="flex items-center gap-0.5">
+                               {c.direction === 'asc' ? <SafeIcon icon={ArrowUp} isMounted={isMounted} size={12} /> : <SafeIcon icon={ArrowDown} isMounted={isMounted} size={12} />}
+                               {multiSortConfig.length > 1 && (
+                                 <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded-sm leading-none">{pIdx + 1}</span>
+                               )}
+                             </div>
+                          ))}
+                          {!multiSortConfig.some(c => c.key === col.name) && (
+                            <SafeIcon icon={ArrowUpDown} isMounted={isMounted} size={12} className="opacity-0 group-hover:opacity-100 transition-all" />
+                          )}
                         </div>
                       </div>
-                      <input 
-                        type="text" 
-                        value={col.displayName} 
-                        onChange={(e) => handleColumnRename(idx, e.target.value)}
-                        className="w-full bg-white border border-blue-200 rounded-lg px-3 py-1.5 text-[11px] font-black text-blue-800 focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
-                        placeholder="표시명 입력"
-                      />
-                    </div>
-                  ) : (
-                    <div 
-                      className={`flex items-center gap-2 text-[11px] font-black uppercase tracking-widest group whitespace-nowrap ${multiSortConfig.some(c => c.key === col.name) ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`}
-                    >
-                      {col.displayName || col.name}
-                      <div className="flex items-center gap-0.5">
-                        {multiSortConfig.map((c, pIdx) => c.key === col.name && (
-                           <div key={pIdx} className="flex items-center gap-0.5">
-                             {c.direction === 'asc' ? <SafeIcon icon={ArrowUp} isMounted={isMounted} size={12} /> : <SafeIcon icon={ArrowDown} isMounted={isMounted} size={12} />}
-                             {multiSortConfig.length > 1 && (
-                               <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded-sm leading-none">{pIdx + 1}</span>
-                             )}
-                           </div>
-                        ))}
-                        {!multiSortConfig.some(c => c.key === col.name) && (
-                          <SafeIcon icon={ArrowUpDown} isMounted={isMounted} size={12} className="opacity-0 group-hover:opacity-100 transition-all" />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </th>
-              ))}
+                    )}
+                  </th>
+                );
+              })}
               {hasBaseEditAuth && <th className="px-6 py-5 text-center text-[11px] font-black uppercase tracking-widest text-slate-400 w-24">Actions</th>}
             </tr>
           </thead>
@@ -702,22 +709,28 @@ export function DynamicTable({
             {paginatedData.map((row, rowIndex) => (
               <tr key={row.id || rowIndex} className={`hover:bg-blue-50/30 transition-colors group ${selectedIds.includes(row.id) ? 'bg-blue-50/50' : ''} ${row.isDeleted ? 'bg-red-50/10 opacity-70' : ''}`}>
                 {hasBaseEditAuth && (
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 sticky left-0 bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)] group-hover:bg-slate-50 transition-colors">
                     {isRowManager(row) && <input type="checkbox" checked={selectedIds.includes(row.id)} onChange={() => toggleSelectRow(row.id)} className="w-5 h-5 rounded border-slate-300 text-blue-600 cursor-pointer transition-all focus:ring-blue-500" />}
                   </td>
                 )}
-                {localColumns.map((col) => {
+                {localColumns.map((col, idx) => {
                   const val = row[col.name];
                   const isEditing = editingRowId === row.id;
+                  const isFirstCol = idx === 0;
+                  // [모바일 최적화] 데이터 행 td 셀에 대한 sticky 좌측 누적 고정 스타일 바인딩
+                  const stickyTdClass = isFirstCol
+                    ? (hasBaseEditAuth ? 'sticky left-[48px] bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)] group-hover:bg-slate-50/80 transition-colors' : 'sticky left-0 bg-white z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)] group-hover:bg-slate-50/80 transition-colors')
+                    : '';
+
                   if (isEditing) {
-                    if (col.isAutoGenerated || (col as any).isSystem) return <td key={col.name} className="px-6 py-4"><span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 uppercase tracking-widest">{row[col.name] || '-'}</span></td>;
-                    return <td key={col.name} className="px-4 py-2"><input type={col.type === 'date' ? 'date' : (col.type === 'number' ? 'number' : 'text')} value={col.type === 'date' && typeof editFormData[col.name] === 'number' ? new Date(Math.round((editFormData[col.name] - 25569) * 86400 * 1000)).toISOString().split('T')[0] : (editFormData[col.name] || '')} onChange={(e) => handleEditChange(col.name, e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all" /></td>;
+                    if (col.isAutoGenerated || (col as any).isSystem) return <td key={col.name} className={`px-6 py-4 ${stickyTdClass}`}><span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 uppercase tracking-widest">{row[col.name] || '-'}</span></td>;
+                    return <td key={col.name} className={`px-4 py-2 ${stickyTdClass}`}><input type={col.type === 'date' ? 'date' : (col.type === 'number' ? 'number' : 'text')} value={col.type === 'date' && typeof editFormData[col.name] === 'number' ? new Date(Math.round((editFormData[col.name] - 25569) * 86400 * 1000)).toISOString().split('T')[0] : (editFormData[col.name] || '')} onChange={(e) => handleEditChange(col.name, e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-700 focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all" /></td>;
                   }
                   
                   let displayValue = val?.toString() || '-';
                   if (col.type === 'boolean') {
                     return (
-                        <td key={col.name} className="px-6 py-4 whitespace-nowrap">
+                        <td key={col.name} className={`px-6 py-4 whitespace-nowrap ${stickyTdClass}`}>
                           {val === 'Yes' ? (
                             <span className="flex items-center gap-1.5 text-blue-600 font-bold text-[10px] bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 uppercase tracking-widest">
                               <SafeIcon icon={CheckCircle2} isMounted={isMounted} size={12} /> YES
@@ -733,12 +746,12 @@ export function DynamicTable({
                   if (col.type === 'currency' || col.type === 'number') {
                     const numericVal = typeof val === 'number' ? val : Number(String(val || '').replace(/[^0-9.-]/g, ''));
                     const displayVal = !isNaN(numericVal) ? numericVal.toLocaleString() : (val || '-');
-                    return <td key={col.name} className="px-6 py-4 text-sm font-black text-slate-900 text-right font-mono tracking-tight">{displayVal}</td>;
+                    return <td key={col.name} className={`px-6 py-4 text-sm font-black text-slate-900 text-right font-mono tracking-tight ${stickyTdClass}`}>{displayVal}</td>;
                   }
-                  if (col.type === 'email' && val) return <td key={col.name} className="px-6 py-4"><a href={`mailto:${val}`} className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors font-black text-xs decoration-2 underline-offset-4"><SafeIcon icon={Mail} isMounted={isMounted} size={12} />{val}</a></td>;
-                  if (col.type === 'phone' && val) return <td key={col.name} className="px-6 py-4 text-slate-900 font-black text-xs"><div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full w-fit"><SafeIcon icon={Phone} isMounted={isMounted} size={12} className="text-blue-500" />{val}</div></td>;
-                  if (col.type === 'textarea' && val) return <td key={col.name} className="px-6 py-4"><div className="flex items-center gap-2 truncate max-w-[200px] text-xs font-medium text-slate-500"><SafeIcon icon={FileText} isMounted={isMounted} size={12} className="text-slate-300" />{val.toString()}</div></td>;
-                  if (col.type === 'file' && val) return <td key={col.name} className="px-6 py-4"><a href={val} target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-50 rounded-xl hover:bg-blue-50 transition-colors inline-block group/file"><SafeIcon icon={Eye} isMounted={isMounted} size={16} className="text-slate-400 group-hover/file:text-blue-500" /></a></td>;
+                  if (col.type === 'email' && val) return <td key={col.name} className={`px-6 py-4 ${stickyTdClass}`}><a href={`mailto:${val}`} className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors font-black text-xs decoration-2 underline-offset-4"><SafeIcon icon={Mail} isMounted={isMounted} size={12} />{val}</a></td>;
+                  if (col.type === 'phone' && val) return <td key={col.name} className={`px-6 py-4 text-slate-900 font-black text-xs ${stickyTdClass}`}><div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full w-fit"><SafeIcon icon={Phone} isMounted={isMounted} size={12} className="text-blue-500" />{val}</div></td>;
+                  if (col.type === 'textarea' && val) return <td key={col.name} className={`px-6 py-4 ${stickyTdClass}`}><div className="flex items-center gap-2 truncate max-w-[200px] text-xs font-medium text-slate-500"><SafeIcon icon={FileText} isMounted={isMounted} size={12} className="text-slate-300" />{val.toString()}</div></td>;
+                  if (col.type === 'file' && val) return <td key={col.name} className={`px-6 py-4 ${stickyTdClass}`}><a href={val} target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-50 rounded-xl hover:bg-blue-50 transition-colors inline-block group/file"><SafeIcon icon={Eye} isMounted={isMounted} size={16} className="text-slate-400 group-hover/file:text-blue-500" /></a></td>;
                   
                   const isSystem = (col as any).isSystem || col.name.startsWith('__');
                   if (isSystem && val) {
@@ -753,10 +766,10 @@ export function DynamicTable({
                               displayValue = val.toString();
                           }
                       }
-                      return <td key={col.name} className="px-6 py-4 text-[10px] font-bold text-slate-400 font-mono whitespace-nowrap">{displayValue}</td>;
+                      return <td key={col.name} className={`px-6 py-4 text-[10px] font-bold text-slate-400 font-mono whitespace-nowrap ${stickyTdClass}`}>{displayValue}</td>;
                   }
 
-                  return <td key={col.name} className={`px-6 py-4 text-xs font-bold ${col.autoPrefix ? 'text-blue-600 font-black' : 'text-slate-700'}`}>{displayValue}</td>;
+                  return <td key={col.name} className={`px-6 py-4 text-xs font-bold ${col.autoPrefix ? 'text-blue-600 font-black' : 'text-slate-700'} ${stickyTdClass}`}>{displayValue}</td>;
                 })}
                 {hasBaseEditAuth && (
                   <td className="px-6 py-4 text-right">

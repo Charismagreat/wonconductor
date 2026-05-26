@@ -26,7 +26,7 @@ import { SyncStatusBadge } from '@/components/SyncStatusBadge';
 import PageHeader from '@/components/PageHeader';
 import { DashboardHubClient } from './DashboardHubClient';
 import { getCalendarEvents } from '@/lib/services/calendar-service';
-import { ROW_COUNT_CACHE, CACHE_TTL_MS } from '@/lib/utils/dashboard-cache';
+import { ROW_COUNT_CACHE, CACHE_TTL_MS, API_RESPONSE_CACHE, API_CACHE_TTL_MS } from '@/lib/utils/dashboard-cache';
 
 export default async function DashboardPage() {
   // 시스템 초기화 여부 체크 (신규 설치 시 /setup으로 유도)
@@ -48,10 +48,25 @@ export default async function DashboardPage() {
   let hometaxStats: any = null;
 
   try {
+    const now = Date.now();
+
+    // [성능 개선] 인메모리 고속 캐시 검증 헬퍼
+    const getCachedOrFetch = async (key: string, fetchFn: () => Promise<any>) => {
+      const cached = API_RESPONSE_CACHE[key];
+      if (cached && (now - cached.timestamp < API_CACHE_TTL_MS)) {
+        console.log(`[서버 캐시] API 캐시 히트 (0ms): ${key}`);
+        return cached.data;
+      }
+      console.log(`[서버 캐시] API 캐시 미스 -> RTT 연산 요청: ${key}`);
+      const data = await fetchFn();
+      API_RESPONSE_CACHE[key] = { data, timestamp: now };
+      return data;
+    };
+
     const [tablesRes, statsRes, hometaxRes] = await Promise.all([
-      listTables(),
-      getOverallStats().catch(() => null),
-      listHometaxConnections().catch(() => null)
+      getCachedOrFetch('listTables', () => listTables().catch(() => null)),
+      getCachedOrFetch('getOverallStats', () => getOverallStats().catch(() => null)),
+      getCachedOrFetch('listHometaxConnections', () => listHometaxConnections().catch(() => null))
     ]);
     systemTables = tablesRes?.tables || [];
     financeStats = statsRes;

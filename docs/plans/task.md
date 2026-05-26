@@ -38,7 +38,21 @@
 | **Task 20** | `NavigationSidebar` 내 드로어 애니메이션 및 X 닫기 버튼 전면 소거 | `done` | 사이드바 드로어 로직 완전 소거 및 접기/펼치기 제어 단추 상시 노출 복구 확인 |
 | **Task 21** | `DashboardHubClient` 모바일 패딩/라운딩 여백 원형(PC 웅장형) 롤백 | `done` | 툴박스 여백(`p-10 rounded-[40px]`) 및 메인 패딩(`px-8 md:px-12`) 완전 복구 검증 |
 
+<br/>
+
+## 📁 모바일 전용 위젯 "모아보기" 및 링크 보관함 진행 상황 (Mobile Widget MoaView)
+
+| Task ID | Description | Status | Verification |
+| :--- | :--- | :--- | :--- |
+| **Task 22** | `GalleryClient` 모바일 모아보기용 `isMoaMode`, `savedLinks` 상태 및 보관함 UI 탑재 | `done` | 대시보드 상단에 로컬스토리지 영구 적재된 모아보기 별칭 칩 목록 보관함 정상 노출 확인 |
+| **Task 23** | `GalleryClient` 개별 차트 카드 위에 동적 토글 선택 체크박스 오버레이 탑재 | `done` | 모아보기 클릭 시 카드를 가리지 않는 둥근 세련된 체크박스 페이드인 연동 및 선택 검증 |
+| **Task 24** | 모바일 링크 생성 플로팅 컨트롤러 및 별칭 입력 prompt 기반 클립보드 복사 로직 | `done` | 콤마로 묶인 charts 쿼리 스트링 URL 자동 생성, 별칭 저장 및 복사 얼럿 성공 확인 |
+| **Task 25** | `dashboard/page.tsx` 내 '새 차트 만들기' 단추를 '모아보기'로 최종 교체 피벗 | `done` | 대시보드 메인 헤더에서 새 차트 만들기 버튼을 갤러리 내부의 모아보기 툴바로 대체 연동 완료 |
+| **Task 26** | `/share/[type]` 라우트 내 모아보기 분기 신설 및 모바일 뷰포트 강제 Override 이식 | `done` | 모바일 전용 뷰포트 강제 동적 Override 및 /share/moaview?charts=... 라우트 연동 렌더링 확인 |
+
 ---
+* **모아보기 설계서**: [2026-05-26-moaview-widgets-design.md](file:///C:/Users/user/.gemini/antigravity/brain/8af27f94-ccf5-4aa7-b52f-98046398c226/2026-05-26-moaview-widgets-design.md)
+* **모아보기 구현계획**: [2026-05-26-moaview-widgets-plan.md](file:///c:/Users/user/Desktop/ExcelToDB/docs/plans/2026-05-26-moaview-widgets-plan.md)
 * **데스크톱 고정 설계서**: [2026-05-26-mobile-friendly-dashboard-design.md](file:///C:/Users/user/.gemini/antigravity/brain/8af27f94-ccf5-4aa7-b52f-98046398c226/2026-05-26-mobile-friendly-dashboard-design.md)
 * **데스크톱 고정 구현계획**: [2026-05-26-mobile-friendly-dashboard-plan.md](file:///c:/Users/user/Desktop/ExcelToDB/docs/plans/2026-05-26-mobile-friendly-dashboard-plan.md)
 * **로그인 구현 계획**: [2026-05-26-login-performance-optimization-plan.md](file:///c:/Users/user/Desktop/ExcelToDB/docs/plans/2026-05-26-login-performance-optimization-plan.md)

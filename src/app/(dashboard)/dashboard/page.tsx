@@ -2,7 +2,7 @@ import React from 'react';
 import { getSessionAction } from '@/app/actions/auth';
 import { getPinnedChartsAction } from '@/app/actions/ai';
 import { redirect } from 'next/navigation';
-import { Sparkles, Plus, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { GalleryClient } from './GalleryClient';
 import PageHeader from '@/components/PageHeader';
@@ -16,16 +16,6 @@ export default async function ReportGalleryPage() {
   // [성능 최적화] 이미 조회 완료된 user.id를 전달하여 중복 세션 API 홉(Hop)을 제거하고 즉시 로드합니다.
   const pinnedCharts = await getPinnedChartsAction(user.id);
 
-  const headerRight = (
-    <Link 
-      href="/dashboard/studio" 
-      className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
-    >
-      <Plus size={18} />
-      새 차트 만들기
-    </Link>
-  );
-
   return (
     <div className="flex-1 overflow-y-auto">
       <main className="max-w-[1600px] mx-auto px-8 md:px-12 pt-6 pb-12">
@@ -33,7 +23,6 @@ export default async function ReportGalleryPage() {
           title="My Dashboard"
           description="분석 스튜디오에서 완성하여 핀으로 고정한 핵심 차트 리포트입니다."
           icon={Sparkles}
-          rightElement={headerRight}
         />
 
         {pinnedCharts.length === 0 ? (

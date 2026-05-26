@@ -6,8 +6,31 @@ import { TemplateRenderer } from '@/components/publishing/TemplateRenderer';
 import { getSessionAction } from '@/app/actions/auth';
 import { notFound, redirect } from 'next/navigation';
 
-export default async function SharedChartPage({ params }: { params: Promise<{ type: string }> }) {
+import { MoaViewClient } from '@/components/mobile/MoaViewClient';
+
+export default async function SharedChartPage({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ type: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { type } = await params;
+  const resolvedSearchParams = await searchParams;
+
+  // [신규 피처] 모바일 전용 모아보기 분기 처리
+  if (type === 'moaview') {
+    const chartsParam = resolvedSearchParams.charts;
+    const chartIds = typeof chartsParam === 'string' ? chartsParam.split(',') : [];
+    
+    // 전체 핀 차트 데이터를 조회한 뒤 요청된 ID에 맞춰 정렬하여 추출합니다.
+    const allCharts = await loadAllPinnedChartsAction();
+    const selectedCharts = chartIds
+      .map(id => allCharts.find((c: any) => String(c.id) === String(id)))
+      .filter(Boolean);
+
+    return <MoaViewClient charts={selectedCharts} />;
+  }
   
   // 1. 우선순위 1: 핀 고정 차트(Shared Insight)에서 매칭 시도
   const allCharts = await loadAllPinnedChartsAction();

@@ -121,7 +121,8 @@ export async function loginAction(username: string, password?: string) {
         // 비밀번호 검증
         if (user.password && password) {
             console.log(`[AUTH_DEBUG] Verifying password for ${trimmedUsername}`);
-            const isValid = verifyPassword(password, user.password);
+            // [성능 개선 - 비동기 검증] CPU 블로킹 및 프리징을 차단하기 위해 비동기 방식으로 대기합니다.
+            const isValid = await verifyPassword(password, user.password);
             console.log(`[AUTH_DEBUG] Result: ${isValid ? 'SUCCESS' : 'FAILURE'}`);
             
             if (!isValid) {

@@ -6,13 +6,48 @@ export const SALT_SIZE = 16;
 export const KEY_LEN = 64;
 
 
-export function hashPassword(password: string): string {
+/**
+ * [성능 최적화 - 비동기] 비밀번호를 비동기 프로미스 기반으로 안전하게 해싱하여 CPU 블로킹을 차단합니다.
+ */
+export function hashPassword(password: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const salt = crypto.randomBytes(SALT_SIZE).toString('hex');
+        crypto.scrypt(password, salt, KEY_LEN, (err, derivedKey) => {
+            if (err) return reject(err);
+            resolve(`${salt}:${derivedKey.toString('hex')}`);
+        });
+    });
+}
+
+/**
+ * [성능 최적화 - 비동기] 비밀번호를 비동기 방식으로 안전하게 검증하여 웹서버 스레드 락을 해제합니다.
+ */
+export function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        if (!storedHash) return resolve(false);
+        const parts = storedHash.split(':');
+        if (parts.length !== 2) return resolve(false);
+        const [salt, hash] = parts;
+        crypto.scrypt(password, salt, KEY_LEN, (err, derivedKey) => {
+            if (err) return reject(err);
+            resolve(derivedKey.toString('hex') === hash);
+        });
+    });
+}
+
+/**
+ * [호환성용 - 동기] 기존 동기식 해싱 호환성을 완벽히 보존합니다.
+ */
+export function hashPasswordSync(password: string): string {
     const salt = crypto.randomBytes(SALT_SIZE).toString('hex');
     const derivedKey = crypto.scryptSync(password, salt, KEY_LEN);
     return `${salt}:${derivedKey.toString('hex')}`;
 }
 
-export function verifyPassword(password: string, storedHash: string): boolean {
+/**
+ * [호환성용 - 동기] 기존 동기식 검증 호환성을 완벽히 보존합니다.
+ */
+export function verifyPasswordSync(password: string, storedHash: string): boolean {
     if (!storedHash) return false;
     const parts = storedHash.split(':');
     if (parts.length !== 2) return false;

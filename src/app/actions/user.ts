@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { queryTable, insertRows, updateRows, deleteRows } from '@/egdesk-helpers';
-import { hashPassword } from './shared';
+import { hashPasswordSync } from './shared';
 import { getSessionAction } from './auth';
 import crypto from 'crypto';
 
@@ -70,7 +70,7 @@ export async function updateUserAction(userId: string, data: any) {
         fullName: fullName?.trim(), 
         employeeId: finalEmployeeId, 
         isActive: isActive === undefined ? 1 : (isActive ? 1 : 0),
-        ...(password ? { password: hashPassword(password) } : {})
+        ...(password ? { password: hashPasswordSync(password) } : {})
     }, { filters: { id: String(userId) } });
 
     revalidatePath('/users');
@@ -108,7 +108,7 @@ export async function createUserAction(data: any) {
             fullName: fullName?.trim(), 
             employeeId: finalEmployeeId, 
             isActive: 1,
-            password: password ? hashPassword(password) : undefined,
+            password: password ? hashPasswordSync(password) : undefined,
             createdAt: new Date().toISOString() // 필수 필드 누락 해결
         }]);
         
@@ -195,7 +195,7 @@ export async function bulkCreateUsersAction(usersData: any[]) {
                 fullName: fullName ? String(fullName).trim() : null, 
                 employeeId: finalEmployeeId, 
                 isActive: 1,
-                password: hashPassword(finalPassword)
+                password: hashPasswordSync(finalPassword)
             }]);
             createdCount++;
         } catch (err) {

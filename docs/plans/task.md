@@ -12,6 +12,9 @@
 | **Task 6** | `src/app/(dashboard)/page.tsx` 서버 컴포넌트 경량화 및 비동기 대기 완전 배제 | `done` | 대시보드 접속 시 0.1초 만에 뼈대 렌더링 및 클라이언트 마운트 확인 |
 | **Task 7** | `src/app/(dashboard)/DashboardHubClient.tsx` 비동기 패칭 및 프리미엄 스켈레톤 구현 | `done` | 로딩 시 아름다운 펄싱 스켈레톤 카드 띄운 후 실시간 데이터 교체 검증 |
 | **Task 8** | 로그인 성공 시 로딩 상태 강제 유지 패치 (`setIsLoading(false)` 조기 종료 차단) | `done` | 로그인 버튼 클릭 후 대시보드 진입 시까지 로딩 스피너 끊김 없이 유지 확인 |
+| **Task 9** | `src/app/actions/shared.ts` 비밀번호 해싱/검증 함수 비동기 프로미스화 | `done` | scryptSync 동기 연산을 비동기 scrypt로 전환하여 CPU 프리징 예방 |
+| **Task 10** | `src/app/actions/auth.ts` 내 `loginAction`에 비동기 `await` 검증 적용 | `done` | loginAction 내에서 verifyPassword를 비동기 비차단으로 호출 구조 개정 |
+| **Task 11** | 전체 소스 내 `hashPassword` 및 `verifyPassword` 사용처 병합 검증 | `done` | 회원가입이나 초기 설정 등 연계된 다른 소스 내 비동기 패치 통합 검증 |
 
 ---
 * **상세 구현 계획**: [2026-05-26-login-performance-optimization-plan.md](file:///c:/Users/user/Desktop/ExcelToDB/docs/plans/2026-05-26-login-performance-optimization-plan.md)

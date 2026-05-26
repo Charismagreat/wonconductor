@@ -45,7 +45,7 @@ export function MoaViewClient({ charts }: MoaViewClientProps) {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased flex flex-col font-sans pb-16">
       {/* 차트 리스트 메인 영역 (페이지 대형 헤더를 소거하여 모바일 최상단 밀착 정렬) */}
-      <main className="flex-1 px-3 py-4 flex flex-col gap-6">
+      <main className="flex-1 px-1 py-3 flex flex-col gap-4">
         {charts.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 bg-white rounded-[32px] border border-dashed border-slate-200 text-center py-24 my-auto">
             <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">

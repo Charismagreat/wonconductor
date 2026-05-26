@@ -603,7 +603,7 @@ export function SmartChart({
           <div className="w-full h-full flex flex-col md:flex-row gap-6 items-center relative">
             {/* 좌측 상단 고정 KPI 요약 카드 (모바일일 때는 relative 흐름으로 겹침 방지) */}
             {totalAmount !== 0 && (
-              <div className={`${isMobile ? 'relative w-full mb-4 bg-slate-50' : 'absolute left-2 top-2 bg-slate-50/50'} z-10 p-4 hover:bg-slate-50 border border-slate-100/50 rounded-2xl flex flex-col gap-1 transition-all duration-300`} data-html2canvas-ignore>
+              <div className={`${isMobile ? 'relative w-full mb-3 bg-slate-50' : 'absolute left-2 top-2 bg-slate-50/50'} z-10 ${isMobile ? 'p-3 rounded-xl gap-0.5' : 'p-4 rounded-2xl gap-1'} hover:bg-slate-50 border border-slate-100/50 transition-all duration-300`} data-html2canvas-ignore>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                   <span>
@@ -707,31 +707,12 @@ export function SmartChart({
               </ResponsiveContainer>
 
               {/* 모바일 최적화 커스텀 뱃지형 범례 (Legend) 목록 */}
-              {isMobile && (
-                <div className="w-full flex flex-wrap gap-2 justify-center px-2 py-4 mt-4 border-t border-slate-100 bg-slate-50/50 rounded-2xl" data-html2canvas-ignore>
-                  {pieData.map((entry, idx) => {
-                    const isNegativeAcc = entry._originalValue < 0;
-                    const fillColor = isNegativeAcc ? '#dc2626' : (entry.color || COLORS[idx % COLORS.length]);
-                    const percent = totalSum > 0 ? ((entry[valKey] / totalSum) * 100).toFixed(1) : '0.0';
-                    
-                    return (
-                      <div 
-                        key={idx} 
-                        className="flex items-center gap-1.5 bg-white border border-slate-100 px-2.5 py-1.5 rounded-xl transition-all text-[9px] font-black text-slate-600 shadow-sm"
-                      >
-                        <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: fillColor }} />
-                        <span className="truncate max-w-[100px]">{entry[nameKey]}</span>
-                        <span className="text-blue-600 font-mono">({percent}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {/* 모바일 칩 범례 소거 완료 (미니멀리즘 고도화) */}
             </div>
             
             {/* 우측: 정적 고정 '기타 상세 구성' 패널 */}
             {othersList.length > 0 && showOthersDetails ? (
-              <div className="w-full md:w-72 h-[280px] bg-slate-50/80 border border-slate-100 rounded-3xl p-5 flex flex-col shrink-0 relative animate-in fade-in slide-in-from-right-4" data-html2canvas-ignore>
+              <div className={`w-full md:w-72 h-[280px] bg-slate-50/80 border border-slate-100 ${isMobile ? 'p-3 rounded-2xl' : 'p-5 rounded-3xl'} flex flex-col shrink-0 relative animate-in fade-in slide-in-from-right-4`} data-html2canvas-ignore>
                 {/* 닫기(접기) 버튼 */}
                 <button
                   onClick={() => setShowOthersDetails(false)}
@@ -741,16 +722,16 @@ export function SmartChart({
                   <X size={12} className="stroke-[2.5]" />
                 </button>
 
-                <div className="flex justify-between items-center pb-2 pr-6 mb-3 border-b border-slate-200/50 shrink-0">
+                <div className={`flex justify-between items-center ${isMobile ? 'mb-2 pb-1.5' : 'mb-3 pb-2'} border-b border-slate-200/50 shrink-0`}>
                   <div className="flex items-center gap-1.5">
                     <div className="w-1 h-3 bg-slate-400 rounded-full" />
                     <span className="text-[10px] font-black text-slate-800 uppercase tracking-wider">기타 자금 구성 ({othersList.length})</span>
                   </div>
                   <span className="text-[10px] font-black text-blue-600">총 {othersSum.toLocaleString()}원</span>
                 </div>
-                <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 scrollbar-thin">
+                <div className={`flex-1 overflow-y-auto pr-1 flex flex-col ${isMobile ? 'gap-1.5' : 'gap-3'} scrollbar-thin`}>
                   {othersList.sort((a,b) => (Number(b[valKey]) || 0) - (Number(a[valKey]) || 0)).map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-start text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition-colors py-1.5 border-b border-slate-100 last:border-0">
+                    <div key={idx} className={`flex justify-between items-start text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition-colors ${isMobile ? 'py-1' : 'py-1.5'} border-b border-slate-100 last:border-0`}>
                       <div className="flex flex-col gap-0.5 max-w-[150px]">
                         <span className="truncate text-slate-800 font-bold">{item[nameKey]}</span>
                         {item.관리점 && (
@@ -773,8 +754,8 @@ export function SmartChart({
                 </div>
               </div>
             ) : othersList.length > 0 ? (
-              // 접혔을 때 펼치기 위한 플로팅 캡슐 버튼
-              <div className="absolute right-4 bottom-12 z-20 animate-in fade-in slide-in-from-bottom-2" data-html2canvas-ignore>
+              // 접혔을 때 펼치기 위한 플로팅 캡슐 버튼 (모바일일 때는 relative 흐름으로 도넛 겹침 차단)
+              <div className={`${isMobile ? 'relative mt-4 mx-auto self-center flex shrink-0' : 'absolute right-4 bottom-12'} z-20 animate-in fade-in slide-in-from-bottom-2`} data-html2canvas-ignore>
                 <button
                   onClick={() => setShowOthersDetails(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-full text-[10px] font-black text-slate-500 hover:text-slate-800 transition-all shadow-sm"
@@ -908,7 +889,11 @@ export function SmartChart({
   };
 
   return (
-    <div ref={chartRef} className={`bg-white px-4 md:px-8 py-6 sm:py-8 rounded-[40px] border transition-all duration-300 flex flex-col h-[500px] animate-in fade-in zoom-in duration-500 relative group/card ${
+    <div ref={chartRef} className={`bg-white ${isMobile ? 'px-1.5 py-4' : 'px-8 py-8'} rounded-[40px] border transition-all duration-300 flex flex-col ${
+      isMobile 
+        ? (type === 'pie' ? 'h-auto min-h-[440px]' : 'h-[420px]') 
+        : 'h-[500px]'
+    } animate-in fade-in zoom-in duration-500 relative group/card ${
       isSelected 
       ? 'ring-4 ring-blue-500/20 border-blue-500 shadow-2xl shadow-blue-500/30' 
       : 'border-slate-100 shadow-xl shadow-slate-200/30 hover:shadow-2xl hover:shadow-slate-200/50'
@@ -923,7 +908,7 @@ export function SmartChart({
         </div>
       )}
 
-      <div className="flex items-start justify-between mb-8">
+      <div className={`flex items-start justify-between ${isMobile ? 'mb-4' : 'mb-8'}`}>
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 items-start min-w-0 w-full">
             <div className="flex items-center gap-2 min-w-0">

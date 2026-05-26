@@ -49,7 +49,7 @@
 | **Task 24** | 모바일 링크 생성 플로팅 컨트롤러 및 별칭 입력 prompt 기반 클립보드 복사 로직 | `done` | 콤마로 묶인 charts 쿼리 스트링 URL 자동 생성, 별칭 저장 및 복사 얼럿 성공 확인 |
 | **Task 25** | `dashboard/page.tsx` 내 '새 차트 만들기' 단추를 '모아보기'로 최종 교체 피벗 | `done` | 대시보드 메인 헤더에서 새 차트 만들기 버튼을 갤러리 내부의 모아보기 툴바로 대체 연동 완료 |
 | **Task 26** | `/share/[type]` 라우트 내 모아보기 분기 신설 및 모바일 뷰포트 강제 Override 이식 | `done` | 모바일 전용 뷰포트 강제 동적 Override 및 /share/moaview?charts=... 라우트 연동 렌더링 확인 |
-| **Task 27** | `SmartChart.tsx` 내 PieChart 모바일 가독성 겹침 개선 및 커스텀 뱃지 범례 탑재 | `done` | 모바일 화면 감지(isMobile)를 통한 외곽 라벨 소거, KPI relative 정렬 및 퍼센트 뱃지 범례 최적화 검증 |
+| **Task 27** | `SmartChart.tsx` 내 PieChart 모바일 가독성 겹침 개선 및 커스텀 뱃지 범례 탑재 | `done` | 모바일 화면 감지(isMobile)를 통한 외곽 라벨 소거, KPI relative 정렬, 7.5px 초정밀 라벨, 상세버튼 겹침 개선, 중복 범례 뱃지 소거, Recharts 높이 증발 차단 및 테이블/막대/라인 위젯 모바일 h-[420px] 최소화 락킹 완결 |
 
 ---
 * **모아보기 설계서**: [2026-05-26-moaview-widgets-design.md](file:///C:/Users/user/.gemini/antigravity/brain/8af27f94-ccf5-4aa7-b52f-98046398c226/2026-05-26-moaview-widgets-design.md)

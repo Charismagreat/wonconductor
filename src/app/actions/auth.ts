@@ -99,6 +99,9 @@ export async function loginAction(username: string, password?: string) {
     try {
         const result = await queryTable('user', { filters: { username: trimmedUsername } });
         
+        // [성능 개선] 성능 저하를 방지하기 위해 동기식 파일 디스크 쓰기(appendFileSync) 디버그 로깅을 제거합니다.
+        // 디버그성 출력은 필요한 경우 콘솔 출력을 사용합니다.
+        /*
         try {
             const fs = require('fs');
             const path = require('path');
@@ -106,6 +109,7 @@ export async function loginAction(username: string, password?: string) {
             const debugLog = `[${new Date().toISOString()}] DEBUG: queryTable result for [${trimmedUsername}]: ${JSON.stringify(result)}\n`;
             fs.appendFileSync(logPath, debugLog);
         } catch (e) {}
+        */
 
         const users = Array.isArray(result) ? result : (result?.rows || []);
         const user = users[0];
@@ -146,6 +150,8 @@ export async function loginAction(username: string, password?: string) {
 
         return { success: true, user };
     } catch (err: any) {
+        // [성능 개선] 예외 상황 발생 시 동기 파일 블로킹 방지를 위해 파일 쓰기 대신 표준 console.error를 적극 활용합니다.
+        /*
         try {
             const fs = require('fs');
             const path = require('path');
@@ -155,6 +161,7 @@ export async function loginAction(username: string, password?: string) {
             const logContent = `[${new Date().toISOString()}] Login Error for [${trimmedUsername}]: ${err.message}\nStack: ${err.stack}\n\n`;
             fs.appendFileSync(logPath, logContent);
         } catch (e) {}
+        */
         
         console.error('[LoginAction] Error:', err);
         throw err; // Re-throw to be handled by the UI
@@ -167,6 +174,14 @@ export async function loginAction(username: string, password?: string) {
  */
 export async function logoutAction() {
     const cookieStore = await cookies();
+    const sessionId = cookieStore.get('session_user_id')?.value;
+    const sessionRole = cookieStore.get('session_user_role')?.value;
+
+    // [성능 개선] 활성화된 세션 쿠키가 없다면, 무거운 캐시 무효화 작업을 생략하고 0ms 만에 즉시 조기 반환합니다.
+    if (!sessionId && !sessionRole) {
+        console.log('[서버 디버그] 활성화된 세션 쿠키 없음. 로그아웃 작업을 초고속 스킵합니다.');
+        return { success: true };
+    }
     
     console.log('[SERVER DEBUG] Initiating logout: setting expiration...');
 

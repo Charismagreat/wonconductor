@@ -80,7 +80,12 @@ export default function LoginPage() {
         <div className="bg-white/80 backdrop-blur-xl border border-white shadow-2xl rounded-3xl p-8 overflow-hidden relative group">
           <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-400 via-blue-600 to-indigo-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
-          <form onSubmit={handleLogin} className="space-y-6">
+          {/* [성능 및 UX 개선] 로딩 중에 표시되는 프리미엄 글래스모픽 미세 오버레이 */}
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/20 backdrop-blur-[1px] z-10 animate-in fade-in duration-300" />
+          )}
+          
+          <form onSubmit={handleLogin} className={`space-y-6 transition-all duration-300 ${isLoading ? 'opacity-50 blur-[0.5px]' : ''}`}>
             <div className="space-y-2">
               <label htmlFor="username" className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">
                 Username (ID)
@@ -93,9 +98,10 @@ export default function LoginPage() {
                   id="username"
                   type="text"
                   placeholder="아이디를 입력하세요"
+                  disabled={isLoading}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-gray-700"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1) font-bold text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 />
               </div>
@@ -114,9 +120,10 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   placeholder="비밀번호를 입력하세요"
+                  disabled={isLoading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all font-bold text-gray-700"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all duration-300 cubic-bezier(0.4, 0, 0.2, 1) font-bold text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 />
               </div>

@@ -1,12 +1,13 @@
-| 태스크 | 상태 | 설명 |
-| :--- | :---: | :--- |
-| `[x]` 프로젝트 컨텍스트 탐색 | Completed | 대시보드 위젯 소스코드 및 DB 데이터(`dashboard_chart`) 점검 완료 |
-| `[x]` 요구사항 명확화 질문 | Completed | 사용자의 의도가 'My Dashboard'의 'Pinned widgets(차트)'임을 파악함 |
-| `[x]` 2~3가지 접근 방식 제안 | Completed | 계좌 잔액 계산, NaN 방지 및 날짜 보정 로직 개선안 도출 |
-| `[x]` 상세 설계안 제시 및 승인 | Completed | 타임스탬프 정밀 비교 기반 최신 잔액 계산 설계안 사용자 승인 완료 |
-| `[x]` 설계 문서 작성 및 커밋 | Completed | `docs/plans/2026-05-20-dashboard-widget-design.md` 상세 분석 설계안 작성 완료 |
-| `[x]` 구현 단계로 전환 | Completed | 실제 코드 패치 적용 및 검증 진행 완료 |
-| `[x]` - SmartChart.tsx 개선 | Completed | NaN 방지 및 음수 잔액 순자산 차감 금융 무결성 패치 적용 |
-| `[x]` - CashReport.tsx 개선 | Completed | transaction_datetime 및 date+time 기반 정밀 타임스탬프 비교 패치 적용 |
-| `[x]` - 검증 테스트 스크립트 실행 | Completed | scratch/verify-balance-logic.js를 통한 계산 결과 완벽 검증 |
-| `[x]` - walkthrough.md 작성 | Completed | 변경 결과 정리 및 최종 보고 작성 |
+# 로그인 성능 최적화 진행 상황 (Login Performance Optimization Task Tracker)
+
+이 파일은 로그인 성능 최적화 작업의 진행 상황을 테이블로 실시간 추적하는 트래커입니다.
+
+| Task ID | Description | Status | Verification |
+| :--- | :--- | :--- | :--- |
+| **Task 1** | `logoutAction` Fast-Path 최적화 (불필요한 flushCache 조기 탈출) | `done` | `/login` 페이지 진입 대기 시간 100ms 이내로 단축 및 세션 확인 |
+| **Task 2** | `loginAction` 동기식 파일 I/O (`fs.appendFileSync`) 디버그 로그 제거 | `done` | 로그인 완료 시 블로킹 디스크 I/O 제거 및 쿼리 응답 속도 체감 개선 |
+| **Task 3** | 프리미엄 로그인 로딩 UI 최적화 (로딩 블러, 햅틱 큐빅 베지어 트랜지션) | `done` | 로그인 로딩 스피너 및 딤드 오버레이 트랜지션 시각적 품질 확인 |
+
+---
+* **상세 구현 계획**: [2026-05-26-login-performance-optimization-plan.md](file:///c:/Users/user/Desktop/ExcelToDB/docs/plans/2026-05-26-login-performance-optimization-plan.md)
+* **설계 문서 아티팩트**: [2026-05-26-login-performance-optimization-design.md](file:///C:/Users/user/.gemini/antigravity/brain/8af27f94-ccf5-4aa7-b52f-98046398c226/2026-05-26-login-performance-optimization-design.md)

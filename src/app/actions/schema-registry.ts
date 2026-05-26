@@ -67,6 +67,7 @@ export async function getUnifiedTableSchema(id: string): Promise<any[]> {
       tableId.includes('_ebill_') || 
       tableId.includes('_notes') || 
       tableId.includes('_receivables') ||
+      tableId.includes('_endorsements') ||
       tableId.startsWith('bank-product:')
     ) {
       try {

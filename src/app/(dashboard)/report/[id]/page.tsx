@@ -49,7 +49,7 @@ export default async function ReportDetailPage({
   if (id === 'test-report-id') {
     // 테스트용 목업
     report = { id: 'test-report-id', name: 'Test Database', sheetName: 'Main', columns: '[]', ownerId: 'system' };
-  } else if (id.startsWith('hometax_') || id === 'bank_transactions' || id === 'card_approvals' || id.includes('_transactions') || id.includes('_ebill_') || id.includes('_notes') || id.includes('_receivables') || id.includes('_executions')) {
+  } else if (id.startsWith('hometax_') || id === 'bank_transactions' || id === 'card_approvals' || id.includes('_transactions') || id.includes('_ebill_') || id.includes('_notes') || id.includes('_receivables') || id.includes('_executions') || id.includes('_endorsements')) {
     // 금융/홈택스 특수 뷰
     const { 
         queryTaxInvoices,

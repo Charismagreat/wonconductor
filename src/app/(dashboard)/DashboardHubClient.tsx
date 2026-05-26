@@ -86,7 +86,63 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
   const { processedReports, allTags } = useMemo(() => {
     const tagsSet = new Set<string>();
     
-    const processed = reports.map(r => {
+    // [성능 개선 - 비차단 렌더링 반영] 
+    // 비동기로 가져온 dynamicStats가 존재하는 경우, productTables와 systemTables를 reports 목록에 동적으로 병합합니다.
+    let combinedReports = [...reports];
+    
+    if (dynamicStats) {
+      const { productTables = [], systemTables = [] } = dynamicStats;
+      
+      // 1. 금융 상품 테이블 추가
+      productTables.forEach((t: any) => {
+        combinedReports.push({
+          id: t.slug,
+          name: t.displayName || t.slug,
+          tableName: t.slug,
+          _count: { rows: t.rowCount || 0 },
+          isFinanceTable: true,
+          isSystemTable: true,
+          isReadOnly: true,
+          category: 'Finance'
+        });
+      });
+      
+      // 2. 물리적 시스템 테이블 통합
+      const mappedTableNames = new Set(reports.map((r: any) => r.tableName?.toLowerCase()).filter(Boolean));
+      const mappedSystemTables = systemTables
+        .filter((t: any) => !mappedTableNames.has(t.tableName?.toLowerCase())) // 이미 가상 보고서와 연결된 물리 테이블 제외
+        .map((t: any) => {
+          const tName = t.displayName || t.tableName;
+          const isMaster = tName?.includes('마스터') || t.tableName?.toLowerCase().includes('master');
+          
+          return {
+            id: t.tableName,
+            tableName: t.tableName,
+            name: tName,
+            sheetName: isMaster ? 'Master Data' : 'System Table',
+            _count: { rows: t.rowCount !== null && t.rowCount !== undefined ? t.rowCount : 'N/A' },
+            isSystemTable: !isMaster,
+            ownerId: 'system',
+            isReadOnly: isMaster ? false : (t.tableName === 'user' ? false : true),
+            category: isMaster ? '일반 테이블' : 'System'
+          };
+        });
+      combinedReports = [...combinedReports, ...mappedSystemTables];
+    }
+    
+    // 3. 중복 ID 제거 및 속성 병합 (하드코딩된 보고서와 DB 보고서 간의 충돌 방지)
+    const reportsMap = new Map();
+    combinedReports.forEach(r => {
+      const key = r.id;
+      if (reportsMap.has(key)) {
+        reportsMap.set(key, { ...reportsMap.get(key), ...r });
+      } else {
+        reportsMap.set(key, r);
+      }
+    });
+    const uniqueReports = Array.from(reportsMap.values()) as any[];
+
+    const processed = uniqueReports.map(r => {
       let cat = '일반 테이블';
       const rTags: string[] = [];
 
@@ -101,7 +157,7 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
       // 2. uiConfig 내의 데이터 추출
       if (r.uiConfig) {
         try {
-          const config = JSON.parse(r.uiConfig);
+          const config = typeof r.uiConfig === 'string' ? JSON.parse(r.uiConfig) : r.uiConfig;
           if (config.category && config.category !== 'System' && config.category !== 'Finance' && config.category !== '일반 테이블') {
             rTags.push(config.category);
           } else if (config.category === 'System') cat = '시스템 테이블';
@@ -127,7 +183,7 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
       processedReports: processed,
       allTags: Array.from(tagsSet).sort()
     };
-  }, [reports]);
+  }, [reports, dynamicStats]);
 
   // 카테고리는 고정 4종으로 통일
   const categories = ['전체보기', '시스템 테이블', '금융 테이블', '일반 테이블'];
@@ -225,7 +281,7 @@ export function DashboardHubClient({ user, isStaff, reports, events, financeStat
                   <div className="flex items-center gap-3">
                     <div>
                       <h2 className="text-xl font-black text-slate-900 leading-tight tracking-tight">지능형 탐색</h2>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total {reports.length} tables integrated</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total {processedReports.length} tables integrated</p>
                     </div>
                     {/* Results Badge (Moved from Bottom) */}
                     <div className="px-3 py-1.5 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20 animate-in zoom-in duration-300">

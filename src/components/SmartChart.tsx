@@ -161,6 +161,16 @@ export function SmartChart({
 
   const [localTitle, setLocalTitle] = React.useState(title || '시각화 차트');
   const [localSeriesList, setLocalSeriesList] = React.useState(series || []);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   React.useEffect(() => {
     if (title) {
@@ -591,9 +601,9 @@ export function SmartChart({
         
         return (
           <div className="w-full h-full flex flex-col md:flex-row gap-6 items-center relative">
-            {/* 좌측 상단 고정 KPI 요약 카드 (사용자 지정 레드 서클 위치) */}
+            {/* 좌측 상단 고정 KPI 요약 카드 (모바일일 때는 relative 흐름으로 겹침 방지) */}
             {totalAmount !== 0 && (
-              <div className="absolute left-2 top-2 z-10 p-4 bg-slate-50/50 hover:bg-slate-50 border border-slate-100/50 rounded-2xl flex flex-col gap-1 transition-all duration-300" data-html2canvas-ignore>
+              <div className={`${isMobile ? 'relative w-full mb-4 bg-slate-50' : 'absolute left-2 top-2 bg-slate-50/50'} z-10 p-4 hover:bg-slate-50 border border-slate-100/50 rounded-2xl flex flex-col gap-1 transition-all duration-300`} data-html2canvas-ignore>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
                   <span>
@@ -616,24 +626,48 @@ export function SmartChart({
             )}
             
             {/* 좌측: 도넛 파이 차트 */}
-            <div className="flex-1 w-full h-full min-h-[250px] transition-all duration-300">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+            <div className="flex-1 w-full h-full min-h-[250px] transition-all duration-300 flex flex-col">
+              <ResponsiveContainer width="100%" height={isMobile ? 220 : "100%"}>
+                <PieChart margin={isMobile ? { top: 10, right: 35, left: 35, bottom: 10 } : undefined}>
                   <Pie
                     data={pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={isMobile ? 38 : 60}
+                    outerRadius={isMobile ? 55 : 80}
                     paddingAngle={5}
                     dataKey={valKey}
                     nameKey={nameKey}
-                    label={({ name, payload }) => {
-                      if (payload?._isMinusAccount && payload?.사용가능한도 !== undefined && payload?.사용가능한도 !== null) {
-                        return `${name}\n(${formatValue(payload.사용가능한도)})`;
-                      }
+                    labelLine={isMobile ? { stroke: '#cbd5e1', strokeWidth: 1 } : true}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, value, name, payload }) => {
                       const val = payload?._originalValue !== undefined ? payload._originalValue : payload?.[valKey];
-                      return `${name}\n(${formatValue(val)})`;
+                      if (!isMobile) {
+                        return `${name}\n(${formatValue(val)})`;
+                      }
+                      
+                      // [모바일 전용 초정밀 SVG 라벨 탈출 렌더러]
+                      const RADIAN = Math.PI / 180;
+                      const radius = outerRadius + 8;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      
+                      const shortName = name && name.length > 5 
+                        ? name.slice(0, 5) + '..' 
+                        : name;
+                      const formattedVal = formatValue(val);
+                      
+                      return (
+                        <text 
+                          x={x} 
+                          y={y} 
+                          fill="#475569" 
+                          textAnchor={x > cx ? 'start' : 'end'} 
+                          dominantBaseline="central"
+                          style={{ fontSize: '7.5px', fontWeight: 800, letterSpacing: '-0.03em' }}
+                        >
+                          {`${shortName}(${formattedVal})`}
+                        </text>
+                      );
                     }}
                     isAnimationActive={false} // 리사이징 시 라벨 깜빡임 및 소실 현상 완벽 방지
                   >
@@ -668,9 +702,31 @@ export function SmartChart({
                       return [lines.join(' | '), ''];
                     }}
                   />
-                  <Legend verticalAlign="bottom" height={36}/>
+                  {!isMobile && <Legend verticalAlign="bottom" height={36}/>}
                 </PieChart>
               </ResponsiveContainer>
+
+              {/* 모바일 최적화 커스텀 뱃지형 범례 (Legend) 목록 */}
+              {isMobile && (
+                <div className="w-full flex flex-wrap gap-2 justify-center px-2 py-4 mt-4 border-t border-slate-100 bg-slate-50/50 rounded-2xl" data-html2canvas-ignore>
+                  {pieData.map((entry, idx) => {
+                    const isNegativeAcc = entry._originalValue < 0;
+                    const fillColor = isNegativeAcc ? '#dc2626' : (entry.color || COLORS[idx % COLORS.length]);
+                    const percent = totalSum > 0 ? ((entry[valKey] / totalSum) * 100).toFixed(1) : '0.0';
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className="flex items-center gap-1.5 bg-white border border-slate-100 px-2.5 py-1.5 rounded-xl transition-all text-[9px] font-black text-slate-600 shadow-sm"
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: fillColor }} />
+                        <span className="truncate max-w-[100px]">{entry[nameKey]}</span>
+                        <span className="text-blue-600 font-mono">({percent}%)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             
             {/* 우측: 정적 고정 '기타 상세 구성' 패널 */}
@@ -852,7 +908,7 @@ export function SmartChart({
   };
 
   return (
-    <div ref={chartRef} className={`bg-white p-8 rounded-[40px] border transition-all duration-300 flex flex-col h-[500px] animate-in fade-in zoom-in duration-500 relative group/card ${
+    <div ref={chartRef} className={`bg-white px-4 md:px-8 py-6 sm:py-8 rounded-[40px] border transition-all duration-300 flex flex-col h-[500px] animate-in fade-in zoom-in duration-500 relative group/card ${
       isSelected 
       ? 'ring-4 ring-blue-500/20 border-blue-500 shadow-2xl shadow-blue-500/30' 
       : 'border-slate-100 shadow-xl shadow-slate-200/30 hover:shadow-2xl hover:shadow-slate-200/50'
@@ -869,77 +925,83 @@ export function SmartChart({
 
       <div className="flex items-start justify-between mb-8">
         <div className="flex flex-col gap-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 bg-blue-600 rounded-full" />
-            {isEditingTitle && onConfigChange ? (
-              <input
-                type="text"
-                value={tempTitle}
-                onChange={(e) => setTempTitle(e.target.value)}
-                onBlur={handleTitleSave}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleTitleSave();
-                  if (e.key === 'Escape') {
-                    setTempTitle(localTitle || '시각화 차트');
-                    setIsEditingTitle(false);
-                  }
-                }}
-                autoFocus
-                className="text-sm font-black text-slate-900 border-b border-blue-500 outline-none px-1 py-0.5 max-w-[200px] sm:max-w-[300px]"
-              />
-            ) : (
-              <div className="flex items-center gap-1.5 group/title">
-                <h3 
-                  className={`text-sm font-black text-slate-900 uppercase tracking-widest truncate ${onConfigChange ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
-                  onClick={() => onConfigChange && setIsEditingTitle(true)}
-                  title={onConfigChange ? "클릭하여 제목 수정" : undefined}
-                >
-                  {localTitle}
-                </h3>
-                {onConfigChange && (
-                  <span 
-                    onClick={() => setIsEditingTitle(true)} 
-                    className="opacity-0 group-hover/title:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 rounded transition-all cursor-pointer"
-                    title="제목 수정"
-                    data-html2canvas-ignore
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 items-start min-w-0 w-full">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 bg-blue-600 rounded-full shrink-0" />
+              {isEditingTitle && onConfigChange ? (
+                <input
+                  type="text"
+                  value={tempTitle}
+                  onChange={(e) => setTempTitle(e.target.value)}
+                  onBlur={handleTitleSave}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTitleSave();
+                    if (e.key === 'Escape') {
+                      setTempTitle(localTitle || '시각화 차트');
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  autoFocus
+                  className="text-sm font-black text-slate-900 border-b border-blue-500 outline-none px-1 py-0.5 max-w-[200px] sm:max-w-[300px]"
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 group/title min-w-0">
+                  <h3 
+                    className={`text-sm font-black text-slate-900 uppercase tracking-widest truncate ${onConfigChange ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`}
+                    onClick={() => onConfigChange && setIsEditingTitle(true)}
+                    title={onConfigChange ? "클릭하여 제목 수정" : undefined}
                   >
-                    <Palette size={10} className="w-2.5 h-2.5 rotate-45" />
-                  </span>
-                )}
-              </div>
-            )}
+                    {localTitle}
+                  </h3>
+                  {onConfigChange && (
+                    <span 
+                      onClick={() => setIsEditingTitle(true)} 
+                      className="opacity-0 group-hover/title:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 rounded transition-all cursor-pointer"
+                      title="제목 수정"
+                      data-html2canvas-ignore
+                    >
+                      <Palette size={10} className="w-2.5 h-2.5 rotate-45" />
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {sourceDescription && (
+                <div className="relative shrink-0 ml-1">
+                  <button 
+                    onMouseEnter={() => setShowInfo(true)}
+                    onMouseLeave={() => setShowInfo(false)}
+                    className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
+                  >
+                    <Info size={14} />
+                  </button>
+                  {showInfo && (
+                    <div className="absolute left-0 bottom-full mb-2 w-64 p-4 bg-slate-900 text-white text-[11px] font-medium rounded-2xl shadow-xl z-20 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="flex items-center gap-2 mb-2 text-blue-400">
+                        <Clock size={12} />
+                        <span className="font-black uppercase tracking-widest text-[9px]">데이터 추출 로직</span>
+                      </div>
+                      {sourceDescription}
+                      <div className="absolute left-4 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {totalAmount !== 0 && (
-              <span className="shrink-0 px-2.5 py-1 bg-blue-50/80 text-blue-600 font-black text-[10px] rounded-full border border-blue-100/50 tracking-wider flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in duration-300">
+              <span className={`${isMobile ? 'ml-4 mt-0.5 self-start' : 'shrink-0'} px-2.5 py-1 bg-blue-50/80 text-blue-600 font-black text-[10px] rounded-full border border-blue-100/50 tracking-wider flex items-center gap-1.5 shadow-sm animate-in fade-in zoom-in duration-300`}>
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                <span>
+                <span className="text-[9px] sm:text-[10px]">
                   {title.includes('카드') || title.includes('사용') 
                     ? '총 사용액' 
                     : (title.includes('매출') || title.includes('세금계산서') && !title.includes('매입') ? '총 매출액' : 
                        (title.includes('매입') || title.includes('exempt_invoices') ? '총 매입액' : '총 자금'))}
                 </span>
-                <span className="font-mono">{totalAmount.toLocaleString()}원</span>
+                <span className="font-mono text-[10px] text-blue-700 font-black leading-none">
+                  {totalAmount.toLocaleString()}원
+                </span>
               </span>
-            )}
-            {sourceDescription && (
-              <div className="relative">
-                <button 
-                  onMouseEnter={() => setShowInfo(true)}
-                  onMouseLeave={() => setShowInfo(false)}
-                  className="p-1 text-slate-400 hover:text-blue-600 transition-colors"
-                >
-                  <Info size={14} />
-                </button>
-                {showInfo && (
-                  <div className="absolute left-0 bottom-full mb-2 w-64 p-4 bg-slate-900 text-white text-[11px] font-medium rounded-2xl shadow-xl z-20 animate-in fade-in slide-in-from-bottom-2">
-                    <div className="flex items-center gap-2 mb-2 text-blue-400">
-                      <Clock size={12} />
-                      <span className="font-black uppercase tracking-widest text-[9px]">데이터 추출 로직</span>
-                    </div>
-                    {sourceDescription}
-                    <div className="absolute left-4 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900" />
-                  </div>
-                )}
-              </div>
             )}
           </div>
           
@@ -977,7 +1039,7 @@ export function SmartChart({
           )}
         </div>
         
-        <div className="flex items-center gap-2 shrink-0" data-html2canvas-ignore>
+        <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 shrink-0`} data-html2canvas-ignore>
            {isBuildMode ? (
              <button 
                onClick={(e) => {

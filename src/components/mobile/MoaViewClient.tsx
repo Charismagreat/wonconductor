@@ -44,40 +44,8 @@ export function MoaViewClient({ charts }: MoaViewClientProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 antialiased flex flex-col font-sans pb-16">
-      {/* 프리미엄 모바일 최적화 탑 바 헤더 */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-100 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-md shadow-indigo-500/20">
-            <Phone size={18} />
-          </div>
-          <div>
-            <h1 className="text-sm font-black text-slate-900 tracking-tight leading-none">모바일 모아보기 뷰</h1>
-            <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-1">Mobile Dashboard Feed</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider">
-          <Sparkles size={10} />
-          <span>Active</span>
-        </div>
-      </header>
-
-      {/* 모바일 뷰포트 피벗 알림 패널 */}
-      <div className="px-6 pt-6">
-        <div className="bg-indigo-50/50 border border-indigo-100/50 p-4 rounded-3xl flex items-start gap-3">
-          <div className="bg-white p-2 rounded-xl text-indigo-600 shadow-sm shrink-0">
-            <Sparkles size={14} className="animate-spin" style={{ animationDuration: '6s' }} />
-          </div>
-          <div>
-            <h4 className="text-[11px] font-black text-indigo-950 uppercase tracking-wider">스마트폰 뷰포트 자동 적용</h4>
-            <p className="text-[10px] text-indigo-700/80 font-semibold leading-relaxed mt-1">
-              스마트폰 화면에 완벽히 피벗되도록 반응형 메타 뷰포트가 실시간 동적 적용되었습니다.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 차트 리스트 메인 영역 */}
-      <main className="flex-1 px-6 py-6 flex flex-col gap-6">
+      {/* 차트 리스트 메인 영역 (페이지 대형 헤더를 소거하여 모바일 최상단 밀착 정렬) */}
+      <main className="flex-1 px-3 py-4 flex flex-col gap-6">
         {charts.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 bg-white rounded-[32px] border border-dashed border-slate-200 text-center py-24 my-auto">
             <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">

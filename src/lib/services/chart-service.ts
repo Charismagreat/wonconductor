@@ -379,9 +379,16 @@ export async function refreshSingleChartAction(item: ChartConfig): Promise<Chart
         if (item.config.sourceDescription) {
             item.config.sourceDescription = await resolveDynamicDescriptionAction(item.config.sourceDescription, originalArgs);
         }
-        
         const rawData = await runAITool(tool, args);
-        const newData = await mapRefreshedDataAction(rawData, mapping);
+        let newData = await mapRefreshedDataAction(rawData, mapping);
+        
+        // [수동 업로드 계좌 배제] 계좌번호가 MANUALIMPORT인 연동되지 않은 행 강제 필터링
+        if (Array.isArray(newData)) {
+            newData = newData.filter((r: any) => {
+                const accNum = String(r['계좌번호'] || r['accountNumber'] || r['account_number'] || r['_accountNumber'] || '').toUpperCase();
+                return !accNum.includes('MANUALIMPORT');
+            });
+        }
         
         if (newData.length > 0) {
             let finalData = newData;

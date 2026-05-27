@@ -1,6 +1,6 @@
 /**
  * EGDesk User Data Configuration
- * Generated at: 2026-05-27T10:24:21.530Z
+ * Generated at: 2026-05-27T10:58:04.953Z
  *
  * This file contains type-safe definitions for your EGDesk tables.
  */
@@ -32,7 +32,7 @@ export const TABLES = {
   table2: {
     name: 'dashboard_chart',
     displayName: 'Dashboard Chart Widgets',
-    rowCount: 29,
+    rowCount: 31,
     columnCount: 10,
     columns: ['id', 'userId', 'config', 'layout', 'isSample', '__is_deleted', '__deleted_at', 'orderIndex', 'createdAt', 'updatedAt']
   } as TableDefinition,
@@ -151,7 +151,7 @@ export const TABLES = {
   table19: {
     name: 'dashboard_data_history',
     displayName: 'Dashboard Row History',
-    rowCount: 227,
+    rowCount: 231,
     columnCount: 7,
     columns: ['id', 'rowId', 'oldData', 'newData', 'changeType', 'changedById', 'changedAt']
   } as TableDefinition,

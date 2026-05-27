@@ -68,7 +68,13 @@ export default async function ReportDetailPage({
     if (id === 'bank_transactions' || id === 'card_approvals') {
         const { listAccounts } = await import('@/egdesk-helpers');
         const accounts = await listAccounts();
-        const safeAccounts = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+        const rawAccounts = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+        // 수동 업로드 계좌 (9220015683100031 및 MANUALIMPORT)는 실제 financehub DB 계좌가 아니므로 제외
+        const safeAccounts = rawAccounts.filter((acc: any) => {
+            const accNum = String(acc.accountNumber || acc.cardNumber || '').replace(/[^0-9]/g, '');
+            const rawAccNum = String(acc.accountNumber || acc.cardNumber || '').toUpperCase();
+            return accNum !== '9220015683100031' && !rawAccNum.includes('MANUALIMPORT');
+        });
         const transactionMap = new Map();
         
         for (const acc of safeAccounts) {

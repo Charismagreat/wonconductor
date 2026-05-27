@@ -1,8 +1,32 @@
 import { 
-  queryTable, executeSQL, listAccounts, queryBankTransactions, getOverallStats,
+  queryTable, executeSQL, listAccounts as originalListAccounts, queryBankTransactions, getOverallStats,
   queryTaxInvoices, queryTaxExemptInvoices, queryCashReceipts, listTables, listHometaxConnections
 } from "@/egdesk-helpers";
 import { queryCardTransactions, getMonthlySummary, getTransactionStats as getStatistics } from "@/egdesk-helpers";
+
+/**
+ * 수동 업로드된 가상/더미 계좌(계좌번호: 9220015683100031)를 실제 금융 DB 목록에서 차단하는 안전한 래퍼 함수
+ */
+async function listAccounts(options?: any) {
+  const res = await originalListAccounts(options);
+  if (!res) return res;
+  
+  const filterAcc = (acc: any) => {
+    const accNum = String(acc.accountNumber || acc.cardNumber || '').replace(/[^0-9]/g, '');
+    const rawAccNum = String(acc.accountNumber || acc.cardNumber || '').toUpperCase();
+    return accNum !== '9220015683100031' && !rawAccNum.includes('MANUALIMPORT');
+  };
+
+  if (Array.isArray(res)) {
+    return res.filter(filterAcc);
+  } else if (res.accounts && Array.isArray(res.accounts)) {
+    return {
+      ...res,
+      accounts: res.accounts.filter(filterAcc)
+    };
+  }
+  return res;
+}
 
 /**
  * 가드레일 규칙을 데이터에 물리적으로 적용합니다.

@@ -500,6 +500,7 @@ export async function queryBankProductTable(options: {
   orderBy?: { column: string; direction?: 'ASC' | 'DESC' };
   limit?: number;
   offset?: number;
+  latestOnly?: boolean;
 }) {
   return callFinanceHubTool('financehub_query_bank_product_table', options);
 }
@@ -1013,4 +1014,14 @@ export async function createTag(data: {
 /** Delete a tag by ID */
 export async function deleteTag(id: string) {
   return callAICenterTool('ai_center_delete_tag', { id });
+}
+
+/** List all company-wide shared business deadlines from the company calendar (company_calendar table). */
+export async function getCalendarEventsFromAICenter() {
+  return callAICenterTool('ai_center_get_calendar_events', {});
+}
+
+/** Update the status of an operational task. */
+export async function completeTask(taskId: string, status: 'completed' | 'approved' | 'rejected') {
+  return callAICenterTool('ai_center_complete_task', { taskId, status });
 }

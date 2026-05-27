@@ -63,16 +63,15 @@ export async function callUserDataTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
+    'Content-Type': 'application/json'
   };
 
   const isServer = typeof window === 'undefined';
 
   let response: Response;
   if (isServer) {
-    // API 라우트: Node 환경에서는 상대 경로가 유효하지 않으므로 Egdesk API를 직접 호출합니다.
-    let apiUrl =
+    // API routes: call Egdesk directly (relative URL is invalid in Node)
+    const apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -81,12 +80,7 @@ export async function callUserDataTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
-    if (apiUrl && !apiUrl.endsWith('/')) {
-      apiUrl += '/';
-    }
-    const targetUrl = `${apiUrl}user-data/tools/call`.replace(/([^:]\/)\/+/g, "$1");
-    response = await fetch(targetUrl, {
+    response = await fetch(`${apiUrl}/user-data/tools/call`, {
       method: 'POST',
       headers,
       body
@@ -285,15 +279,14 @@ export async function callFinanceHubTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
+    'Content-Type': 'application/json'
   };
 
   const isServer = typeof window === 'undefined';
 
   let response: Response;
   if (isServer) {
-    let apiUrl =
+    const apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -302,12 +295,7 @@ export async function callFinanceHubTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
-    if (apiUrl && !apiUrl.endsWith('/')) {
-      apiUrl += '/';
-    }
-    const targetUrl = `${apiUrl}financehub/tools/call`.replace(/([^:]\/)\/+/g, "$1");
-    response = await fetch(targetUrl, {
+    response = await fetch(`${apiUrl}/financehub/tools/call`, {
       method: 'POST',
       headers,
       body
@@ -532,15 +520,14 @@ export async function callInternalKnowledgeTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
+    'Content-Type': 'application/json'
   };
 
   const isServer = typeof window === 'undefined';
 
   let response: Response;
   if (isServer) {
-    let apiUrl =
+    const apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -549,12 +536,7 @@ export async function callInternalKnowledgeTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
-    if (apiUrl && !apiUrl.endsWith('/')) {
-      apiUrl += '/';
-    }
-    const targetUrl = `${apiUrl}internal-knowledge/tools/call`.replace(/([^:]\/)\/+/g, "$1");
-    response = await fetch(targetUrl, {
+    response = await fetch(`${apiUrl}/internal-knowledge/tools/call`, {
       method: 'POST',
       headers,
       body
@@ -697,15 +679,14 @@ export async function callBrowserRecordingTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
+    'Content-Type': 'application/json'
   };
 
   const isServer = typeof window === 'undefined';
 
   let response: Response;
   if (isServer) {
-    let apiUrl =
+    const apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -714,12 +695,7 @@ export async function callBrowserRecordingTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
-    if (apiUrl && !apiUrl.endsWith('/')) {
-      apiUrl += '/';
-    }
-    const targetUrl = `${apiUrl}browser-recording/tools/call`.replace(/([^:]\/)\/+/g, "$1");
-    response = await fetch(targetUrl, {
+    response = await fetch(`${apiUrl}/browser-recording/tools/call`, {
       method: 'POST',
       headers,
       body
@@ -780,15 +756,14 @@ export async function callAICenterTool(
 ): Promise<any> {
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true'
+    'Content-Type': 'application/json'
   };
 
   const isServer = typeof window === 'undefined';
 
   let response: Response;
   if (isServer) {
-    let apiUrl =
+    const apiUrl =
       (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_EGDESK_API_URL) ||
       EGDESK_CONFIG.apiUrl;
     const apiKey =
@@ -797,12 +772,7 @@ export async function callAICenterTool(
     if (apiKey) {
       headers['X-Api-Key'] = apiKey;
     }
-    // API URL 정규화: 끝에 슬래시(/)가 없으면 추가하여 307 리다이렉트를 방지합니다.
-    if (apiUrl && !apiUrl.endsWith('/')) {
-      apiUrl += '/';
-    }
-    const targetUrl = `${apiUrl}ai-center/tools/call`.replace(/([^:]\/)\/+/g, "$1");
-    response = await fetch(targetUrl, {
+    response = await fetch(`${apiUrl}/ai-center/tools/call`, {
       method: 'POST',
       headers,
       body

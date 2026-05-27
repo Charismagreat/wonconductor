@@ -88,6 +88,7 @@ interface SmartChartProps {
   isBuildSelected?: boolean;
   onBuildSelect?: (selected: boolean) => void;
   onConfigChange?: (config: ChartConfig) => void;
+  showDownloadShare?: boolean;
 }
 
 const COLORS = ['#2563eb', '#6366f1', '#4f46e5', '#4338ca', '#3730a3', '#312e81'];
@@ -130,7 +131,8 @@ export function SmartChart({
   isBuildMode = false,
   isBuildSelected = false,
   onBuildSelect,
-  onConfigChange
+  onConfigChange,
+  showDownloadShare = true
 }: SmartChartProps) {
   // [고도화] 타입 추론 Fallback: AI가 타입을 누락한 경우 데이터 구조를 보고 판단
   let effectiveType = config.type;
@@ -1048,7 +1050,8 @@ export function SmartChart({
           )}
         </div>
         
-        <div className={`${isMobile ? 'hidden' : 'flex'} items-center gap-2 shrink-0`} data-html2canvas-ignore>
+        {/* [수정] 모바일이더라도 새로고침 버튼은 보일 수 있도록 flex로 유지하되 개별 버튼에 모바일 감추기 적용 */}
+        <div className="flex items-center gap-2 shrink-0" data-html2canvas-ignore>
            {isBuildMode ? (
              <button 
                onClick={(e) => {
@@ -1065,20 +1068,24 @@ export function SmartChart({
              </button>
            ) : (
              <>
-               <button 
-                 onClick={handleShare}
-                 className="p-1.5 bg-slate-50 text-slate-400 hover:bg-violet-50 hover:text-violet-600 rounded-xl transition-all"
-                 title="Share Chart Link"
-               >
-                 <Share2 size={14} />
-               </button>
-               <button 
-                 onClick={handleDownloadImage}
-                 className="p-1.5 bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-all"
-                 title="Download as Image (PNG)"
-               >
-                 <Download size={14} />
-               </button>
+               {showDownloadShare && (
+                 <>
+                   <button 
+                     onClick={handleShare}
+                     className={`${isMobile ? 'hidden' : 'p-1.5'} bg-slate-50 text-slate-400 hover:bg-violet-50 hover:text-violet-600 rounded-xl transition-all`}
+                     title="Share Chart Link"
+                   >
+                     <Share2 size={14} />
+                   </button>
+                   <button 
+                     onClick={handleDownloadImage}
+                     className={`${isMobile ? 'hidden' : 'p-1.5'} bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-all`}
+                     title="Download as Image (PNG)"
+                   >
+                     <Download size={14} />
+                   </button>
+                 </>
+               )}
                {onRefresh && (
                  <button 
                    onClick={(e) => {

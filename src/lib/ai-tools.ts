@@ -755,13 +755,27 @@ export async function runAITool(name: string, args: any): Promise<any> {
           
           const filtersArr: any[] = [];
           
+          // 해당 테이블의 스키마 메타데이터 조회
+          const { listBankProductTables } = require('@/egdesk-helpers');
+          const allBankProdTables = await listBankProductTables().catch(() => null);
+          const currentTableMeta = Array.isArray(allBankProdTables)
+            ? allBankProdTables.find((t: any) => t.slug === tableSlug)
+            : (allBankProdTables?.tables || []).find((t: any) => t.slug === tableSlug);
+
           // A. 날짜 필터 (startDate, endDate) 연동
-          // B2B 외상매출금 등 은행 상품 데이터의 실 날짜 컬럼명은 registered_date이다.
-          if (args.startDate) {
-            filtersArr.push({ column: 'registered_date', op: '>=', value: args.startDate });
-          }
-          if (args.endDate) {
-            filtersArr.push({ column: 'registered_date', op: '<=', value: args.endDate });
+          // 각 테이블 스키마에서 실제 존재하는 날짜 컬럼명을 동적으로 추출하여 필터에 매핑
+          const dateColumnCandidates = ['registered_date', 'endorsement_date', 'received_date', 'transaction_date', 'date'];
+          const actualDateColumn = currentTableMeta?.columns
+            ? dateColumnCandidates.find(candidate => currentTableMeta.columns.some((col: any) => col.name === candidate))
+            : 'registered_date'; // 기본 폴백
+
+          if (actualDateColumn) {
+            if (args.startDate) {
+              filtersArr.push({ column: actualDateColumn, op: '>=', value: args.startDate });
+            }
+            if (args.endDate) {
+              filtersArr.push({ column: actualDateColumn, op: '<=', value: args.endDate });
+            }
           }
           
           // B. 추가 조건 필터 객체(args.filters) 연동
@@ -787,22 +801,28 @@ export async function runAITool(name: string, args: any): Promise<any> {
           }
           
           // C. 상태 필터 (status) 연동 및 지능형 Fallback 가드
-          if (args.status) {
-            filtersArr.push({ column: 'status', op: '=', value: args.status });
-          } else if (args.filters && args.filters.status) {
-            // Already handled in loop
-          } else {
-            // [지능형 Fallback 가드] 명시적인 status 필터가 없는 경우,
-            // 대시보드 화면의 오염을 방지하기 위해 기본적으로 '완제' 상태의 과거 어음은 자동 소거하고
-            // 현재 살아 있는 실 어음 건들만 노출하도록 스마트 필터링을 자동 탑재합니다!
-            filtersArr.push({ column: 'status', op: '!=', value: '완제' });
+          const hasStatusColumn = currentTableMeta?.columns?.some((col: any) => col.name === 'status');
+
+          if (hasStatusColumn) {
+            if (args.status) {
+              filtersArr.push({ column: 'status', op: '=', value: args.status });
+            } else if (args.filters && args.filters.status) {
+              // Already handled in loop
+            } else {
+              // [지능형 Fallback 가드] 명시적인 status 필터가 없는 경우,
+              // 대시보드 화면의 오염을 방지하기 위해 기본적으로 '완제' 상태의 과거 어음은 자동 소거하고
+              // 현재 살아 있는 실 어음 건들만 노출하도록 스마트 필터링을 자동 탑재합니다!
+              filtersArr.push({ column: 'status', op: '!=', value: '완제' });
+            }
           }
 
           const productRes = await queryBankProductTable({
             tableSlug,
             filters: filtersArr.length > 0 ? filtersArr : undefined,
             limit: args.limit || 100,
-            offset: args.offset || 0
+            offset: args.offset || 0,
+            // B2B 대출 실행 및 채권 거래에서 동일 식별자 중복 표시를 방지하기 위해 최신 데이터만 조회 옵션 설정
+            latestOnly: tableSlug.includes('b2b') || tableSlug.includes('receivable') || tableSlug.includes('woori') ? true : undefined
           });
           const rows = Array.isArray(productRes) ? productRes : (productRes?.rows || productRes?.transactions || []);
           return await applyGuardrails(args.tableId, rows);

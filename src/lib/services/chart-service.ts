@@ -384,9 +384,81 @@ export async function refreshSingleChartAction(item: ChartConfig): Promise<Chart
         const newData = await mapRefreshedDataAction(rawData, mapping);
         
         if (newData.length > 0) {
+            let finalData = newData;
+            
+            // [지능형 자가 치유] 스튜디오에서 특정 필터(예: 특정 계좌번호만 선택)를 거쳐 핀 고정된 차트의 필터 유실 방지
+            const oldData = item.config.data;
+            if (Array.isArray(oldData) && oldData.length > 0 && newData.length > oldData.length) {
+                // 고유 식별자 컬럼 키 검색 (계좌번호, 카드번호, ID 등)
+                const idKeys = ['계좌번호', 'accountNumber', 'account_number', '_accountNumber', '카드번호', 'cardNumber', 'cardNo', 'id', 'no', '번호', '코드'];
+                const sampleRow = oldData[0];
+                const activeIdKey = idKeys.find(k => sampleRow[k] !== undefined && sampleRow[k] !== null && sampleRow[k] !== '');
+                
+                if (activeIdKey) {
+                    // 원래 핀 고정 데이터에 포함되어 있던 고유 식별자 값 목록 추출 (하이픈 등 기호 차이 제거)
+                    const allowedIds = new Set(
+                        oldData
+                            .map(r => String(r[activeIdKey] || '').replace(/[^a-zA-Z0-9]/g, ''))
+                            .filter(Boolean)
+                    );
+                    
+                    if (allowedIds.size > 0) {
+                        const filtered = newData.filter(r => {
+                            // 실제 계좌 데이터만 매칭하여 필터링 (합계 요약 행은 이 단계에서 분리)
+                            const rVal = String(r[activeIdKey] || '').replace(/[^a-zA-Z0-9]/g, '');
+                            return allowedIds.has(rVal);
+                        });
+                        
+                        if (filtered.length > 0) {
+                            console.log(`[ChartService] Pinned filter preserved for chart ${item.id}. Filtered ${newData.length} -> ${filtered.length} rows using key '${activeIdKey}'.`);
+                            
+                            // 원래 고정(Pinned) 데이터에 존재했던 '합계' 요약 행 탐색 및 추출
+                            const oldTotalRow = oldData.find((r: any) => {
+                                return Object.values(r).some(val => {
+                                    if (typeof val !== 'string') return false;
+                                    const normalized = val.trim().toLowerCase();
+                                    return normalized.includes('합계') || 
+                                           normalized.includes('소계') || 
+                                           normalized.includes('총계') || 
+                                           normalized.includes('누계') || 
+                                           normalized === 'total' || 
+                                           normalized === 'subtotal' || 
+                                           normalized === 'sum';
+                                });
+                            });
+                            
+                            if (oldTotalRow) {
+                                // 금액 필드 키 식별 (잔액, 금액 등)
+                                const keys = Object.keys(filtered[0]);
+                                const amountKey = keys.find(k => /amount|value|금액|잔액|승인금액|출금|입금|공급가액|합계|세액/i.test(k)) || 'value';
+                                
+                                // 새로고침된 최신 계좌 잔액의 총합 실시간 재계산
+                                const newTotalValue = filtered.reduce((sum, r) => {
+                                    const val = typeof r[amountKey] === 'number' 
+                                        ? r[amountKey] 
+                                        : parseFloat(String(r[amountKey] || '0').replace(/[^0-9.-]/g, ''));
+                                    return sum + (isNaN(val) ? 0 : val);
+                                }, 0);
+                                
+                                // 원래 합계 행 구조를 복제하고 금액만 실시간 리프레시
+                                const newTotalRow = {
+                                    ...oldTotalRow,
+                                    [amountKey]: newTotalValue
+                                };
+                                
+                                finalData = [...filtered, newTotalRow];
+                                console.log(`[ChartService] Recalculated total row appended: ${amountKey} = ${newTotalValue}`);
+                            } else {
+                                finalData = filtered;
+                            }
+                        }
+                    }
+                }
+            }
+
             return {
                 ...item,
-                config: { ...item.config, data: newData },
+                config: { ...item.config, data: finalData },
                 refreshedAt: new Date().toISOString()
             };
         }

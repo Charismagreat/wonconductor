@@ -69,6 +69,8 @@ export function MoaViewClient({ charts }: MoaViewClientProps) {
                   isPinned={true}
                   chartId={c.id}
                   layout={{ span: 'full' }} // 모바일에서는 무조건 full-width로 강제 고정
+                  showDownloadShare={false} // 모아보기에서는 다운로드 및 공유 제한
+                  onRefresh={() => window.location.reload()} // 새로고침 시 페이지 갱신
                 />
               </div>
             ))}

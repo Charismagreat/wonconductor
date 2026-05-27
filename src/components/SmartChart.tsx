@@ -640,7 +640,9 @@ export function SmartChart({
                     nameKey={nameKey}
                     labelLine={isMobile ? { stroke: '#cbd5e1', strokeWidth: 1 } : true}
                     label={({ cx, cy, midAngle, innerRadius, outerRadius, value, name, payload }) => {
-                      const val = payload?._originalValue !== undefined ? payload._originalValue : payload?.[valKey];
+                      const val = (payload?._isMinusAccount && payload?.사용가능한도 !== undefined && payload?.사용가능한도 !== null)
+                        ? payload.사용가능한도
+                        : (payload?._originalValue !== undefined ? payload._originalValue : payload?.[valKey]);
                       if (!isMobile) {
                         return `${name}\n(${formatValue(val)})`;
                       }

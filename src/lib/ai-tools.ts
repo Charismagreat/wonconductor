@@ -447,7 +447,9 @@ export async function runAITool(name: string, args: any): Promise<any> {
             사용가능한도: availableLimit,
             관리점: acc.metadata?.branchName || null,
             _bankName: acc.bankName || acc.bankId,
-            _accountNumber: acc.accountNumber
+            _accountNumber: acc.accountNumber,
+            accountType: acc.accountType,
+            isLoan: isLoan
         };
       });
 

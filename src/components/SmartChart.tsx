@@ -286,6 +286,16 @@ export function SmartChart({
 
       if (isTotalRow) return sum; // 합계 요약 행은 뱃지 총합에서 원천 배제!
 
+      // [비즈니스 룰] '은행별 자금 현황' 또는 '계좌 잔액 현황표' 위젯에서 대출 계좌 배제
+      const isExcludedWidget = /은행별\s*자금\s*현황|계좌\s*잔액\s*현황표/i.test(title || localTitle || '');
+      const isLoanAccount = item.accountType === 'loan' || 
+                            item.isLoan === true || 
+                            String(item.계좌명 || item.accountName || item.name || '').includes('대출');
+      
+      if (isExcludedWidget && isLoanAccount) {
+        return sum; // 대출 계좌는 자금 합산에서 제외
+      }
+
       const rawVal = safeParseNumber(item[amountKey]);
       
       // 마이너스 통장 계좌인 경우, 잔액 대신 가용 한도(약정금액 - 사용액)를 합산하여 표시
@@ -384,11 +394,23 @@ export function SmartChart({
     });
 
     // 데이터 중 null/undefined 보완 및 [자가 치유] 차트 시리즈 Key 누락 보정
-    const safeData = filteredData.map(d => {
-      const newRow = { 
-        ...d,
-        [xAxis || '']: d[xAxis || ''] ?? '알 수 없음'
-      };
+    const safeData = filteredData
+      .filter(item => {
+        // [비즈니스 룰] '은행별 자금 현황' 또는 '계좌 잔액 현황표' 위젯에서 대출 계좌 배제
+        const isExcludedWidget = /은행별\s*자금\s*현황|계좌\s*잔액\s*현황표/i.test(title || localTitle || '');
+        const isLoanAccount = item.accountType === 'loan' || 
+                              item.isLoan === true || 
+                              String(item.계좌명 || item.accountName || item.name || '').includes('대출');
+        if (isExcludedWidget && isLoanAccount) {
+          return false; // 해당 위젯에서는 대출 계좌를 시각화 대상에서 배제
+        }
+        return true;
+      })
+      .map(d => {
+        const newRow = { 
+          ...d,
+          [xAxis || '']: d[xAxis || ''] ?? '알 수 없음'
+        };
       
       // 만약 series가 필요로 하는 key가 row에 없고, 
       // 그 대신 value나 공급가액 등의 대표값이 존재한다면, 

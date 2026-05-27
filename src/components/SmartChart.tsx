@@ -872,7 +872,7 @@ export function SmartChart({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data.map((row, i) => (
+                {safeData.map((row, i) => (
                   <tr key={i} className="hover:bg-blue-50/50 transition-colors bg-white/40 group/row">
                     {headers.map(header => {
                       // 지능형 폴백(Fallback): 현재 열(header)에 데이터가 없으면 매핑에서 원본 키를 찾아 시도함

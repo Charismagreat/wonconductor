@@ -106,3 +106,13 @@ AI 에이전트는 앞으로의 대화에서 사용자가 지정한 '대시보�
 
 *   **표준 모델**: `gemini-3-flash-preview`
 *   **주의**: `gemini-1.5-flash`나 `gemini-2.0-flash` 등 표준 Google 모델명을 사용하면 404 에러가 발생할 수 있습니다. 반드시 위 명칭을 준수하세요.
+
+<!-- BEGIN:egdesk-dev-context -->
+## EGDesk Development Context
+
+EGDesk opened this project with the dev server on **port 4000** (http://localhost:4000, coding (dev)).
+Do not assume port 3000. Use port 4000 for local preview and dev commands.
+EGDesk MCP/API runs at http://localhost:8080.
+
+See `.agents/rules/egdesk-dev-context.md` for full details.
+<!-- END:egdesk-dev-context -->

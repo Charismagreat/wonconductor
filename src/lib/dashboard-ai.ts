@@ -40,6 +40,36 @@ const tools: any[] = [
           type: SchemaType.OBJECT,
           properties: {}
         }
+      },
+      {
+        name: "get_finance_dashboard_summary",
+        description: "현재 연결된 모든 은행 계좌의 실시간 잔액 현황, 은행명, 계좌번호, 예금 건수 등의 마스터 정보를 요약하여 표(Table)로 가져옵니다. 종합적인 자산 상황 파악에 유용합니다.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {}
+        }
+      },
+      {
+        name: "get_finance_monthly_summary",
+        description: "최근 수개월 간의 모든 계좌 혹은 특정 계좌/카드의 월별 입출금 및 카드 소비 추이 총액 데이터를 가져옵니다. 금융 데이터의 월별 비교 차트를 그릴 때 사용합니다.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            tableId: { type: SchemaType.STRING, description: "필터링할 금융/카드 테이블 ID (예: 'bank_accounts', 'card_approvals')" },
+            months: { type: SchemaType.NUMBER, description: "조회할 최근 개월 수 (기본 6)" }
+          }
+        }
+      },
+      {
+        name: "get_finance_statistics",
+        description: "지정된 기간 동안의 은행 거래 내역 요약 통계(총 입금액, 총 출금액, 거래 빈도 등) 및 계좌별 통계를 가져옵니다.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            startDate: { type: SchemaType.STRING, description: "시작 날짜 (YYYY-MM-DD)" },
+            endDate: { type: SchemaType.STRING, description: "종료 날짜 (YYYY-MM-DD)" }
+          }
+        }
       }
     ]
   }

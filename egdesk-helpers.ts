@@ -505,6 +505,58 @@ export async function queryBankProductTable(options: {
   return callFinanceHubTool('financehub_query_bank_product_table', options);
 }
 
+/**
+ * Create or update a bank/card account (no credentials).
+ */
+export async function upsertFinanceHubAccount(account: {
+  bankId: string;
+  accountNumber: string;
+  accountName?: string;
+  customerName?: string;
+  balance?: number;
+  availableBalance?: number;
+  currency?: string;
+  accountType?: string;
+  openDate?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return callFinanceHubTool('financehub_upsert_account', account);
+}
+
+/**
+ * Import bank or card transactions (deduplicated). Max 1000 per call.
+ */
+export async function importFinanceHubTransactions(options: {
+  bankId: string;
+  accountData: {
+    accountNumber: string;
+    accountName?: string;
+    customerName?: string;
+    balance?: number;
+    availableBalance?: number;
+    openDate?: string;
+  };
+  transactions: Array<Record<string, unknown>>;
+  syncMetadata: {
+    queryPeriodStart: string;
+    queryPeriodEnd: string;
+    filePath?: string;
+  };
+  isCard?: boolean;
+}) {
+  return callFinanceHubTool('financehub_import_transactions', options);
+}
+
+/**
+ * Upsert rows into a bank-product table (loans, receivables, etc.). Max 500 per call.
+ */
+export async function upsertFinanceHubBankProductRows(options: {
+  tableSlug: string;
+  rows: Array<Record<string, unknown>>;
+}) {
+  return callFinanceHubTool('financehub_upsert_bank_product_rows', options);
+}
+
 // ==========================================
 // INTERNAL KNOWLEDGE / BUSINESS IDENTITY / COMPANY RESEARCH (MCP)
 // ==========================================

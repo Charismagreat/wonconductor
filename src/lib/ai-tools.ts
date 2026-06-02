@@ -395,153 +395,139 @@ export async function runAITool(name: string, args: any): Promise<any> {
         return !bId.includes('card') && !aName.includes('카드');
       });
 
-      // 각 은행 계좌별로 개별 트랜잭션을 안전하게 조회하여 병합 집계 (Promise.all 활용)
+      // 계좌별 거래 내역 및 최신 통계를 취합할 메모리 맵 정의
       const txStats: Record<string, { count: number, balance: number, date: string, timestamp: number }> = {};
-      
-      await Promise.all(validAccounts.map(async (acc: any) => {
+      validAccounts.forEach((acc: any) => {
+        const id = acc.id || acc.accountId;
+        txStats[id] = { count: 0, balance: acc.balance || 0, date: '기록없음', timestamp: 0 };
+      });
+
+      // 1. 일반 예금 계좌를 위한 단 1회의 대용량 일괄 조회 실행 (N+1 병목 완벽 제거!)
+      let allGeneralTransactions: any[] = [];
+      try {
+        console.log('[list_bank_accounts] 일반 예금 계좌 일괄 조회 실행');
+        const txRes = await queryBankTransactions({ limit: 5000 });
+        allGeneralTransactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+      } catch (e: any) {
+        console.error('Failed to batch fetch general bank transactions:', e.message);
+      }
+
+      // 2. 대출 계좌 전용 다이렉트 쿼리 병렬 병합 (대출 원장 유실 대응 로직 보존)
+      const loanAccounts = validAccounts.filter((acc: any) => acc.accountType === 'loan' || String(acc.accountName || '').includes('대출'));
+      const directLoanTransactionsMap: Record<string, any[]> = {};
+
+      await Promise.all(loanAccounts.map(async (acc: any) => {
         const id = acc.id || acc.accountId;
         const cleanAccNum = String(acc.accountNumber || '').replace(/[^0-9]/g, '');
-        const isLoanAcc = acc.accountType === 'loan' || String(acc.accountName || '').includes('대출');
-        
-        let transactions: any[] = [];
-        let fetchedSuccessfully = false;
-
-        // [대출 우선 연동 로직] 대출 계좌인 경우 뱅킹 API를 거치지 않고 다이렉트로 전용 상세 테이블에서 데이터를 Fetch합니다.
-        if (isLoanAcc) {
-          try {
-            const { queryBankProductTable } = require('@/egdesk-helpers');
-            
-            if (String(acc.bankId || acc.bankName).toLowerCase().includes('ibk') || String(acc.bankId || acc.bankName).toLowerCase().includes('기업')) {
-              console.log(`[Loan Link] IBK 대출 계좌(${cleanAccNum}) -> ibk_loan_history 직접 쿼리 실행`);
-              const ibkLoanRes = await queryBankProductTable({ tableSlug: 'ibk_loan_history', limit: 500 });
-              const ibkTxs = Array.isArray(ibkLoanRes) ? ibkLoanRes : (ibkLoanRes?.rows || []);
-              const matchedIbk = ibkTxs.filter((t: any) => {
-                const tNum = String(t.account_number || t.accountNumber || '').replace(/[^0-9]/g, '');
-                return tNum === cleanAccNum || tNum.includes(cleanAccNum) || cleanAccNum.includes(tNum);
-              });
-              if (matchedIbk.length > 0) {
-                transactions = matchedIbk.map((t: any) => ({
-                  id: t.id,
-                  date: t.transaction_date || t.date,
-                  description: t.description,
-                  amount: t.amount,
-                  balance: t.balance,
-                  synced_at: t.synced_at
-                }));
-                fetchedSuccessfully = true;
-              }
-            } else if (String(acc.bankId || acc.bankName).toLowerCase().includes('hana') || String(acc.bankId || acc.bankName).toLowerCase().includes('하나')) {
-              console.log(`[Loan Link] 하나 대출 계좌(${cleanAccNum}) -> hana_loan_history 직접 쿼리 실행`);
-              const hanaLoanRes = await queryBankProductTable({ tableSlug: 'hana_loan_history', limit: 500 });
-              const hanaTxs = Array.isArray(hanaLoanRes) ? hanaLoanRes : (hanaLoanRes?.rows || []);
-              const matchedHana = hanaTxs.filter((t: any) => {
-                const tNum = String(t.account_number || t.accountNumber || '').replace(/[^0-9]/g, '');
-                return tNum === cleanAccNum || tNum.includes(cleanAccNum) || cleanAccNum.includes(tNum);
-              });
-              if (matchedHana.length > 0) {
-                transactions = matchedHana.map((t: any) => ({
-                  id: t.id,
-                  date: t.transaction_date || t.date,
-                  description: t.description,
-                  amount: t.amount,
-                  balance: t.balance,
-                  synced_at: t.synced_at
-                }));
-                fetchedSuccessfully = true;
-              }
-            }
-          } catch (e: any) {
-            console.error(`Failed to scan direct loan history for ${cleanAccNum}:`, e.message);
-          }
-        }
-
-        // 대출 계좌가 아니거나, 혹은 대출 전용 테이블에서 데이터를 찾지 못한 경우 일반 금융 거래 조회를 수행합니다.
-        if (!fetchedSuccessfully) {
-          try {
-            // 계좌 ID를 명시적으로 전달하므로 타 계좌에 영향받지 않고 최대 1000건까지 거래를 완전히 수집함
-            const txRes = await queryBankTransactions({ accountId: id, limit: 1000 }).catch(() => null);
-            transactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
-          } catch (e: any) {
-            console.error(`Failed to fetch standard transactions for account ${id}:`, e.message);
-          }
-        }
-
         try {
-          txStats[id] = { count: 0, balance: 0, date: '', timestamp: 0 };
+          const { queryBankProductTable } = require('@/egdesk-helpers');
+          let directTxs: any[] = [];
           
-          // 동일한 날짜에 다수 거래 발생 시 최신 잔액이 누락되는 현상을 방지하기 위해 
-          // 1차: 타임스탬프 오름차순, 2차: DB PK ID 오름차순으로 명시적 정렬을 수행합니다.
-          const sortedTransactions = [...transactions].sort((a: any, b: any) => {
-            const tsA = getSafeTimestamp(a);
-            const tsB = getSafeTimestamp(b);
-            if (tsA !== tsB) {
-              return tsA - tsB;
-            }
-            const idA = Number(a.id) || 0;
-            const idB = Number(b.id) || 0;
-            return idA - idB;
-          });
-          
-          let runningBalance = 0; // 대출 계좌의 공란 잔액 복구용 러닝 밸런스
-          sortedTransactions.forEach((tx: any) => {
-            // [비즈니스 룰 반영] '기간연장' 등 실질적 입출금이 없는 거래는 최종 잔액 갱신 및 카운트에서 배제합니다.
-            const desc = String(tx.description || '');
-            if (desc.includes('기간연장')) {
-              return;
-            }
+          if (String(acc.bankId || acc.bankName).toLowerCase().includes('ibk') || String(acc.bankId || acc.bankName).toLowerCase().includes('기업')) {
+            const ibkLoanRes = await queryBankProductTable({ tableSlug: 'ibk_loan_history', limit: 500 }).catch(() => null);
+            const ibkTxs = Array.isArray(ibkLoanRes) ? ibkLoanRes : (ibkLoanRes?.rows || []);
+            directTxs = ibkTxs.filter((t: any) => {
+              const tNum = String(t.account_number || t.accountNumber || '').replace(/[^0-9]/g, '');
+              return tNum === cleanAccNum || tNum.includes(cleanAccNum) || cleanAccNum.includes(tNum);
+            });
+          } else if (String(acc.bankId || acc.bankName).toLowerCase().includes('hana') || String(acc.bankId || acc.bankName).toLowerCase().includes('하나')) {
+            const hanaLoanRes = await queryBankProductTable({ tableSlug: 'hana_loan_history', limit: 500 }).catch(() => null);
+            const hanaTxs = Array.isArray(hanaLoanRes) ? hanaLoanRes : (hanaLoanRes?.rows || []);
+            directTxs = hanaTxs.filter((t: any) => {
+              const tNum = String(t.account_number || t.accountNumber || '').replace(/[^0-9]/g, '');
+              return tNum === cleanAccNum || tNum.includes(cleanAccNum) || cleanAccNum.includes(tNum);
+            });
+          }
 
-            txStats[id].count++;
-            
-            const currentTimestamp = getSafeTimestamp(tx);
-            txStats[id].date = tx.date;
-            
-            // [지능형 대출 잔액 복원] 원장에 balance가 null(공란)인 경우 대출 실행(-) 및 상환(+) 트랜잭션을 역추적하여 실 잔액을 복구합니다.
-            if (tx.balance !== undefined && tx.balance !== null) {
-              txStats[id].balance = Number(tx.balance) || 0;
-              runningBalance = txStats[id].balance;
-            } else if (acc.accountType === 'loan' || String(acc.accountName).includes('대출')) {
-              const amount = Number(tx.amount) || 0;
-              if (desc.includes('실행')) {
-                runningBalance -= amount; // 대출 실행액 만큼 부채 증가
-              } else if (desc.includes('상환')) {
-                runningBalance += amount; // 대출 상환액 만큼 부채 차감
-              }
-              txStats[id].balance = runningBalance;
-            }
-            
-            txStats[id].timestamp = currentTimestamp;
-          });
-        } catch (e) {
-          console.error(`Failed to fetch transactions for account ${id}:`, e);
-          txStats[id] = { count: 0, balance: acc.balance || 0, date: '조회오류', timestamp: 0 };
+          if (directTxs.length > 0) {
+            directLoanTransactionsMap[id] = directTxs.map((t: any) => ({
+              id: t.id,
+              date: t.transaction_date || t.date,
+              description: t.description,
+              amount: t.amount,
+              balance: t.balance,
+              synced_at: t.synced_at,
+              accountId: id
+            }));
+          }
+        } catch (e: any) {
+          console.error(`Failed direct loan scan for account ${cleanAccNum}:`, e.message);
         }
       }));
+
+      // 3. 계좌별 트랜잭션 집계 및 최신 데이터 취합 (메모리 상에서 안전한 병합 처리)
+      validAccounts.forEach((acc: any) => {
+        const id = acc.id || acc.accountId;
+        
+        // 대출 전용 직접 테이블에서 조회 성공했다면 그 데이터를 쓰고, 아니면 일괄 조회된 전체 내역에서 필터링
+        let transactions = directLoanTransactionsMap[id] || allGeneralTransactions.filter((t: any) => t.accountId === id);
+
+        // 동일한 날짜에 다수 거래 발생 시 최신 잔액 정합성 매핑 정렬 규칙 보존
+        const sortedTransactions = [...transactions].sort((a: any, b: any) => {
+          const tsA = getSafeTimestamp(a);
+          const tsB = getSafeTimestamp(b);
+          if (tsA !== tsB) {
+            return tsA - tsB;
+          }
+          const idA = Number(a.id) || 0;
+          const idB = Number(b.id) || 0;
+          return idA - idB;
+        });
+
+        let runningBalance = 0; // 대출 계좌의 공란 잔액 복구용 러닝 밸런스
+        sortedTransactions.forEach((tx: any) => {
+          // '기간연장' 등 입출금 없는 거래 필터링 규칙 보존
+          const desc = String(tx.description || '');
+          if (desc.includes('기간연장')) {
+            return;
+          }
+
+          txStats[id].count++;
+          const currentTimestamp = getSafeTimestamp(tx);
+          txStats[id].date = tx.date;
+
+          // 지능형 대출/예금 잔액 복원 및 부채 전환 규칙 보존
+          if (tx.balance !== undefined && tx.balance !== null) {
+            txStats[id].balance = Number(tx.balance) || 0;
+            runningBalance = txStats[id].balance;
+          } else if (acc.accountType === 'loan' || String(acc.accountName).includes('대출')) {
+            const amount = Number(tx.amount) || 0;
+            if (desc.includes('실행')) {
+              runningBalance -= amount;
+            } else if (desc.includes('상환')) {
+              runningBalance += amount;
+            }
+            txStats[id].balance = runningBalance;
+          }
+          
+          txStats[id].timestamp = currentTimestamp;
+        });
+      });
 
       const integratedRows = validAccounts.map((acc: any) => {
         const id = acc.id || acc.accountId;
         const stat = txStats[id];
         let balance = stat?.balance !== undefined ? stat.balance : (acc.balance || 0);
         
-        // [비즈니스 룰] 대출계좌(loan)인 경우 잔액을 부채 성격(음수)으로 전환하여 올바른 전체 부채 합산이 가능하도록 보정합니다.
+        // 대출 계좌 음수 보정 규칙 보존
         const isLoan = acc.accountType === 'loan' || String(acc.accountName).includes('대출');
         if (isLoan && balance > 0) {
           balance = -balance;
         }
 
-        // 약정금액 및 사용가능한도 파싱 (마이너스 통장/대출 전용 메타데이터)
+        // 약정금액 및 사용가능한도 계산 보존
         const rawContract = acc.metadata?.contractAmount || acc.metadata?.payableAmount || acc.limit || acc.metadata?.limit || '';
         const contractAmount = rawContract
           ? Number(String(rawContract).replace(/[^0-9.-]/g, '')) 
           : null;
         
-        // 사용가능한도 계산 (마이너스 부채 상태에서 약정한도가 합산되므로 availableLimit = contractAmount + balance 로 가용한도가 나옴)
         const availableLimit = contractAmount !== null 
           ? contractAmount + balance 
           : null;
 
         return {
             id: id,
-            일자: stat?.date || '기록없음',
+            일자: stat?.date !== '기록없음' ? (stat?.date || '기록없음') : '기록없음',
             은행명: acc.bankName || acc.bankId,
             계좌번호: acc.accountNumber,
             계좌명: acc.accountName || '일반계좌',
@@ -557,7 +543,7 @@ export async function runAITool(name: string, args: any): Promise<any> {
         };
       });
 
-      // 거래가 1건이라도 있거나, 잔액이 0이 아니거나, 약정금액(대출한도)이 설정된 계좌를 반환
+      // 거래가 1건이라도 있거나, 잔액이 0이 아니거나, 약정금액(대출한도)이 설정된 활성 계좌 반환 보존
       result = integratedRows
         .filter((acc: any) => acc.거래건수 > 0 || acc.잔액 !== 0 || (acc.약정금액 !== null && acc.약정금액 !== undefined && acc.약정금액 !== 0))
         .sort((a: any, b: any) => (b.잔액 as number) - (a.잔액 as number));
@@ -1084,6 +1070,101 @@ export async function runAITool(name: string, args: any): Promise<any> {
         } else {
           return await runAITool('query_workspace_table', { tableId, limit: limit || 100, offset: offset || 0, startDate, endDate });
         }
+      }
+    }
+    case "get_bills_and_loans_summary": {
+      try {
+        const { queryBankProductTable } = require("@/egdesk-helpers");
+        
+        // 오늘 날짜 추출 (Asia/Seoul 기준 2026-06-01 또는 로컬 실시간 날짜)
+        const getKstToday = () => {
+          const d = new Date();
+          const kstStr = d.toLocaleString('en-US', { timeZone: 'Asia/Seoul' });
+          const kstDate = new Date(kstStr);
+          const year = kstDate.getFullYear();
+          const month = String(kstDate.getMonth() + 1).padStart(2, '0');
+          const date = String(kstDate.getDate()).padStart(2, '0');
+          return `${year}-${month}-${date}`;
+        };
+        const kstToday = getKstToday();
+        console.log(`[get_bills_and_loans_summary] 오늘 날짜 기준: ${kstToday}`);
+
+        // 3개 테이블에서 넉넉하게 500건씩 조회
+        const [ibkReceivablesRes, wooriLoansRes, ibkEndorsementsRes] = await Promise.all([
+          queryBankProductTable({ tableSlug: 'ibk_b2b_receivables', limit: 500 }).catch(() => ({ rows: [] })),
+          queryBankProductTable({ tableSlug: 'woori_b2b_loan_executions', limit: 500 }).catch(() => ({ rows: [] })),
+          queryBankProductTable({ tableSlug: 'ibk_endorsements', limit: 500 }).catch(() => ({ rows: [] }))
+        ]);
+
+        const ibkReceivables = ibkReceivablesRes.rows || [];
+        const wooriLoans = wooriLoansRes.rows || [];
+        const ibkEndorsements = ibkEndorsementsRes.rows || [];
+
+        const merged: any[] = [];
+
+        // 1. IBK 외상매출채권 (받을어음) -> status !== '완제' & status === '활동' & maturity_date >= 오늘
+        ibkReceivables.forEach((r: any) => {
+          const status = String(r.status || '').trim();
+          const matDate = r.maturity_date || '';
+          if (status !== '완제' && status === '활동' && matDate >= kstToday) {
+            merged.push({
+              maturity_date: matDate,
+              bank_name: "IBK기업은행",
+              customer_name: r.buyer_name || '-',
+              amount: Number(r.receivable_amount) || 0
+            });
+          }
+        });
+
+        // 2. Woori B2B대출 실행내역 -> status !== '완제' & receivable_maturity_date >= 오늘
+        wooriLoans.forEach((r: any) => {
+          const status = String(r.status || '').trim();
+          const matDate = r.receivable_maturity_date || r.loan_maturity_date || '';
+          if (status !== '완제' && matDate >= kstToday) {
+            merged.push({
+              maturity_date: matDate,
+              bank_name: "우리은행",
+              customer_name: r.vendor || '-',
+              amount: Number(r.applied_amount) || 0
+            });
+          }
+        });
+
+        // 3. IBK 배서내역 (배서어음) -> status === '유통중' & status !== '지급필' & maturity_date >= 오늘
+        ibkEndorsements.forEach((r: any) => {
+          const status = String(r.status || '').trim();
+          const matDate = r.maturity_date || '';
+          if (status === '유통중' && status !== '지급필' && matDate >= kstToday) {
+            merged.push({
+              maturity_date: matDate,
+              bank_name: "IBK기업은행",
+              customer_name: r.issuer_name || '-', // 배서어음의 거래처는 이전 캐시와 같이 발행인(issuer_name)을 표기
+              amount: Number(r.endorsement_amount) || 0
+            });
+          }
+        });
+
+        // 만기일 오름차순(ASC) 정렬
+        merged.sort((a, b) => a.maturity_date.localeCompare(b.maturity_date));
+
+        // 합계 금액 계산
+        const totalAmount = merged.reduce((sum, item) => sum + item.amount, 0);
+
+        // 총 합계 요약 행 생성 및 추가
+        const totalRow = {
+          maturity_date: "총 합계",
+          bank_name: "",
+          customer_name: "",
+          amount: totalAmount
+        };
+
+        const resultData = [...merged, totalRow];
+        console.log(`[get_bills_and_loans_summary] 병합 완료: 총 ${merged.length}건, 합계: ${totalAmount}원`);
+        
+        return resultData;
+      } catch (error: any) {
+        console.error('[get_bills_and_loans_summary] 에러 발생:', error.message);
+        return [];
       }
     }
     default:

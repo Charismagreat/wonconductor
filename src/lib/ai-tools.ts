@@ -4,6 +4,13 @@ import {
 } from "@/egdesk-helpers";
 import { queryCardTransactions, getMonthlySummary, getTransactionStats as getStatistics } from "@/egdesk-helpers";
 
+// 대시보드 및 복수 차트 동시 리프레시 시 쿼리 폭주를 차단하기 위한 서버 사이드 인메모리 캐시 (TTL: 30초)
+let bankAccountsCache: { data: any; timestamp: number } | null = null;
+let generalTransactionsCache: { data: any; timestamp: number } | null = null;
+let cardAccountsCache: { data: any; timestamp: number } | null = null;
+
+const CACHE_TTL_MS = 30 * 1000; // 30초 유효
+
 /**
  * 수동 업로드된 가상/더미 계좌(계좌번호: 9220015683100031)를 실제 금융 DB 목록에서 차단하는 안전한 래퍼 함수
  */
@@ -386,6 +393,12 @@ export async function runAITool(name: string, args: any): Promise<any> {
       return stats;
     }
     case "list_bank_accounts": {
+      const now = Date.now();
+      if (bankAccountsCache && (now - bankAccountsCache.timestamp < CACHE_TTL_MS)) {
+        console.log('[list_bank_accounts] 인메모리 캐시 반환 (API 호출 0회)');
+        return bankAccountsCache.data;
+      }
+
       const accRes = await listAccounts();
       const accounts = Array.isArray(accRes) ? accRes : (accRes?.accounts || []);
       
@@ -405,9 +418,15 @@ export async function runAITool(name: string, args: any): Promise<any> {
       // 1. 일반 예금 계좌를 위한 단 1회의 대용량 일괄 조회 실행 (N+1 병목 완벽 제거!)
       let allGeneralTransactions: any[] = [];
       try {
-        console.log('[list_bank_accounts] 일반 예금 계좌 일괄 조회 실행');
-        const txRes = await queryBankTransactions({ limit: 5000 });
-        allGeneralTransactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+        if (generalTransactionsCache && (now - generalTransactionsCache.timestamp < CACHE_TTL_MS)) {
+          console.log('[list_bank_accounts] 일반 예금 거래 내역 인메모리 캐시 사용');
+          allGeneralTransactions = generalTransactionsCache.data;
+        } else {
+          console.log('[list_bank_accounts] 일반 예금 계좌 일괄 조회 실행');
+          const txRes = await queryBankTransactions({ limit: 5000 });
+          allGeneralTransactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+          generalTransactionsCache = { data: allGeneralTransactions, timestamp: now };
+        }
       } catch (e: any) {
         console.error('Failed to batch fetch general bank transactions:', e.message);
       }
@@ -548,9 +567,17 @@ export async function runAITool(name: string, args: any): Promise<any> {
         .filter((acc: any) => acc.거래건수 > 0 || acc.잔액 !== 0 || (acc.약정금액 !== null && acc.약정금액 !== undefined && acc.약정금액 !== 0))
         .sort((a: any, b: any) => (b.잔액 as number) - (a.잔액 as number));
 
-      return await applyGuardrails('bank_accounts', result);
+      const finalResult = await applyGuardrails('bank_accounts', result);
+      bankAccountsCache = { data: finalResult, timestamp: now };
+      return finalResult;
     }
     case "list_card_accounts": {
+      const now = Date.now();
+      if (cardAccountsCache && (now - cardAccountsCache.timestamp < CACHE_TTL_MS)) {
+        console.log('[list_card_accounts] 인메모리 캐시 반환 (API 호출 0회)');
+        return cardAccountsCache.data;
+      }
+
       const accRes = await listAccounts();
       const accounts = Array.isArray(accRes) ? accRes : (accRes?.accounts || []);
       const validCards = accounts.filter((acc: any) => {
@@ -568,7 +595,10 @@ export async function runAITool(name: string, args: any): Promise<any> {
         _accountNumber: acc.accountNumber || acc.cardNumber,
         _accountName: acc.accountName
       }));
-      return await applyGuardrails('card_accounts', result);
+      
+      const finalResult = await applyGuardrails('card_accounts', result);
+      cardAccountsCache = { data: finalResult, timestamp: now };
+      return finalResult;
     }
     case "query_bank_transactions": {
       const [res, accounts] = await Promise.all([

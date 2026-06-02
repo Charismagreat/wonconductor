@@ -64,92 +64,99 @@ export default async function ReportDetailPage({
     let offset = 0;
     let reportName = id; // 기본값은 ID
     
-    // [개선] 모든 계좌를 순회하며 데이터를 누락 없이 수집
+    // [개선] 단 1회의 일괄 조회를 통해 전 계좌의 데이터를 수집 (N+1 제거!)
     if (id === 'bank_transactions' || id === 'card_approvals') {
         const { listAccounts } = await import('@/egdesk-helpers');
-        const accounts = await listAccounts();
-        const rawAccounts = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
-        // 수동 업로드 계좌 (MANUALIMPORT)는 실제 financehub DB 계좌가 아니므로 제외
+        const accountsRes = await listAccounts();
+        const rawAccounts = Array.isArray(accountsRes) ? accountsRes : (accountsRes?.accounts || []);
+        
+        // 수동 업로드 계좌 필터링 및 조인용 계좌 맵 구축
         const safeAccounts = rawAccounts.filter((acc: any) => {
             const rawAccNum = String(acc.accountNumber || acc.cardNumber || '').toUpperCase();
             return !rawAccNum.includes('MANUALIMPORT');
         });
+
+        const accountsMap = new Map();
+        safeAccounts.forEach((acc: any) => {
+            const accId = acc.id || acc.accountId;
+            if (accId) {
+                accountsMap.set(accId, acc);
+            }
+        });
+
+        // 대량 일괄 쿼리 수행
+        let rawTransactions: any[] = [];
+        try {
+            if (id === 'bank_transactions') {
+                const txRes = await queryBankTransactions({ limit: 5000 });
+                rawTransactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+            } else {
+                const txRes = await queryCardTransactions({ limit: 5000 });
+                rawTransactions = Array.isArray(txRes) ? txRes : (txRes?.transactions || []);
+            }
+        } catch (e: any) {
+            console.error(`Failed to batch load finance transactions in report page:`, e.message);
+        }
+
         const transactionMap = new Map();
         
-        for (const acc of safeAccounts) {
-            // 계좌 유형 판별 (credit 타입이거나 bankId에 card가 포함된 경우 카드로 간주)
+        // 수집된 대량 데이터를 메모리 맵 조인
+        for (const d of rawTransactions) {
+            if (String(d.__is_deleted) === '1') continue;
+
+            const targetId = d.accountId;
+            if (!targetId) continue;
+
+            const acc = accountsMap.get(targetId);
+            if (!acc) continue;
+
+            // 계좌 유형 판별
             const isCardAccount = acc.accountType === 'credit' || (acc.bankId && acc.bankId.toLowerCase().includes('card'));
-            
             if (id === 'bank_transactions' && isCardAccount) continue;
             if (id === 'card_approvals' && !isCardAccount) continue;
 
-            let accOffset = 0;
-            const targetId = acc.id || acc.accountId;
-            
-            while (true) {
-                let batchData: any = null;
-                if (id === 'bank_transactions') {
-                    batchData = await queryBankTransactions({ accountId: targetId, limit, offset: accOffset });
-                } else {
-                    batchData = await queryCardTransactions({ accountId: targetId, limit, offset: accOffset });
-                }
-                
-                const rawBatch = Array.isArray(batchData) ? batchData : (batchData?.rows || batchData?.transactions || []);
-                if (rawBatch.length === 0) break;
-                
-                // 계좌 정보 보강 및 중복 제거 (삭제된 데이터 제외)
-                for (const d of rawBatch) {
-                    if (String(d.__is_deleted) === '1') continue;
-                    
-                    if (!transactionMap.has(d.id)) {
-                        // 유효한 이름을 찾기 위한 헬퍼 (0이나 숫자는 제외)
-                        const getValidName = (...args: any[]) => {
-                            for (const arg of args) {
-                                if (arg && typeof arg === 'string' && arg !== '0') return arg;
-                            }
-                            return null;
-                        };
-
-                        const bName = getValidName(acc.bankName, acc.cardCompanyId, acc.bankId, d.bankName, d.cardName) || '-';
-                        const accNo = acc.accountNumber || acc.cardNumber || d.accountNumber || d.cardNumber;
-                        const aName = getValidName(acc.accountName, acc.productName, acc.name, acc.cardName) || '일반계좌/카드';
-                        const bId = getValidName(acc.bankId, acc.cardCompanyId, d.bankId, d.cardCompanyId) || '-';
-                        
-                        // 공통 필드
-                        const mappedData: any = {
-                            ...d,
-                            bankId: bId,
-                            bankid: bId,
-                            BANKID: bId,
-                            accountId: targetId,
-                            // 대소문자 호환성을 위해 여러 버전으로 매핑
-                            accountName: aName,
-                            accountname: aName,
-                            ACCOUNTNAME: aName
-                        };
-
-                        // 테이블 타입에 따라 필드 분리 매핑 (중복 방지 및 대소문자 대응)
-                        if (id === 'bank_transactions') {
-                            mappedData.bankName = bName;
-                            mappedData.bankname = bName;
-                            mappedData.BANKNAME = bName;
-                            mappedData.accountNumber = accNo;
-                            mappedData.accountnumber = accNo;
-                            mappedData.ACCOUNTNUMBER = accNo;
-                        } else {
-                            mappedData.cardName = bName;
-                            mappedData.cardname = bName;
-                            mappedData.CARDNAME = bName;
-                            mappedData.cardNumber = accNo;
-                            mappedData.cardnumber = accNo;
-                            mappedData.CARDNUMBER = accNo;
-                        }
-
-                        transactionMap.set(d.id, mappedData);
+            if (!transactionMap.has(d.id)) {
+                // 유효한 이름을 찾기 위한 헬퍼
+                const getValidName = (...args: any[]) => {
+                    for (const arg of args) {
+                        if (arg && typeof arg === 'string' && arg !== '0') return arg;
                     }
+                    return null;
+                };
+
+                const bName = getValidName(acc.bankName, acc.cardCompanyId, acc.bankId, d.bankName, d.cardName) || '-';
+                const accNo = acc.accountNumber || acc.cardNumber || d.accountNumber || d.cardNumber;
+                const aName = getValidName(acc.accountName, acc.productName, acc.name, acc.cardName) || '일반계좌/카드';
+                const bId = getValidName(acc.bankId, acc.cardCompanyId, d.bankId, d.cardCompanyId) || '-';
+                
+                const mappedData: any = {
+                    ...d,
+                    bankId: bId,
+                    bankid: bId,
+                    BANKID: bId,
+                    accountId: targetId,
+                    accountName: aName,
+                    accountname: aName,
+                    ACCOUNTNAME: aName
+                };
+
+                if (id === 'bank_transactions') {
+                    mappedData.bankName = bName;
+                    mappedData.bankname = bName;
+                    mappedData.BANKNAME = bName;
+                    mappedData.accountNumber = accNo;
+                    mappedData.accountnumber = accNo;
+                    mappedData.ACCOUNTNUMBER = accNo;
+                } else {
+                    mappedData.cardName = bName;
+                    mappedData.cardname = bName;
+                    mappedData.CARDNAME = bName;
+                    mappedData.cardNumber = accNo;
+                    mappedData.cardnumber = accNo;
+                    mappedData.CARDNUMBER = accNo;
                 }
-                if (rawBatch.length < limit) break;
-                accOffset += limit;
+
+                transactionMap.set(d.id, mappedData);
             }
         }
         allFetched = Array.from(transactionMap.values());

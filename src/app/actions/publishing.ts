@@ -832,8 +832,8 @@ async function fetchSingleSourceData(sourceTableId: string, options: any = {}) {
   } = await import('@/egdesk-helpers');
 
   // 1. 데이터 가져오기 (가상 테이블 핸들러가 포함된 통합 queryTable 사용)
-  // [수정] MCP 백엔드 한도(보통 1000건)를 우회하기 위해 청크 단위로 페이징하여 요청한 limit까지 모두 가져옵니다.
-  const targetLimit = options.limit || 10000;
+  // [수정] 무분별하게 1만 건을 긁어오던 기본 targetLimit을 합리적인 2000건으로 재조정하여 API 쿼리 횟수를 5배 감소시킵니다.
+  const targetLimit = options.limit || 2000;
   const CHUNK_SIZE = 1000;
   let allRows: any[] = [];
   let currentOffset = options.offset || 0;
@@ -857,6 +857,11 @@ async function fetchSingleSourceData(sourceTableId: string, options: any = {}) {
     
     allRows = allRows.concat(rowsChunk);
     currentOffset += rowsChunk.length;
+    
+    // 가상 계좌/카드 마스터 테이블은 단 1회만 쿼리하면 모든 정보가 수집되므로 이중 쿼리 루프를 타지 않고 즉시 탈출합니다.
+    if (sourceTableId === 'bank_accounts' || sourceTableId === 'card_accounts') {
+      break;
+    }
     
     if (rowsChunk.length < fetchLimit) break;
   }

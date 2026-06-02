@@ -273,10 +273,18 @@ export async function renameTable(
 /**
  * Call EGDesk FinanceHub MCP tool
  */
+// 글로벌 디버깅용 실시간 FinanceHub API 카운터
+export let __financeHubCallCount = 0;
+export function resetFinanceHubCallCount() {
+  __financeHubCallCount = 0;
+}
+
 export async function callFinanceHubTool(
   toolName: string,
   args: Record<string, any> = {}
 ): Promise<any> {
+  __financeHubCallCount++;
+  console.log(`   [실시간 FH API 감지 #${__financeHubCallCount}] 도구명: ${toolName}`);
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'

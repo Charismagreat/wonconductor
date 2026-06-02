@@ -188,10 +188,48 @@ function getSafeTimestamp(item: any): number {
   return 0;
 }
 
-/**
- * 도구 호출(Function Call) 실행기 - 공유 유틸리티
- */
+// 범용 도구 호출 인메모리 캐시 맵 정의 (30초 유효)
+const universalToolCache = new Map<string, { data: any; timestamp: number }>();
+
 export async function runAITool(name: string, args: any): Promise<any> {
+  const cacheableTools = [
+    'run_studio_data_query',
+    'list_bank_accounts',
+    'list_card_accounts',
+    'get_finance_dashboard_summary',
+    'get_finance_monthly_summary',
+    'get_finance_statistics',
+    'query_bank_transactions',
+    'query_card_transactions',
+    'get_card_usage_by_approval_date',
+    'get_aggregated_report_data',
+    'get_bills_and_loans_summary'
+  ];
+
+  const isCacheable = cacheableTools.includes(name);
+  const cacheKey = `${name}:${JSON.stringify(args || {})}`;
+
+  if (isCacheable) {
+    const cached = universalToolCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+      console.log(`[AI Tool Universal Cache] 반환: ${name} (API 호출 0회)`);
+      return cached.data;
+    }
+  }
+
+  const result = await originalRunAITool(name, args);
+
+  if (isCacheable) {
+    universalToolCache.set(cacheKey, { data: result, timestamp: Date.now() });
+  }
+
+  return result;
+}
+
+/**
+ * 도구 호출(Function Call) 실행기 - 공유 유틸리티 (원본 실행 로직)
+ */
+async function originalRunAITool(name: string, args: any): Promise<any> {
   console.log(`[AI Tool Execution] ${name}`, args);
   let result: any;
 

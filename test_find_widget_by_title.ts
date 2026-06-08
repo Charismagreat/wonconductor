@@ -2,28 +2,26 @@
 import { queryTable } from './egdesk-helpers';
 
 async function test() {
-  console.log('>>> [테스트] dashboard_chart 테이블에서 관련 위젯을 찾습니다...');
+  console.log('>>> [테스트] bank_accounts DB 테이블의 원본 데이터를 조회합니다...');
   try {
-    const widgetsRaw = await queryTable('dashboard_chart', { limit: 100 });
-    const widgets = Array.isArray(widgetsRaw) ? widgetsRaw : (widgetsRaw?.rows || []);
+    const accountsRaw = await queryTable('bank_accounts', { limit: 100 });
+    const accounts = Array.isArray(accountsRaw) ? accountsRaw : (accountsRaw?.rows || []);
+    console.log(`원본 계좌 개수: ${accounts.length}개`);
     
-    widgets.forEach((w: any) => {
-      let config: any = {};
-      try {
-        config = JSON.parse(w.config || '{}');
-      } catch (e) {}
-
-      const title = config.title || w.title || '';
-      if (title.includes('은행별 자금 현황') || title.includes('계좌 잔액 현황표') || w.config.includes('MANUALIMPORT')) {
-        console.log(`🎯 위젯 발견! ID: ${w.id}`);
-        console.log(`   Title: ${title}`);
-        console.log(`   ChartType: ${config.type || w.chartType}`);
-        console.log(`   refreshMetadata:`, JSON.stringify(config.refreshMetadata || {}, null, 2));
-        if (config.data && Array.isArray(config.data)) {
-          console.log(`   Data Row Count: ${config.data.length}`);
-          console.log(`   Data Samples:`, JSON.stringify(config.data.slice(0, 3), null, 2));
-        }
-        console.log('--------------------------------------------------');
+    accounts.forEach((acc: any) => {
+      const isLoan = acc.accountType === 'loan' || String(acc.accountName || '').includes('대출') || acc.isLoan === true;
+      if (isLoan) {
+        console.log(`[대출 계좌]`);
+        console.log(`  id: ${acc.id}`);
+        console.log(`  은행명: ${acc.은행명 || acc.bankId || acc.bankName}`);
+        console.log(`  계좌번호: ${acc.계좌번호 || acc.accountNumber}`);
+        console.log(`  계좌명: ${acc.계좌명 || acc.accountName}`);
+        console.log(`  잔액: ${acc.잔액 || acc.balance}`);
+        console.log(`  약정금액/limit: ${acc.약정금액 || acc.limit}`);
+        console.log(`  사용가능한도: ${acc.사용가능한도 || acc.availableLimit}`);
+        console.log(`  accountType: ${acc.accountType}`);
+        console.log(`  isLoan: ${acc.isLoan}`);
+        console.log('  -----------------------------------------');
       }
     });
   } catch (error: any) {

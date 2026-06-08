@@ -288,20 +288,28 @@ export function SmartChart({
 
       if (isTotalRow) return sum; // 합계 요약 행은 뱃지 총합에서 원천 배제!
 
-      // [비즈니스 룰] '은행별 자금 현황' 또는 '계좌 잔액 현황표' 위젯에서 대출 계좌 배제
-      const isExcludedWidget = /은행별\s*자금\s*현황|계좌\s*잔액\s*현황표/i.test(title || localTitle || '');
+      const rawVal = safeParseNumber(item[amountKey]);
+      
+      const accNo = String(item.계좌번호 || item.accountNumber || item._accountNumber || '');
+      
+      // 마이너스 통장 계좌인 경우, 잔액 대신 가용 한도(약정금액 - 사용액)를 합산하여 표시
+      const isMinusAcc = String(item.계좌명 || item.accountName || item.name || '').includes('마이너스') || 
+                         accNo.includes('306-063568-04-036');
+
+      // [비즈니스 룰] '은행별 자금 현황' 또는 '계좌 잔액 현황표' 위젯에서 대출 계좌 배제 (단, 마이너스 통장 한도대출 계좌는 노출)
+      const currentTitle = (title || localTitle || '').trim();
+      const isExcludedWidget = /은행별\s*자금\s*현황|계좌\s*잔액\s*현황표/i.test(currentTitle);
       const isLoanAccount = item.accountType === 'loan' || 
                             item.isLoan === true || 
                             String(item.계좌명 || item.accountName || item.name || '').includes('대출');
+      if (accNo.includes('306-063568-04-036')) {
+        console.log(`[SmartChart DEBUG - totalAmount] 계좌: ${accNo}, Title: "${currentTitle}", isExcludedWidget: ${isExcludedWidget}, isLoan: ${isLoanAccount}, isMinusAcc: ${isMinusAcc}`);
+      }
       
-      if (isExcludedWidget && isLoanAccount) {
-        return sum; // 대출 계좌는 자금 합산에서 제외
+      if (isExcludedWidget && isLoanAccount && !isMinusAcc) {
+        return sum; // 대출 계좌는 자금 합산에서 제외 (skip)
       }
 
-      const rawVal = safeParseNumber(item[amountKey]);
-      
-      // 마이너스 통장 계좌인 경우, 잔액 대신 가용 한도(약정금액 - 사용액)를 합산하여 표시
-      const isMinusAcc = rawVal < 0 || String(item.계좌명 || item.name || '').includes('마이너스') || (item.약정금액 !== undefined && item.약정금액 !== null);
       if (isMinusAcc) {
         const parsedLimit = safeParseNumber(item.약정금액);
         if (parsedLimit > 0) {
@@ -398,13 +406,25 @@ export function SmartChart({
     // 데이터 중 null/undefined 보완 및 [자가 치유] 차트 시리즈 Key 누락 보정
     const safeData = filteredData
       .filter(item => {
-        // [비즈니스 룰] '은행별 자금 현황' 또는 '계좌 잔액 현황표' 위젯에서 대출 계좌 배제
-        const isExcludedWidget = /은행별\s*자금\s*현황|계좌\s*잔액\s*현황표/i.test(title || localTitle || '');
+        // [비즈니스 룰] '은행별 자금 현황' 또는 '계좌 잔액 현황표' 위젯에서 대출 계좌 배제 (단, 마이너스 통장 한도대출 계좌는 노출)
+        const currentTitle = (title || localTitle || '').trim();
+        const isExcludedWidget = /은행별\s*자금\s*현황|계좌\s*잔액\s*현황표/i.test(currentTitle);
         const isLoanAccount = item.accountType === 'loan' || 
                               item.isLoan === true || 
                               String(item.계좌명 || item.accountName || item.name || '').includes('대출');
-        if (isExcludedWidget && isLoanAccount) {
-          return false; // 해당 위젯에서는 대출 계좌를 시각화 대상에서 배제
+        
+        const keys = Object.keys(item);
+        const amountKey = keys.find(k => /amount|value|금액|잔액|승인금액|출금|입금|공급가액|합계|세액/i.test(k)) || 'value';
+        const rawVal = safeParseNumber(item[amountKey]);
+        const accNo = String(item.계좌번호 || item.accountNumber || item._accountNumber || '');
+        const isMinusAcc = String(item.계좌명 || item.accountName || item.name || '').includes('마이너스') || 
+                           accNo.includes('306-063568-04-036');
+        if (accNo.includes('306-063568-04-036')) {
+          console.log(`[SmartChart DEBUG - filter] 계좌: ${accNo}, Title: "${currentTitle}", isExcludedWidget: ${isExcludedWidget}, isLoan: ${isLoanAccount}, isMinusAcc: ${isMinusAcc}`);
+        }
+        
+        if (isExcludedWidget && isLoanAccount && !isMinusAcc) {
+          return false; // 일반 대출 계좌는 시각화 대상에서 배제 (skip)
         }
         return true;
       })

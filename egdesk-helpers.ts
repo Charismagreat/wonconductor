@@ -273,18 +273,10 @@ export async function renameTable(
 /**
  * Call EGDesk FinanceHub MCP tool
  */
-// 글로벌 디버깅용 실시간 FinanceHub API 카운터
-export let __financeHubCallCount = 0;
-export function resetFinanceHubCallCount() {
-  __financeHubCallCount = 0;
-}
-
 export async function callFinanceHubTool(
   toolName: string,
   args: Record<string, any> = {}
 ): Promise<any> {
-  __financeHubCallCount++;
-  console.log(`   [실시간 FH API 감지 #${__financeHubCallCount}] 도구명: ${toolName}`);
   const body = JSON.stringify({ tool: toolName, arguments: args });
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
@@ -565,6 +557,50 @@ export async function upsertFinanceHubBankProductRows(options: {
   return callFinanceHubTool('financehub_upsert_bank_product_rows', options);
 }
 
+/**
+ * Delete an account and all its transactions/sync rows (not credentials).
+ */
+export async function deleteFinanceHubAccount(bankId: string, accountNumber: string) {
+  return callFinanceHubTool('financehub_delete_account', { bankId, accountNumber });
+}
+
+/**
+ * Delete all imported data for a bankId (accounts, transactions, sync ops).
+ */
+export async function deleteFinanceHubImportedDataForBank(bankId: string) {
+  return callFinanceHubTool('financehub_delete_imported_data_for_bank', { bankId });
+}
+
+/**
+ * Delete transactions by account scope, date range, and/or ids (max 500 ids).
+ */
+export async function deleteFinanceHubTransactions(options: {
+  accountId?: string;
+  bankId?: string;
+  accountNumber?: string;
+  startDate?: string;
+  endDate?: string;
+  transactionIds?: string[];
+  isCard?: boolean;
+}) {
+  return callFinanceHubTool('financehub_delete_transactions', options);
+}
+
+/**
+ * Delete bank-product table rows by ids and/or filters (max 1000 rows).
+ */
+export async function deleteFinanceHubBankProductRows(options: {
+  tableSlug: string;
+  ids?: string[];
+  filters?: Array<{
+    column: string;
+    op: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'like' | 'in';
+    value: string | number | Array<string | number>;
+  }>;
+}) {
+  return callFinanceHubTool('financehub_delete_bank_product_rows', options);
+}
+
 // ==========================================
 // INTERNAL KNOWLEDGE / BUSINESS IDENTITY / COMPANY RESEARCH (MCP)
 // ==========================================
@@ -783,6 +819,9 @@ export async function getBrowserRecordingReplayOptions(testFile: string) {
 }
 
 export type BrowserRecordingRunOptions = {
+  headless?: boolean;
+  /** Save headless preference for scheduled runs */
+  persistHeadless?: boolean;
   startDate?: string;
   endDate?: string;
   datePickersByIndex?: string[];
@@ -790,7 +829,18 @@ export type BrowserRecordingRunOptions = {
   labeledFieldFills?: (string | undefined)[][];
 };
 
-/** Replay a saved recording in Chrome (optional dates + labeledFieldFills) */
+export type BrowserRecordingScheduleOptions = {
+  testName?: string;
+  scheduledTime?: string;
+  frequencyType?: 'daily' | 'weekly' | 'monthly' | 'custom';
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  customIntervalDays?: number;
+  enabled?: boolean;
+  headless?: boolean;
+};
+
+/** Replay a saved recording in Chrome (optional headless, dates + labeledFieldFills) */
 export async function runBrowserRecording(
   testFile: string,
   options: BrowserRecordingRunOptions = {}
@@ -799,6 +849,83 @@ export async function runBrowserRecording(
     testFile,
     ...options
   });
+}
+
+/** List Playwright scheduler entries for browser recorder tests */
+export async function listBrowserRecordingSchedules() {
+  return callBrowserRecordingTool('browser_recording_list_schedules', {});
+}
+
+/** Get schedule for a test file, or null */
+export async function getBrowserRecordingSchedule(testFile: string) {
+  return callBrowserRecordingTool('browser_recording_get_schedule', { testFile });
+}
+
+/** Create or update a recurring schedule for a saved test */
+export async function setBrowserRecordingSchedule(
+  testFile: string,
+  options: BrowserRecordingScheduleOptions = {}
+) {
+  return callBrowserRecordingTool('browser_recording_set_schedule', {
+    testFile,
+    ...options
+  });
+}
+
+/** Remove scheduler entry for a test file */
+export async function removeBrowserRecordingSchedule(testFile: string) {
+  return callBrowserRecordingTool('browser_recording_remove_schedule', { testFile });
+}
+
+export type BrowserRecordingSyncConfigOptions = {
+  testFile?: string;
+  scriptFolderPath?: string;
+  scriptName?: string;
+  targetTableId?: string;
+  columnMappings?: Record<string, string>;
+  headerRow?: number;
+  skipBottomRows?: number;
+  sheetIndex?: number;
+  appliedSplits?: Array<{ originalColumn: string; dateColumn: string; numberColumn: string }>;
+  uniqueKeyColumns?: string[];
+  duplicateAction?: 'skip' | 'update' | 'allow' | 'replace-date-range' | 'replace-all';
+  fileAction?: 'keep' | 'archive' | 'delete';
+  enabled?: boolean;
+  autoSyncEnabled?: boolean;
+};
+
+/** List EGDesk-Browser download folders with Excel/CSV files */
+export async function listBrowserRecordingDownloadFolders() {
+  return callBrowserRecordingTool('browser_recording_list_download_folders', {});
+}
+
+/** List sync-to-SQL configs for browser downloads */
+export async function listBrowserRecordingSyncConfigs() {
+  return callBrowserRecordingTool('browser_recording_list_sync_configs', {});
+}
+
+/** Get sync config by testFile or scriptFolderPath */
+export async function getBrowserRecordingSyncConfig(opts: {
+  testFile?: string;
+  scriptFolderPath?: string;
+}) {
+  return callBrowserRecordingTool('browser_recording_get_sync_config', opts);
+}
+
+/** Create or update sync-to-DB for a browser download folder */
+export async function setBrowserRecordingSyncConfig(
+  opts: BrowserRecordingSyncConfigOptions
+) {
+  return callBrowserRecordingTool('browser_recording_set_sync_config', opts);
+}
+
+/** Remove sync config by configId, testFile, or scriptFolderPath */
+export async function removeBrowserRecordingSyncConfig(opts: {
+  configId?: string;
+  testFile?: string;
+  scriptFolderPath?: string;
+}) {
+  return callBrowserRecordingTool('browser_recording_remove_sync_config', opts);
 }
 
 // ==========================================

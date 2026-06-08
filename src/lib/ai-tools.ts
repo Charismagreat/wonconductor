@@ -639,11 +639,12 @@ async function originalRunAITool(name: string, args: any): Promise<any> {
       return finalResult;
     }
     case "query_bank_transactions": {
+      const fetchLimit = Math.max(1000, (args.limit || 100) * 5); // 병합 및 정렬을 위해 넉넉히 조회
       const [res, accounts] = await Promise.all([
         queryBankTransactions({
           startDate: args.startDate,
           endDate: args.endDate,
-          limit: args.limit || 100,
+          limit: fetchLimit,
           orderDir: (args.orderDir || 'desc').toLowerCase() as any
         }),
         listAccounts()
@@ -651,6 +652,8 @@ async function originalRunAITool(name: string, args: any): Promise<any> {
       
       const rawRows = Array.isArray(res) ? res : (res?.transactions || []);
       const accList = Array.isArray(accounts) ? accounts : (accounts?.accounts || []);
+      
+      // 1. 일반 은행 계좌 거래 내역 매핑
       const rows = rawRows.map((tx: any) => {
         const acc = accList.find((a: any) => a.accountId === tx.accountId || a.accountNumber === tx.accountNumber || a.id === tx.accountId);
         return {
@@ -661,7 +664,98 @@ async function originalRunAITool(name: string, args: any): Promise<any> {
           _productName: acc?.productName || '-'
         };
       });
-      return await applyGuardrails('bank_transactions', rows);
+
+      // 2. 대출 계좌(Loan) 목록 추출 및 거래 내역 수동 연동
+      const loanAccounts = accList.filter((acc: any) => 
+        acc.accountType === 'loan' || String(acc.accountName || '').includes('대출')
+      );
+
+      const loanRows: any[] = [];
+      const { queryBankProductTable } = require('@/egdesk-helpers');
+
+      await Promise.all(loanAccounts.map(async (acc: any) => {
+        const cleanAccNum = String(acc.accountNumber || '').replace(/[^0-9]/g, '');
+        let tableSlug = '';
+        
+        if (String(acc.bankId || acc.bankName).toLowerCase().includes('ibk') || String(acc.bankId || acc.bankName).toLowerCase().includes('기업')) {
+          tableSlug = 'ibk_loan_history';
+        } else if (String(acc.bankId || acc.bankName).toLowerCase().includes('hana') || String(acc.bankId || acc.bankName).toLowerCase().includes('하나')) {
+          tableSlug = 'hana_loan_history';
+        }
+
+        if (!tableSlug) return;
+
+        try {
+          // 대출 계좌 거래 내역 넉넉히 500건 조회
+          const loanRes = await queryBankProductTable({ tableSlug, limit: 500 });
+          const txs = Array.isArray(loanRes) ? loanRes : (loanRes?.rows || []);
+          
+          // 계좌번호가 일치하는 거래 내역만 선별
+          const matchedTxs = txs.filter((t: any) => {
+            const tNum = String(t.account_number || t.accountNumber || '').replace(/[^0-9]/g, '');
+            return tNum === cleanAccNum || tNum.includes(cleanAccNum) || cleanAccNum.includes(tNum);
+          });
+
+          matchedTxs.forEach((tx: any) => {
+            const txDate = tx.transaction_date || tx.date || '';
+            
+            // 날짜 필터링 적용 (startDate, endDate)
+            if (args.startDate && txDate < args.startDate) return;
+            if (args.endDate && txDate > args.endDate) return;
+
+            const desc = String(tx.description || '');
+            const isDeposit = desc.includes('상환') || desc.includes('수신입금') || desc.includes('입금');
+            
+            loanRows.push({
+              id: tx.id,
+              accountId: acc.id || acc.accountId,
+              bankId: acc.bankId,
+              date: txDate,
+              time: "", // 대출은 초단위 타임이 불명확한 경우가 많으므로 공란
+              transaction_datetime: txDate ? `${txDate.replace(/-/g, '/')} 00:00:00` : "",
+              type: isDeposit ? 'deposit' : 'withdrawal',
+              category: null,
+              withdrawal: isDeposit ? 0 : Number(tx.amount || 0),
+              deposit: isDeposit ? Number(tx.amount || 0) : 0,
+              description: desc || '-',
+              memo: null,
+              balance: Number(tx.balance || 0),
+              branch: tx.branch || null,
+              counterparty: null,
+              transactionId: null,
+              createdAt: tx.created_at || new Date().toISOString(),
+              _bankName: acc.bankName || acc.bankId,
+              _accountNumber: acc.accountNumber,
+              _accountName: acc.accountName || 'IBK 대출계좌',
+              _productName: '-'
+            });
+          });
+        } catch (e: any) {
+          console.error(`[query_bank_transactions] 대출 거래 연동 실패 (${acc.accountNumber}):`, e.message);
+        }
+      }));
+
+      // 3. 일반 계좌 거래와 대출 계좌 거래 병합 후 날짜 내림차순 정렬
+      const allTransactions = [...rows, ...loanRows];
+      allTransactions.sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA); // 최신 날짜 우선
+        }
+        
+        const timeA = a.time || '';
+        const timeB = b.time || '';
+        if (timeA !== timeB) {
+          return timeB.localeCompare(timeA);
+        }
+        
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
+
+      // 4. 최종 limit에 맞춰 슬라이싱
+      const finalResult = allTransactions.slice(0, args.limit || 100);
+      return await applyGuardrails('bank_transactions', finalResult);
     }
     case "query_card_transactions": {
       const [res, accounts] = await Promise.all([

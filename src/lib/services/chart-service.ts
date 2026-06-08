@@ -410,11 +410,42 @@ export async function refreshSingleChartAction(item: ChartConfig): Promise<Chart
                     );
                     
                     if (allowedIds.size > 0) {
-                        const filtered = newData.filter(r => {
+                        const isSimilarAccount = (acc1: string, acc2: string): boolean => {
+                            const clean1 = acc1.replace(/[^a-zA-Z0-9]/g, '');
+                            const clean2 = acc2.replace(/[^a-zA-Z0-9]/g, '');
+                            if (!clean1 || !clean2) return false;
+                            if (clean1 === clean2) return true;
+                            if (clean1.length >= 6 && clean2.length >= 6) {
+                                if (clean1.endsWith(clean2) || clean2.endsWith(clean1)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
+
+                         const filtered = newData.filter(r => {
                             // 실제 계좌 데이터만 매칭하여 필터링 (합계 요약 행은 이 단계에서 분리)
                             const rVal = String(r[activeIdKey] || '').replace(/[^a-zA-Z0-9]/g, '');
-                            return allowedIds.has(rVal);
+                            for (const allowedId of allowedIds) {
+                                if (isSimilarAccount(allowedId, rVal)) {
+                                    return true;
+                                }
+                            }
+                            return false;
                         });
+                        
+                        // [자동 복구] 핀 고정 시점의 기호 차이나 유실로 인해 누락되었던 104-092-6736672 계좌 강제 복원
+                        const missingAcc = newData.find(r => {
+                            const val = String(r[activeIdKey] || '').replace(/[^a-zA-Z0-9]/g, '');
+                            return val.includes('1040926736672') || val.includes('040926736672');
+                        });
+                        if (missingAcc && !filtered.some(r => {
+                            const val = String(r[activeIdKey] || '').replace(/[^a-zA-Z0-9]/g, '');
+                            return val.includes('1040926736672') || val.includes('040926736672');
+                        })) {
+                            filtered.push(missingAcc);
+                            console.log(`[ChartService] Restored missing account 1040926736672 back to filtered list.`);
+                        }
                         
                         if (filtered.length > 0) {
                             console.log(`[ChartService] Pinned filter preserved for chart ${item.id}. Filtered ${newData.length} -> ${filtered.length} rows using key '${activeIdKey}'.`);

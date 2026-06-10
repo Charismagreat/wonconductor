@@ -1,43 +1,46 @@
 // test_find_widget_by_title.ts
-import { loadAllPinnedChartsAction, refreshSingleChartAction, saveAllPinnedChartsAction } from './src/lib/services/chart-service';
+import { queryTable } from './egdesk-helpers';
 
 async function test() {
-  console.log('>>> [테스트] ID 10 위젯의 실시간 새로고침 및 유사 계좌 매칭 결과를 테스트합니다...');
+  console.log('>>> [테스트] 모든 활성 위젯의 쿼리 및 필터링 설정을 추출합니다...');
   try {
-    const pinnedCharts = await loadAllPinnedChartsAction();
-    const targetChart = pinnedCharts.find((c: any) => String(c.id) === '10');
+    const widgetsRaw = await queryTable('dashboard_chart', { limit: 100 });
+    const widgets = Array.isArray(widgetsRaw) ? widgetsRaw : (widgetsRaw?.rows || []);
     
-    if (!targetChart) {
-      console.log('❌ ID 10 위젯을 찾을 수 없습니다.');
-      return;
-    }
+    // __is_deleted가 0인 것만 필터링 (메모리 상에서 안전하게 처리)
+    const activeWidgets = widgets.filter((w: any) => String(w.__is_deleted) === '0');
+    console.log(`활성 위젯 총 개수: ${activeWidgets.length}개\n`);
     
-    console.log('기존 위젯 데이터 개수:', targetChart.config?.data?.length);
-    const oldAcc = targetChart.config.data.find((r: any) => String(r.계좌번호 || '').includes('672'));
-    console.log('기존 적금 계좌 데이터:', JSON.stringify(oldAcc, null, 2));
-    
-    console.log('--- 실시간 새로고침 실행 ---');
-    const refreshedChart = await refreshSingleChartAction(targetChart);
-    console.log('새로고침 완료! 데이터 개수:', refreshedChart.config?.data?.length);
-    
-    const newAcc = refreshedChart.config.data.find((r: any) => String(r.계좌번호 || '').includes('672') || String(r.계좌번호 || '').includes('1040926736672'));
-    console.log('새로고침 후 적금 계좌 데이터:', JSON.stringify(newAcc, null, 2));
-    
-    if (newAcc) {
-      console.log('✅ 성공: 104-092-6736672 계좌가 새로운 유사 매칭 로직에 의해 누락되지 않고 갱신되었습니다!');
+    activeWidgets.forEach((w: any, idx: number) => {
+      let config: any = {};
+      try {
+        config = JSON.parse(w.config || '{}');
+      } catch (e) {}
       
-      // DB에 변경 사항을 영구 반영합니다.
-      const updatedAll = pinnedCharts.map(p => p.id === '10' ? refreshedChart : p);
-      await saveAllPinnedChartsAction(updatedAll);
-      console.log('✅ 최신 데이터를 DB에 성공적으로 갱신하여 저장했습니다.');
-    } else {
-      console.log('❌ 실패: 계좌가 갱신 과정에서 여전히 유실되었습니다.');
-    }
+      const title = config.title || w.title || '제목 없음';
+      console.log(`[위젯 #${idx + 1}] ID: ${w.id}`);
+      console.log(`  - 제목: ${title}`);
+      console.log(`  - 차트 타입: ${config.type || w.chartType || '미지정'}`);
+      
+      if (config.refreshMetadata) {
+        console.log(`  - 연동 툴: ${config.refreshMetadata.tool}`);
+        console.log(`  - 쿼리 인자(Args):`, JSON.stringify(config.refreshMetadata.args || {}, null, 2).replace(/\n/g, '\n    '));
+        console.log(`  - 데이터 매핑(Mapping):`, JSON.stringify(config.refreshMetadata.mapping || {}, null, 2).replace(/\n/g, '\n    '));
+      } else {
+        console.log(`  - 연동 툴: 수동/정적 데이터 (refreshMetadata 없음)`);
+      }
+      
+      if (config.data && Array.isArray(config.data)) {
+        console.log(`  - 데이터 행 개수: ${config.data.length}개`);
+      }
+      console.log('--------------------------------------------------\n');
+    });
   } catch (error: any) {
     console.error('에러 발생:', error.message);
   }
 }
 
 test();
+
 
 

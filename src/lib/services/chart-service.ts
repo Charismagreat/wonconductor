@@ -6,6 +6,47 @@ import { queryTable, insertRows, deleteRows, updateRows } from '@/egdesk-helpers
 
 const PINNED_CHARTS_PATH = path.join(process.cwd(), 'pinned_charts.json');
 
+// 대시보드 중복 쿼리 제거 및 5초 인메모리 캐싱 레이어
+const activeQueryPromises = new Map<string, Promise<any>>();
+const queryResultCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 5000; // 5초 캐시 유지
+
+async function runAIToolWithDeduplication(tool: string, args: any): Promise<any> {
+    const cacheKey = `${tool}:${JSON.stringify(args || {})}`;
+    const now = Date.now();
+
+    // 1. 최근 성공 캐시가 있다면 즉시 반환
+    const cached = queryResultCache.get(cacheKey);
+    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+        console.log(`[DEDUPE-CACHE] Cache HIT for key: ${cacheKey}`);
+        return cached.data;
+    }
+
+    // 2. 이미 실행 중인 동일 Promise가 있다면 병합
+    const existingPromise = activeQueryPromises.get(cacheKey);
+    if (existingPromise) {
+        console.log(`[DEDUPE-CACHE] Joining active query Promise for key: ${cacheKey}`);
+        return existingPromise;
+    }
+
+    // 3. 신규 쿼리 수행
+    console.log(`[DEDUPE-CACHE] Executing NEW query for key: ${cacheKey}`);
+    const queryPromise = runAITool(tool, args)
+        .then((result) => {
+            queryResultCache.set(cacheKey, { data: result, timestamp: Date.now() });
+            activeQueryPromises.delete(cacheKey);
+            return result;
+        })
+        .catch((err) => {
+            activeQueryPromises.delete(cacheKey);
+            throw err;
+        });
+
+    activeQueryPromises.set(cacheKey, queryPromise);
+    return queryPromise;
+}
+
+
 export interface ChartConfig {
     id: string | number;
     userId: string;
@@ -379,7 +420,7 @@ export async function refreshSingleChartAction(item: ChartConfig): Promise<Chart
         if (item.config.sourceDescription) {
             item.config.sourceDescription = await resolveDynamicDescriptionAction(item.config.sourceDescription, originalArgs);
         }
-        const rawData = await runAITool(tool, args);
+        const rawData = await runAIToolWithDeduplication(tool, args);
         let newData = await mapRefreshedDataAction(rawData, mapping);
         
         // [수동 업로드 계좌 배제] 계좌번호가 MANUALIMPORT인 연동되지 않은 행 강제 필터링

@@ -1270,6 +1270,7 @@ async function originalRunAITool(name: string, args: any): Promise<any> {
           const matDate = r.maturity_date || '';
           if (status !== '완제' && status === '활동' && matDate >= kstToday) {
             merged.push({
+              note_number: r.receivable_number || r.note_number || '-',
               maturity_date: matDate,
               bank_name: "IBK기업은행",
               customer_name: r.buyer_name || '-',
@@ -1284,6 +1285,7 @@ async function originalRunAITool(name: string, args: any): Promise<any> {
           const matDate = r.receivable_maturity_date || r.loan_maturity_date || '';
           if (status !== '완제' && matDate >= kstToday) {
             merged.push({
+              note_number: r.receivable_number || r.loan_number || r.note_number || '-',
               maturity_date: matDate,
               bank_name: "우리은행",
               customer_name: r.vendor || '-',
@@ -1297,9 +1299,29 @@ async function originalRunAITool(name: string, args: any): Promise<any> {
           const status = String(r.status || '').trim();
           const matDate = r.maturity_date || '';
           if (status === '유통중' && status !== '지급필' && matDate >= kstToday) {
+            // 실제 지급 은행 지점명 정제
+            const rawBank = String(r.payment_bank_branch_name || '').trim();
+            const cleanBank = rawBank.replace(/\s+/g, ' '); // 다중 공백 단일화
+            let formattedBank = cleanBank;
+            if (cleanBank) {
+              if (cleanBank.startsWith('하나') && !cleanBank.includes('은행')) {
+                formattedBank = cleanBank.replace('하나', '하나은행');
+              } else if (cleanBank.startsWith('국민') && !cleanBank.includes('은행')) {
+                formattedBank = cleanBank.replace('국민', '국민은행');
+              } else if (cleanBank.startsWith('신한') && !cleanBank.includes('은행')) {
+                formattedBank = cleanBank.replace('신한', '신한은행');
+              } else if (cleanBank.startsWith('우리') && !cleanBank.includes('은행')) {
+                formattedBank = cleanBank.replace('우리', '우리은행');
+              } else if (cleanBank.startsWith('기업') && !cleanBank.includes('은행')) {
+                formattedBank = cleanBank.replace('기업', 'IBK기업은행');
+              }
+            }
+            const finalBankName = formattedBank || "IBK기업은행";
+
             merged.push({
+              note_number: r.note_number || '-',
               maturity_date: matDate,
-              bank_name: "IBK기업은행",
+              bank_name: finalBankName,
               customer_name: r.issuer_name || '-', // 배서어음의 거래처는 이전 캐시와 같이 발행인(issuer_name)을 표기
               amount: Number(r.endorsement_amount) || 0
             });
